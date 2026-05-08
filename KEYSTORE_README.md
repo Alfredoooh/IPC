@@ -26,5 +26,5 @@ generate_keystore.bat
 ## ⚠️ Importante
 
 - **Faz SEMPRE backup** do ficheiro `app/release.keystore`
-- **Nunca** commites o keystore para repositórios públicos (já está no `.gitignore`)
+- **Nunca** commites o keystore para repositórios públicos
 - Sem este ficheiro não consegues publicar atualizações na Google Play

@@ -13,17 +13,17 @@ workflows:
       - name: Set up keystore
         script: |
           echo $KEYSTORE_BASE64 | base64 --decode > /tmp/release.keystore
+      - name: Set executable permission
+        script: chmod +x gradlew
       - name: Build release APK
         script: |
-          chmod +x gradlew
           ./gradlew assembleRelease \
             -PKEYSTORE_PATH=$KEYSTORE_PATH \
             -PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD \
             -PKEY_ALIAS=$KEY_ALIAS \
             -PKEY_PASSWORD=$KEY_PASSWORD
       - name: Build release AAB (Play Store)
-        script: |
-          ./gradlew bundleRelease
+        script: ./gradlew bundleRelease
     artifacts:
       - app/build/outputs/apk/release/*.apk
       - app/build/outputs/bundle/release/*.aab
@@ -42,10 +42,10 @@ workflows:
     environment:
       java: 17
     scripts:
+      - name: Set executable permission
+        script: chmod +x gradlew
       - name: Build debug APK
-        script: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
+        script: ./gradlew assembleDebug
     artifacts:
       - app/build/outputs/apk/debug/*.apk
     publishing:

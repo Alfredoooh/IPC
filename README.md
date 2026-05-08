@@ -1,4 +1,4 @@
-# Instituto Politécnico de Cabinda
+# IPC
 
 ## Informações do projeto
 
@@ -11,48 +11,35 @@
 | Linguagem    | Kotlin                   |
 | Developer    | Nexa               |
 
-## Estrutura
+## Ícone
 
-```
-app/
-├── src/main/
-│   ├── java/com/nexa/ipc/app/
-│   │   └── MainActiviy.kt
-│   ├── res/
-│   │   ├── layout/activity_main.xml
-│   │   ├── values/
-│   │   └── mipmap-*/
-│   └── AndroidManifest.xml
-├── build.gradle.kts
-└── proguard-rules.pro
-build.gradle.kts
-settings.gradle.kts
-codemagic.yaml
+1. Coloca o ficheiro `ic_launcher.png` (mínimo 192×192 px) na raiz do projeto.
+2. Corre o script de redimensionamento:
+
+**Linux / macOS:**
+```bash
+chmod +x resize_icon.sh
+./resize_icon.sh
 ```
 
-## Como começar
+**Windows:**
+```
+resize_icon.bat
+```
 
-### 1. Gerar o keystore
+## Keystore
 
 ```bash
-# Linux / macOS
 chmod +x generate_keystore.sh
 ./generate_keystore.sh
 ```
 
-### 2. Abrir no Android Studio
+Ver `KEYSTORE_README.md` para mais detalhes.
 
-Abre a pasta raiz do projeto no Android Studio (File > Open).
-
-### 3. Build de debug
+## Build
 
 ```bash
 ./gradlew assembleDebug
-```
-
-### 4. Build de release
-
-```bash
 ./gradlew assembleRelease
 ```
 
@@ -62,10 +49,10 @@ Abre a pasta raiz do projeto no Android Studio (File > Open).
 - `androidx.appcompat:appcompat:1.7.0`
 - `com.google.android.material:material:1.12.0`
 - `androidx.constraintlayout:constraintlayout:2.1.4`
+- `com.github.bumptech.glide:glide:4.16.0`
 - `testImplementation(junit:junit:4.13.2`
 - `androidTestImplementation(androidx.test.ext:junit:1.2.1`
 - `androidTestImplementation(androidx.test.espresso:espresso-core:3.6.1`
 
 ---
-
 *Projeto gerado automaticamente por Android Project Generator*
