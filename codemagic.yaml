@@ -1,0 +1,57 @@
+workflows:
+  android-release:
+    name: Android Release Build
+    max_build_duration: 60
+    environment:
+      java: 17
+      vars:
+        KEYSTORE_PATH: /tmp/release.keystore
+        KEY_ALIAS: IPC
+      groups:
+        - keystore_credentials
+    scripts:
+      - name: Set up keystore
+        script: |
+          echo $KEYSTORE_BASE64 | base64 --decode > /tmp/release.keystore
+      - name: Build release APK
+        script: |
+          chmod +x gradlew
+          ./gradlew assembleRelease \
+            -PKEYSTORE_PATH=$KEYSTORE_PATH \
+            -PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD \
+            -PKEY_ALIAS=$KEY_ALIAS \
+            -PKEY_PASSWORD=$KEY_PASSWORD
+      - name: Build release AAB (Play Store)
+        script: |
+          ./gradlew bundleRelease
+    artifacts:
+      - app/build/outputs/apk/release/*.apk
+      - app/build/outputs/bundle/release/*.aab
+      - app/build/outputs/mapping/release/mapping.txt
+    publishing:
+      email:
+        recipients:
+          - alfredopjonas@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  android-debug:
+    name: Android Debug Build
+    max_build_duration: 30
+    environment:
+      java: 17
+    scripts:
+      - name: Build debug APK
+        script: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+    artifacts:
+      - app/build/outputs/apk/debug/*.apk
+    publishing:
+      email:
+        recipients:
+          - alfredopjonas@gmail.com
+        notify:
+          success: false
+          failure: true
