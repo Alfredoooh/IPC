@@ -13,6 +13,11 @@ workflows:
       - name: Set up keystore
         script: |
           echo $KEYSTORE_BASE64 | base64 --decode > /tmp/release.keystore
+      - name: Download Gradle Wrapper
+        script: |
+          mkdir -p gradle/wrapper
+          curl -L https://github.com/gradle/gradle/raw/v8.10.2/gradle/wrapper/gradle-wrapper.jar \
+            -o gradle/wrapper/gradle-wrapper.jar
       - name: Set executable permission
         script: chmod +x gradlew
       - name: Build release APK
@@ -42,6 +47,13 @@ workflows:
     environment:
       java: 17
     scripts:
+      - name: Set executable permission
+        script: chmod +x gradlew
+      - name: Download Gradle Wrapper
+        script: |
+          mkdir -p gradle/wrapper
+          curl -L https://github.com/gradle/gradle/raw/v8.10.2/gradle/wrapper/gradle-wrapper.jar \
+            -o gradle/wrapper/gradle-wrapper.jar
       - name: Set executable permission
         script: chmod +x gradlew
       - name: Build debug APK
