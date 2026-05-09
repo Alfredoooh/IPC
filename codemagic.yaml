@@ -13,6 +13,7 @@ workflows:
       - name: Set up keystore
         script: |
           echo $KEYSTORE_BASE64 | base64 --decode > /tmp/release.keystore
+          cp /tmp/release.keystore app/release.keystore
       - name: Download Gradle Wrapper
         script: |
           mkdir -p gradle/wrapper
