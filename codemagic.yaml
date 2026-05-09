@@ -13,12 +13,38 @@ workflows:
       - name: Set up keystore
         script: |
           echo $KEYSTORE_BASE64 | base64 --decode > /tmp/release.keystore
-          cp /tmp/release.keystore app/release.keystore
       - name: Download Gradle Wrapper
         script: |
           mkdir -p gradle/wrapper
           curl -L https://github.com/gradle/gradle/raw/v8.10.2/gradle/wrapper/gradle-wrapper.jar \
             -o gradle/wrapper/gradle-wrapper.jar
+      - name: Generate launcher icons
+        script: |
+          pip install Pillow
+          python3 << 'EOF'
+          from PIL import Image
+          import os
+
+          src = "app/ic_launcher.png"
+          img = Image.open(src).convert("RGBA")
+
+          sizes = {
+            "mipmap-mdpi": 48,
+            "mipmap-hdpi": 72,
+            "mipmap-xhdpi": 96,
+            "mipmap-xxhdpi": 144,
+            "mipmap-xxxhdpi": 192,
+          }
+
+          for folder, size in sizes.items():
+            out_dir = f"app/src/main/res/{folder}"
+            os.makedirs(out_dir, exist_ok=True)
+            resized = img.resize((size, size), Image.LANCZOS)
+            resized.save(f"{out_dir}/ic_launcher.png")
+            resized.save(f"{out_dir}/ic_launcher_round.png")
+            print(f"Generated {size}x{size} in {out_dir}")
+
+          EOF
       - name: Set executable permission
         script: chmod +x gradlew
       - name: Build release APK
@@ -58,6 +84,33 @@ workflows:
           mkdir -p gradle/wrapper
           curl -L https://github.com/gradle/gradle/raw/v8.10.2/gradle/wrapper/gradle-wrapper.jar \
             -o gradle/wrapper/gradle-wrapper.jar
+      - name: Generate launcher icons
+        script: |
+          pip install Pillow
+          python3 << 'EOF'
+          from PIL import Image
+          import os
+
+          src = "app/ic_launcher.png"
+          img = Image.open(src).convert("RGBA")
+
+          sizes = {
+            "mipmap-mdpi": 48,
+            "mipmap-hdpi": 72,
+            "mipmap-xhdpi": 96,
+            "mipmap-xxhdpi": 144,
+            "mipmap-xxxhdpi": 192,
+          }
+
+          for folder, size in sizes.items():
+            out_dir = f"app/src/main/res/{folder}"
+            os.makedirs(out_dir, exist_ok=True)
+            resized = img.resize((size, size), Image.LANCZOS)
+            resized.save(f"{out_dir}/ic_launcher.png")
+            resized.save(f"{out_dir}/ic_launcher_round.png")
+            print(f"Generated {size}x{size} in {out_dir}")
+
+          EOF
       - name: Set executable permission
         script: chmod +x gradlew
       - name: Build debug APK
