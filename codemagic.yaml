@@ -10,9 +10,18 @@ workflows:
       groups:
         - keystore_credentials
     scripts:
-      - name: Set up keystore
+      - name: Generate keystore
         script: |
-          echo $KEYSTORE_BASE64 | base64 --decode > /tmp/release.keystore
+          keytool -genkeypair \
+            -alias IPC \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -keystore /tmp/release.keystore \
+            -storepass $KEYSTORE_PASSWORD \
+            -keypass $KEY_PASSWORD \
+            -dname "CN=IPC, OU=Nexa, O=Nexa, L=Cabinda, ST=Cabinda, C=AO" \
+            -storetype JKS
       - name: Download Gradle Wrapper
         script: |
           mkdir -p gradle/wrapper
