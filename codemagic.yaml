@@ -25,7 +25,7 @@ workflows:
           from PIL import Image
           import os
 
-          src = "app/ic_launcher.png"
+          src = "ic_launcher.png"
           img = Image.open(src).convert("RGBA")
 
           sizes = {
@@ -91,7 +91,7 @@ workflows:
           from PIL import Image
           import os
 
-          src = "app/ic_launcher.png"
+          src = "ic_launcher.png"
           img = Image.open(src).convert("RGBA")
 
           sizes = {
