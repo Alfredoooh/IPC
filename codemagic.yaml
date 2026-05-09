@@ -23,12 +23,17 @@ workflows:
       - name: Build release APK
         script: |
           ./gradlew assembleRelease \
-            -PKEYSTORE_PATH=$KEYSTORE_PATH \
+            -PKEYSTORE_PATH=/tmp/release.keystore \
             -PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD \
             -PKEY_ALIAS=$KEY_ALIAS \
             -PKEY_PASSWORD=$KEY_PASSWORD
       - name: Build release AAB (Play Store)
-        script: ./gradlew bundleRelease
+        script: |
+          ./gradlew bundleRelease \
+            -PKEYSTORE_PATH=/tmp/release.keystore \
+            -PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD \
+            -PKEY_ALIAS=$KEY_ALIAS \
+            -PKEY_PASSWORD=$KEY_PASSWORD
     artifacts:
       - app/build/outputs/apk/release/*.apk
       - app/build/outputs/bundle/release/*.aab
@@ -47,8 +52,6 @@ workflows:
     environment:
       java: 17
     scripts:
-      - name: Set executable permission
-        script: chmod +x gradlew
       - name: Download Gradle Wrapper
         script: |
           mkdir -p gradle/wrapper
