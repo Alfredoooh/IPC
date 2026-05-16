@@ -4,72 +4,97 @@ workflows:
     max_build_duration: 60
     environment:
       java: 17
-      vars:
-        KEYSTORE_PATH: /tmp/release.keystore
-        KEY_ALIAS: IPC
-      groups:
-        - keystore_credentials
     scripts:
-      - name: Generate keystore
+      - name: Generate release keystore
         script: |
           keytool -genkeypair \
-            -alias IPC \
+            -alias "nuxx_key" \
             -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -keystore /tmp/release.keystore \
-            -storepass $KEYSTORE_PASSWORD \
-            -keypass $KEY_PASSWORD \
-            -dname "CN=IPC, OU=Nexa, O=Nexa, L=Cabinda, ST=Cabinda, C=AO" \
-            -storetype JKS
-      - name: Download Gradle Wrapper
+            -keysize 4096 \
+            -validity 9125 \
+            -keystore app/nuxx_release.keystore \
+            -storepass "nuxx@2025" \
+            -keypass "nuxx@2025" \
+            -dname "CN=Developer, OU=Dev, O=Developer, L=Lisboa, ST=Lisboa, C=PT"
+          echo "✓ Keystore gerado: app/nuxx_release.keystore"
+
+      - name: Install Pillow
+        script: pip3 install Pillow --quiet
+
+      - name: Process launcher and splash icons
         script: |
-          mkdir -p gradle/wrapper
-          curl -L https://github.com/gradle/gradle/raw/v8.10.2/gradle/wrapper/gradle-wrapper.jar \
-            -o gradle/wrapper/gradle-wrapper.jar
-      - name: Generate launcher icons
-        script: |
-          pip install Pillow
           python3 << 'EOF'
-          from PIL import Image
-          import os
+          import os, shutil
+          from PIL import Image, ImageDraw
 
-          src = "ic_launcher.png"
-          img = Image.open(src).convert("RGBA")
+          CM  = os.environ["CM_BUILD_DIR"]
+          RES = os.path.join(CM, "app/src/main/res")
+          LAUNCHER = os.path.join(CM, "ic_launcher.png")
+          SPLASH   = os.path.join(CM, "splash_icon.png")
 
-          sizes = {
-            "mipmap-mdpi": 48,
-            "mipmap-hdpi": 72,
-            "mipmap-xhdpi": 96,
-            "mipmap-xxhdpi": 144,
-            "mipmap-xxxhdpi": 192,
+          if not os.path.exists(LAUNCHER):
+              raise FileNotFoundError("ic_launcher.png nao encontrado na raiz do repo!")
+
+          DENSITIES = {
+              "mipmap-ldpi":36,"mipmap-mdpi":48,"mipmap-hdpi":72,
+              "mipmap-xhdpi":96,"mipmap-xxhdpi":144,"mipmap-xxxhdpi":192
+          }
+          FG_SIZES = {
+              "mipmap-mdpi":108,"mipmap-hdpi":162,"mipmap-xhdpi":216,
+              "mipmap-xxhdpi":324,"mipmap-xxxhdpi":432
           }
 
-          for folder, size in sizes.items():
-            out_dir = f"app/src/main/res/{folder}"
-            os.makedirs(out_dir, exist_ok=True)
-            resized = img.resize((size, size), Image.LANCZOS)
-            resized.save(f"{out_dir}/ic_launcher.png")
-            resized.save(f"{out_dir}/ic_launcher_round.png")
-            print(f"Generated {size}x{size} in {out_dir}")
+          def rounded(img, size, ratio=0.23):
+              img = img.convert("RGBA").resize((size, size), Image.LANCZOS)
+              mask = Image.new("L", (size, size), 0)
+              ImageDraw.Draw(mask).rounded_rectangle(
+                  [0, 0, size-1, size-1], radius=int(size*ratio), fill=255)
+              out = Image.new("RGBA", (size, size), (0,0,0,0))
+              out.paste(img, (0, 0), mask)
+              return out
 
+          def save(img, path):
+              os.makedirs(os.path.dirname(path), exist_ok=True)
+              img.save(path, "PNG", optimize=True)
+              print(f"  -> {path}")
+
+          src = Image.open(LAUNCHER)
+          for d, sz in DENSITIES.items():
+              save(rounded(src, sz, 0.23), os.path.join(RES, d, "ic_launcher.png"))
+              save(rounded(src, sz, 0.50), os.path.join(RES, d, "ic_launcher_round.png"))
+
+          for d, fg in FG_SIZES.items():
+              icon_sz = int(fg * 0.66)
+              fg_img  = src.copy().convert("RGBA").resize((icon_sz, icon_sz), Image.LANCZOS)
+              canvas  = Image.new("RGBA", (fg, fg), (0,0,0,0))
+              off     = (fg - icon_sz) // 2
+              canvas.paste(fg_img, (off, off), fg_img)
+              save(canvas, os.path.join(RES, d, "ic_launcher_foreground.png"))
+
+          if os.path.exists(SPLASH):
+              dest = os.path.join(RES, "drawable", "splash_icon.png")
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              shutil.copy2(SPLASH, dest)
+              print(f"  -> {dest}")
+          else:
+              print("AVISO: splash_icon.png nao encontrado, a usar placeholder...")
+              placeholder = Image.new("RGBA", (192, 192), (0,0,0,0))
+              dest = os.path.join(RES, "drawable", "splash_icon.png")
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              placeholder.save(dest, "PNG")
+
+          print("Icones processados com sucesso!")
           EOF
+
       - name: Set executable permission
         script: chmod +x gradlew
+
       - name: Build release APK
-        script: |
-          ./gradlew assembleRelease \
-            -PKEYSTORE_PATH=/tmp/release.keystore \
-            -PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD \
-            -PKEY_ALIAS=$KEY_ALIAS \
-            -PKEY_PASSWORD=$KEY_PASSWORD
-      - name: Build release AAB (Play Store)
-        script: |
-          ./gradlew bundleRelease \
-            -PKEYSTORE_PATH=/tmp/release.keystore \
-            -PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD \
-            -PKEY_ALIAS=$KEY_ALIAS \
-            -PKEY_PASSWORD=$KEY_PASSWORD
+        script: ./gradlew assembleRelease
+
+      - name: Build release AAB
+        script: ./gradlew bundleRelease
+
     artifacts:
       - app/build/outputs/apk/release/*.apk
       - app/build/outputs/bundle/release/*.aab
@@ -77,7 +102,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - alfredopjonas@gmail.com
+          - dev@example.com
         notify:
           success: true
           failure: true
@@ -88,48 +113,99 @@ workflows:
     environment:
       java: 17
     scripts:
-      - name: Download Gradle Wrapper
+      - name: Generate release keystore
         script: |
-          mkdir -p gradle/wrapper
-          curl -L https://github.com/gradle/gradle/raw/v8.10.2/gradle/wrapper/gradle-wrapper.jar \
-            -o gradle/wrapper/gradle-wrapper.jar
-      - name: Generate launcher icons
+          keytool -genkeypair \
+            -alias "nuxx_key" \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 9125 \
+            -keystore app/nuxx_release.keystore \
+            -storepass "nuxx@2025" \
+            -keypass "nuxx@2025" \
+            -dname "CN=Developer, OU=Dev, O=Developer, L=Lisboa, ST=Lisboa, C=PT"
+          echo "✓ Keystore gerado: app/nuxx_release.keystore"
+
+      - name: Install Pillow
+        script: pip3 install Pillow --quiet
+
+      - name: Process launcher and splash icons
         script: |
-          pip install Pillow
           python3 << 'EOF'
-          from PIL import Image
-          import os
+          import os, shutil
+          from PIL import Image, ImageDraw
 
-          src = "ic_launcher.png"
-          img = Image.open(src).convert("RGBA")
+          CM  = os.environ["CM_BUILD_DIR"]
+          RES = os.path.join(CM, "app/src/main/res")
+          LAUNCHER = os.path.join(CM, "ic_launcher.png")
+          SPLASH   = os.path.join(CM, "splash_icon.png")
 
-          sizes = {
-            "mipmap-mdpi": 48,
-            "mipmap-hdpi": 72,
-            "mipmap-xhdpi": 96,
-            "mipmap-xxhdpi": 144,
-            "mipmap-xxxhdpi": 192,
+          if not os.path.exists(LAUNCHER):
+              raise FileNotFoundError("ic_launcher.png nao encontrado na raiz do repo!")
+
+          DENSITIES = {
+              "mipmap-ldpi":36,"mipmap-mdpi":48,"mipmap-hdpi":72,
+              "mipmap-xhdpi":96,"mipmap-xxhdpi":144,"mipmap-xxxhdpi":192
+          }
+          FG_SIZES = {
+              "mipmap-mdpi":108,"mipmap-hdpi":162,"mipmap-xhdpi":216,
+              "mipmap-xxhdpi":324,"mipmap-xxxhdpi":432
           }
 
-          for folder, size in sizes.items():
-            out_dir = f"app/src/main/res/{folder}"
-            os.makedirs(out_dir, exist_ok=True)
-            resized = img.resize((size, size), Image.LANCZOS)
-            resized.save(f"{out_dir}/ic_launcher.png")
-            resized.save(f"{out_dir}/ic_launcher_round.png")
-            print(f"Generated {size}x{size} in {out_dir}")
+          def rounded(img, size, ratio=0.23):
+              img = img.convert("RGBA").resize((size, size), Image.LANCZOS)
+              mask = Image.new("L", (size, size), 0)
+              ImageDraw.Draw(mask).rounded_rectangle(
+                  [0, 0, size-1, size-1], radius=int(size*ratio), fill=255)
+              out = Image.new("RGBA", (size, size), (0,0,0,0))
+              out.paste(img, (0, 0), mask)
+              return out
 
+          def save(img, path):
+              os.makedirs(os.path.dirname(path), exist_ok=True)
+              img.save(path, "PNG", optimize=True)
+              print(f"  -> {path}")
+
+          src = Image.open(LAUNCHER)
+          for d, sz in DENSITIES.items():
+              save(rounded(src, sz, 0.23), os.path.join(RES, d, "ic_launcher.png"))
+              save(rounded(src, sz, 0.50), os.path.join(RES, d, "ic_launcher_round.png"))
+
+          for d, fg in FG_SIZES.items():
+              icon_sz = int(fg * 0.66)
+              fg_img  = src.copy().convert("RGBA").resize((icon_sz, icon_sz), Image.LANCZOS)
+              canvas  = Image.new("RGBA", (fg, fg), (0,0,0,0))
+              off     = (fg - icon_sz) // 2
+              canvas.paste(fg_img, (off, off), fg_img)
+              save(canvas, os.path.join(RES, d, "ic_launcher_foreground.png"))
+
+          if os.path.exists(SPLASH):
+              dest = os.path.join(RES, "drawable", "splash_icon.png")
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              shutil.copy2(SPLASH, dest)
+              print(f"  -> {dest}")
+          else:
+              print("AVISO: splash_icon.png nao encontrado, a usar placeholder...")
+              placeholder = Image.new("RGBA", (192, 192), (0,0,0,0))
+              dest = os.path.join(RES, "drawable", "splash_icon.png")
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              placeholder.save(dest, "PNG")
+
+          print("Icones processados com sucesso!")
           EOF
+
       - name: Set executable permission
         script: chmod +x gradlew
+
       - name: Build debug APK
         script: ./gradlew assembleDebug
+
     artifacts:
       - app/build/outputs/apk/debug/*.apk
     publishing:
       email:
         recipients:
-          - alfredopjonas@gmail.com
+          - dev@example.com
         notify:
           success: false
           failure: true

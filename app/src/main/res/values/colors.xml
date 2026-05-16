@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#4CAF50</color>
-    <color name="colorPrimaryVariant">#388E3C</color>
-    <color name="colorOnPrimary">#FFFFFF</color>
-    <color name="colorSecondary">#03DAC5</color>
-    <color name="colorSecondaryVariant">#018786</color>
-    <color name="colorOnSecondary">#000000</color>
+    <color name="colorPrimary">#FF0000</color>
+    <color name="dialog_accent">#FF6600</color>
+    <color name="splash_background_light">#FFFFFF</color>
+    <color name="splash_background_dark">#181818</color>
 </resources>
