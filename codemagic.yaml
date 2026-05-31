@@ -12,9 +12,8 @@ workflows:
           JAR="$WRAPPER_DIR/gradle-wrapper.jar"
           if [ ! -f "$JAR" ]; then
             echo "A fazer download do gradle-wrapper.jar (Gradle 8.9)..."
-            curl -fsSL "https://github.com/gradle/gradle/raw/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -o "$JAR" \
-              || curl -fsSL "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -o "$JAR" \
-              || wget -q "https://github.com/gradle/gradle/raw/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -O "$JAR"
+            curl -fsSL "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -o "$JAR" \
+              || wget -q "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -O "$JAR"
             echo "✅ gradle-wrapper.jar: $(du -sh $JAR | cut -f1)"
           else
             echo "✅ gradle-wrapper.jar já presente no repo"
@@ -136,9 +135,8 @@ workflows:
           JAR="$WRAPPER_DIR/gradle-wrapper.jar"
           if [ ! -f "$JAR" ]; then
             echo "A fazer download do gradle-wrapper.jar (Gradle 8.9)..."
-            curl -fsSL "https://github.com/gradle/gradle/raw/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -o "$JAR" \
-              || curl -fsSL "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -o "$JAR" \
-              || wget -q "https://github.com/gradle/gradle/raw/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -O "$JAR"
+            curl -fsSL "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -o "$JAR" \
+              || wget -q "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar" -O "$JAR"
             echo "✅ gradle-wrapper.jar: $(du -sh $JAR | cut -f1)"
           else
             echo "✅ gradle-wrapper.jar já presente no repo"
