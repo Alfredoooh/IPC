@@ -1,7 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#4CAF50</color>
-    <color name="dialog_accent">#FF0000</color>
-    <color name="splash_background_light">#FFFFFF</color>
-    <color name="splash_background_dark">#121212</color>
+    <color name="colorPrimary">#FFFFFF</color>
+    
+    <color name="background">#000000</color>
+    <color name="splash_background_light">#000000</color>
+    <color name="splash_background_dark">#000000</color>
+    
+    <color name="appbar_background">#000000</color>
+    <color name="bottom_nav_background">#000000</color>
+    
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#888888</color>
+    <color name="text_hint">#555555</color>
+    
+    <color name="icon_tint">#FFFFFF</color>
+    <color name="icon_tint_secondary">#666666</color>
+    
+    <color name="input_background">#1C1C1C</color>
+    <color name="input_text">#FFFFFF</color>
+    <color name="input_hint">#555555</color>
+    
+    <color name="compound_pill_color">#2A2A2A</color>
+    <color name="send_btn_color">#FFFFFF</color>
+    <color name="send_icon_color">#000000</color>
+    
+    <color name="divider">#1A1A1A</color>
+    <color name="ripple_color">#1AFFFFFF</color>
+    
+    <color name="card_background">#1A1A1A</color>
+    <color name="surface">#111111</color>
+    <color name="dialog_background">#1C1C1C</color>
+    <color name="cursor_color">#FFFFFF</color>
+    <color name="ask_ai_pill_color">#2A2A2A</color>
 </resources>

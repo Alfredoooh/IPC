@@ -3,4 +3,6 @@
     <string name="app_name">IPC</string>
     <string name="notification_channel_name">IPC</string>
     <string name="notification_channel_desc">Mantém o IPC activo em segundo plano</string>
+    <string name="input_hint">Pergunta algo...</string>
+    <string name="empty_state_label">Começa uma conversa</string>
 </resources>
