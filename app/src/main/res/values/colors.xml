@@ -20,7 +20,8 @@
     <color name="text_hint">#AAAAAA</color>
     <color name="text_link">#007AFF</color>
     
-    <color name="drawer_background">#FFFFFF</color>
+    <!-- Drawer ligeiramente acinzentado para distinguir do chat -->
+    <color name="drawer_background">#F2F2F7</color>
     <color name="drawer_text">#000000</color>
     
     <color name="surface">#FFFFFF</color>
