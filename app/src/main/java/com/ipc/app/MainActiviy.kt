@@ -15,17 +15,17 @@ import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.MotionEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.caverock.androidsvg.SVG
-import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
 import com.ipc.app.ui.SettingsActivity
@@ -38,8 +38,15 @@ class MainActiviy : BaseActivity() {
     private var drawerOpen = false
     private var drawerAnimator: ValueAnimator? = null
     private var sendBtnAnimator: ValueAnimator? = null
-    private var currentTab = R.id.tabChat
     private var sendBtnVisible = false
+    private var currentTab = R.id.tabChat
+
+    // Swipe-to-open drawer
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
+    private var isSwipingDrawer = false
+    private val SWIPE_EDGE_WIDTH = 40f  // dp da borda esquerda que activa o swipe
+    private val SWIPE_MIN_DIST = 30f    // dp mínimos para considerar swipe horizontal
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -49,6 +56,9 @@ class MainActiviy : BaseActivity() {
 
     private val drawerWidth: Int
         get() = (resources.displayMetrics.widthPixels * 0.75f).toInt()
+
+    private val density: Float
+        get() = resources.displayMetrics.density
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE)
@@ -68,23 +78,42 @@ class MainActiviy : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        androidx.core.splashscreen.SplashScreen.installSplashScreen(this)
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Status bar padding
+        // Status bar padding no AppBar
         ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
             val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             v.updatePadding(top = statusBars.top)
             insets
         }
 
-        // Bottom nav sobe com o teclado via adjustResize no manifest
-        // Padding extra para navigation bar
-        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavWrapper) { v, insets ->
-            val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            v.updatePadding(bottom = navBars.bottom)
+        // ── Teclado sobe/desce o bottomNavWrapper suavemente ──────────────────
+        // O CoordinatorLayout recebe os insets e anima translationY do wrapper
+        ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
+            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+
+            // Quando o teclado está visível, imeInsets.bottom > navInsets.bottom
+            val imeHeight = imeInsets.bottom
+            val navHeight = navInsets.bottom
+
+            // translação extra = o quanto o teclado ultrapassa a nav bar
+            val extraShift = (imeHeight - navHeight).coerceAtLeast(0)
+
+            // Anima suavemente
+            val targetTY = -extraShift.toFloat()
+            binding.bottomNavWrapper.animate()
+                .translationY(targetTY)
+                .setDuration(220)
+                .setInterpolator(DecelerateInterpolator(1.4f))
+                .start()
+
+            // padding bottom da nav bar quando teclado está fechado
+            binding.bottomNavWrapper.updatePadding(bottom = if (extraShift == 0) navHeight else 0)
+
             insets
         }
 
@@ -94,6 +123,7 @@ class MainActiviy : BaseActivity() {
 
         setupIcons()
         setupDrawer()
+        setupSwipeDrawer()
         setupBottomTabs()
         setupPreviewImage()
         setupInput()
@@ -112,6 +142,9 @@ class MainActiviy : BaseActivity() {
         binding.drawerChevronAbout.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
 
         binding.emptyIcon.setImageDrawable(svgDrawable("icons/svg/chat.svg", 58, iconSec))
+
+        // Ícone add.svg no botão Pull pill
+        binding.btnPullIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 14, iconTint))
     }
 
     private fun setupInput() {
@@ -164,6 +197,68 @@ class MainActiviy : BaseActivity() {
         }
     }
 
+    // ── Swipe edge-to-open drawer ─────────────────────────────────────────────
+    private fun setupSwipeDrawer() {
+        val edgePx = SWIPE_EDGE_WIDTH * density
+        val minDistPx = SWIPE_MIN_DIST * density
+
+        binding.coordinatorLayout.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeStartX = event.rawX
+                    swipeStartY = event.rawY
+                    isSwipingDrawer = !drawerOpen && swipeStartX < edgePx
+                    false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (isSwipingDrawer) {
+                        val dx = event.rawX - swipeStartX
+                        val dy = event.rawY - swipeStartY
+                        if (kotlin.math.abs(dx) > kotlin.math.abs(dy) && dx > 0) {
+                            // Acompanha o dedo
+                            val progress = (dx / drawerWidth).coerceIn(0f, 1f)
+                            binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
+                            binding.drawerScrim.visibility = View.VISIBLE
+                            true
+                        } else false
+                    } else if (drawerOpen) {
+                        val dx = event.rawX - swipeStartX
+                        if (dx < 0) {
+                            val newX = (drawerWidth + dx).coerceAtLeast(0f)
+                            binding.coordinatorLayout.translationX = newX
+                            true
+                        } else false
+                    } else false
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    val dx = event.rawX - swipeStartX
+                    if (isSwipingDrawer) {
+                        isSwipingDrawer = false
+                        if (dx > minDistPx) {
+                            // Confirma abertura
+                            drawerOpen = true
+                            animateDrawer(
+                                from = binding.coordinatorLayout.translationX,
+                                to = drawerWidth.toFloat()
+                            )
+                        } else {
+                            // Cancela, fecha
+                            animateDrawer(
+                                from = binding.coordinatorLayout.translationX,
+                                to = 0f
+                            ) { binding.drawerScrim.visibility = View.GONE }
+                        }
+                        true
+                    } else if (drawerOpen && dx < -minDistPx) {
+                        closeDrawer()
+                        true
+                    } else false
+                }
+                else -> false
+            }
+        }
+    }
+
     private fun setupDrawer() {
         binding.btnMenu.setOnClickListener {
             if (drawerOpen) closeDrawer() else openDrawer()
@@ -174,7 +269,6 @@ class MainActiviy : BaseActivity() {
             closeDrawer()
             binding.root.postDelayed({
                 startActivity(Intent(this, SettingsActivity::class.java))
-                // Sem overridePendingTransition de escurecimento — slide simples
                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
@@ -205,8 +299,7 @@ class MainActiviy : BaseActivity() {
             addUpdateListener { anim ->
                 val value = anim.animatedValue as Float
                 binding.coordinatorLayout.translationX = value
-                val progress = value / drawerWidth
-                binding.coordinatorLayout.elevation = 8f + (progress * 16f)
+                binding.coordinatorLayout.elevation = 8f + ((value / drawerWidth) * 16f)
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
@@ -225,13 +318,30 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun showPullBottomSheet() {
-        val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
-        val view = layoutInflater.inflate(R.layout.bottom_sheet_pull, null)
+        val sheet = BottomSheetDialog(this)
+        val view  = layoutInflater.inflate(R.layout.bottom_sheet_pull, null)
+
+        // Fundo branco puro com cantos curvos
         sheet.setContentView(view)
         sheet.behavior.apply {
             skipCollapsed = true
-            state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+            state = BottomSheetBehavior.STATE_EXPANDED
         }
+
+        // Força o fundo do container do BottomSheetDialog a ser branco puro
+        sheet.window?.findViewById<View>(
+            com.google.android.material.R.id.design_bottom_sheet
+        )?.background = ContextCompat.getDrawable(this, R.drawable.pull_sheet_bg)
+
+        // Ícones nas opções
+        val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
+        view.findViewById<android.widget.ImageView>(R.id.pullIconImport)
+            .setImageDrawable(svgDrawable("icons/svg/download.svg", 16, iconTint))
+        view.findViewById<android.widget.ImageView>(R.id.pullIconCamera)
+            .setImageDrawable(svgDrawable("icons/svg/preview.svg", 16, iconTint))
+        view.findViewById<android.widget.ImageView>(R.id.pullIconUrl)
+            .setImageDrawable(svgDrawable("icons/svg/external.svg", 16, iconTint))
+
         sheet.show()
     }
 
@@ -240,15 +350,13 @@ class MainActiviy : BaseActivity() {
         currentTab = tabId
         refreshTabIcons()
         updateContentForTab()
-        showBottomNav()
     }
 
     private fun updateContentForTab() {
         val isPreview = currentTab == R.id.tabPreview
-
         binding.previewState.visibility = if (isPreview) View.VISIBLE else View.GONE
-        binding.emptyState.visibility   = if (isPreview) View.GONE else View.VISIBLE
-        binding.inputRow.visibility     = if (isPreview) View.GONE else View.VISIBLE
+        binding.emptyState.visibility   = if (isPreview) View.GONE   else View.VISIBLE
+        binding.inputRow.visibility     = if (isPreview) View.GONE   else View.VISIBLE
     }
 
     private fun setupPreviewImage() {
@@ -257,9 +365,7 @@ class MainActiviy : BaseActivity() {
                 BitmapFactory.decodeStream(it)
             }
         }.getOrNull()
-        if (bitmap != null) {
-            binding.previewImage.setImageBitmap(bitmap)
-        }
+        if (bitmap != null) binding.previewImage.setImageBitmap(bitmap)
         binding.previewState.visibility = View.GONE
     }
 
@@ -287,7 +393,6 @@ class MainActiviy : BaseActivity() {
     override fun onResume() {
         super.onResume()
         refreshTabIcons()
-        showBottomNav()
     }
 
     @Deprecated("Deprecated in Java")
@@ -297,13 +402,6 @@ class MainActiviy : BaseActivity() {
             return
         }
         super.onBackPressed()
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    fun showBottomNav() {
-        val lp = binding.bottomNavWrapper.layoutParams as? CoordinatorLayout.LayoutParams ?: return
-        val behavior = lp.behavior as? HideBottomViewOnScrollBehavior<View> ?: return
-        behavior.slideUp(binding.bottomNavWrapper)
     }
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {

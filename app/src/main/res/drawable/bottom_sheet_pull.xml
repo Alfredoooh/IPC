@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="24dp">
+
+    <!-- Fundo branco puro com cantos curvos no topo via shape do BottomSheetDialog -->
+
+    <!-- Handle -->
+    <View
+        android:layout_width="36dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/bottom_sheet_handle" />
+
+    <!-- Título -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="14dp"
+        android:layout_marginBottom="8dp"
+        android:text="Pull"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#000000" />
+
+    <!-- Opção: Importar Ficheiro -->
+    <LinearLayout
+        android:id="@+id/pullOptionImport"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:background="?attr/selectableItemBackground">
+
+        <FrameLayout
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/drawer_icon_bg"
+            android:layout_marginEnd="16dp">
+
+            <ImageView
+                android:id="@+id/pullIconImport"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center" />
+
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Importar Ficheiro"
+            android:textSize="15sp"
+            android:textColor="#000000" />
+
+    </LinearLayout>
+
+    <!-- Opção: Câmara -->
+    <LinearLayout
+        android:id="@+id/pullOptionCamera"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:background="?attr/selectableItemBackground">
+
+        <FrameLayout
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/drawer_icon_bg"
+            android:layout_marginEnd="16dp">
+
+            <ImageView
+                android:id="@+id/pullIconCamera"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center" />
+
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Câmara"
+            android:textSize="15sp"
+            android:textColor="#000000" />
+
+    </LinearLayout>
+
+    <!-- Opção: URL / Link -->
+    <LinearLayout
+        android:id="@+id/pullOptionUrl"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:background="?attr/selectableItemBackground">
+
+        <FrameLayout
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/drawer_icon_bg"
+            android:layout_marginEnd="16dp">
+
+            <ImageView
+                android:id="@+id/pullIconUrl"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center" />
+
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="URL / Link"
+            android:textSize="15sp"
+            android:textColor="#000000" />
+
+    </LinearLayout>
+
+</LinearLayout>
