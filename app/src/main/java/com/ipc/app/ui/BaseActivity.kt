@@ -1,10 +1,10 @@
 package com.ipc.app.ui
 
 import android.content.Context
+import android.graphics.Color
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.ipc.app.R
@@ -22,7 +22,7 @@ open class BaseActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         applyStatusBar()
     }
 
@@ -38,7 +38,7 @@ open class BaseActivity : AppCompatActivity() {
 
     protected fun applyStatusBar() {
         val isDark = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
-        window.statusBarColor = ContextCompat.getColor(this, R.color.appbar_background)
+        window.statusBarColor = Color.TRANSPARENT
         WindowInsetsControllerCompat(window, window.decorView)
             .isAppearanceLightStatusBars = !isDark
     }

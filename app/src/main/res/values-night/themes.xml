@@ -18,7 +18,8 @@
         <item name="android:textColorHint">@color/text_hint</item>
         <item name="android:textCursorDrawable">@null</item>
         <item name="android:colorControlActivated">@color/cursor_color</item>
-        <item name="android:statusBarColor">@color/appbar_background</item>
+        <!-- Status bar transparente -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@color/bottom_nav_background</item>
         <item name="android:windowBackground">@color/background</item>
     </style>

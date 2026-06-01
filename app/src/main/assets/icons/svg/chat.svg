@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg687"
+   xml:space="preserve"
+   width="32"
+   height="32"
+   viewBox="0 0 32 32"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><defs
+     id="defs691"><clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath701"><path
+         d="M 0,24 H 24 V 0 H 0 Z"
+         id="path699" /></clipPath></defs><g
+     id="g693"
+     transform="matrix(1.3333333,0,0,-1.3333333,0,32)"><g
+       id="g695"><g
+         id="g697"
+         clip-path="url(#clipPath701)"><g
+           id="g703"
+           transform="translate(19.9961,14.9199)"><path
+             d="M 0,0 C -0.006,-0.769 -0.092,-1.519 -0.248,-2.242 1.123,-3.343 2.004,-5.029 2.004,-6.92 v -5 c 0,-0.553 -0.448,-1 -1,-1 h -5 c -1.891,0 -3.577,0.881 -4.678,2.252 -0.724,-0.156 -1.473,-0.242 -2.242,-0.248 1.385,-2.39 3.965,-4.004 6.92,-4.004 h 5 c 1.657,0 3,1.343 3,3 v 5 C 4.004,-3.965 2.389,-1.385 0,0"
+             style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"
+             id="path705" /></g><g
+           id="g707"
+           transform="translate(1,14.7061)"><path
+             d="m 0,0 v -5.04 c 0,-1.776 0.896,-2.666 2,-2.666 h 5.703 c 4.105,0 7.987,3.325 8.276,7.419 0.345,4.876 -3.684,8.904 -8.56,8.56 C 3.325,7.984 0,4.104 0,0 Z"
+             style="fill:none;stroke:#000000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1"
+             id="path709" /></g></g></g></g></svg>
