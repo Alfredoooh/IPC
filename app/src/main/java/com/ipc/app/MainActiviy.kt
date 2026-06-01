@@ -81,18 +81,11 @@ class MainActiviy : BaseActivity() {
         }
 
         // Bottom nav sobe com o teclado via adjustResize no manifest
-        // Aplicar o comportamento do HideBottomViewOnScrollBehavior corretamente
+        // Padding extra para navigation bar
         ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavWrapper) { v, insets ->
             val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             v.updatePadding(bottom = navBars.bottom)
             insets
-        }
-
-        // Garantir que o behavior tá configurado
-        val layoutParams = binding.bottomNavWrapper.layoutParams as? CoordinatorLayout.LayoutParams
-        if (layoutParams?.behavior == null) {
-            layoutParams?.behavior = HideBottomViewOnScrollBehavior<View>()
-            binding.bottomNavWrapper.layoutParams = layoutParams
         }
 
         binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
@@ -119,9 +112,6 @@ class MainActiviy : BaseActivity() {
         binding.drawerChevronAbout.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
 
         binding.emptyIcon.setImageDrawable(svgDrawable("icons/svg/chat.svg", 58, iconSec))
-        
-        // Add icon no botão central (pill)
-        binding.btnAddIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 18, Color.WHITE))
     }
 
     private fun setupInput() {
@@ -256,19 +246,9 @@ class MainActiviy : BaseActivity() {
     private fun updateContentForTab() {
         val isPreview = currentTab == R.id.tabPreview
 
-        // Fade out
-        binding.previewState.alpha = 0f
-        binding.emptyState.alpha = 0f
-        binding.inputRow.alpha = 0f
-
         binding.previewState.visibility = if (isPreview) View.VISIBLE else View.GONE
         binding.emptyState.visibility   = if (isPreview) View.GONE else View.VISIBLE
         binding.inputRow.visibility     = if (isPreview) View.GONE else View.VISIBLE
-
-        // Fade in
-        binding.previewState.animate().alpha(if (isPreview) 1f else 0f).duration = 200
-        binding.emptyState.animate().alpha(if (!isPreview) 1f else 0f).duration = 200
-        binding.inputRow.animate().alpha(if (!isPreview) 1f else 0f).duration = 200
     }
 
     private fun setupPreviewImage() {
