@@ -18,6 +18,9 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import com.caverock.androidsvg.SVG
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.ipc.app.databinding.ActivityMainBinding
@@ -65,6 +68,20 @@ class MainActiviy : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Aplica padding de status bar ao AppBar para não ficar sob a barra
+        ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
+            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            v.updatePadding(top = statusBars.top)
+            insets
+        }
+
+        // Aplica padding de navigation bar ao bottomNavWrapper
+        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavWrapper) { v, insets ->
+            val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            v.updatePadding(bottom = navBars.bottom)
+            insets
+        }
+
         binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
             it.width = drawerWidth
         }
@@ -72,6 +89,7 @@ class MainActiviy : BaseActivity() {
         setupIcons()
         setupDrawer()
         setupBottomTabs()
+        setupPreviewImage()
     }
 
     private fun setupIcons() {
@@ -93,7 +111,6 @@ class MainActiviy : BaseActivity() {
         binding.btnMenu.setOnClickListener {
             if (drawerOpen) closeDrawer() else openDrawer()
         }
-        // Scrim só interceta toques, sem cor nem alpha
         binding.drawerScrim.setOnClickListener { closeDrawer() }
 
         binding.drawerItemSettings.setOnClickListener {
@@ -130,7 +147,6 @@ class MainActiviy : BaseActivity() {
             addUpdateListener { anim ->
                 val value = anim.animatedValue as Float
                 binding.coordinatorLayout.translationX = value
-                // Sem escurecimento — só sombra via elevation
                 val progress = value / drawerWidth
                 binding.coordinatorLayout.elevation = 8f + (progress * 16f)
             }
@@ -153,7 +169,37 @@ class MainActiviy : BaseActivity() {
         if (currentTab == tabId) return
         currentTab = tabId
         refreshTabIcons()
+        updateContentForTab()
         showBottomNav()
+    }
+
+    /**
+     * Preview tab: mostra imagem preview.png e esconde o input row.
+     * Chat tab: esconde a imagem e mostra o input row.
+     */
+    private fun updateContentForTab() {
+        val isPreview = currentTab == R.id.tabPreview
+        // Preview image (fullscreen, por baixo da bottom card)
+        binding.previewImage.visibility = if (isPreview) View.VISIBLE else View.GONE
+        // Estado vazio do chat
+        binding.emptyState.visibility = if (isPreview) View.GONE else View.VISIBLE
+        // Input row — visível só no tab Chat
+        binding.inputRow.visibility = if (isPreview) View.GONE else View.VISIBLE
+        // Divisor entre input e tabs — visível só quando input está presente
+        binding.inputDivider.visibility = if (isPreview) View.GONE else View.VISIBLE
+    }
+
+    private fun setupPreviewImage() {
+        // Carrega preview.png de assets
+        val bitmap = runCatching {
+            assets.open("icons/png/preview.png").use {
+                android.graphics.BitmapFactory.decodeStream(it)
+            }
+        }.getOrNull()
+        if (bitmap != null) {
+            binding.previewImage.setImageBitmap(bitmap)
+        }
+        binding.previewImage.visibility = View.GONE
     }
 
     private fun refreshTabIcons() {

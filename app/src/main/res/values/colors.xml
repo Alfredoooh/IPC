@@ -5,56 +5,56 @@
     <color name="colorAccent">#007AFF</color>
     <color name="blue_apple">#007AFF</color>
     <color name="red_badge">#FF3B30</color>
-    
+
     <color name="background">#FFFFFF</color>
     <color name="background_dark">#121212</color>
     <color name="splash_background_light">#FFFFFF</color>
     <color name="splash_background_dark">#121212</color>
-    
+
     <color name="appbar_background">#FFFFFF</color>
     <color name="bottom_nav_background">#FFFFFF</color>
     <color name="bottom_nav_text_color">#007AFF</color>
-    
+
     <color name="text_primary">#000000</color>
     <color name="text_secondary">#888888</color>
     <color name="text_hint">#AAAAAA</color>
     <color name="text_link">#007AFF</color>
-    
-    <!-- Drawer ligeiramente acinzentado para distinguir do chat -->
-    <color name="drawer_background">#F2F2F7</color>
+
+    <!-- Drawer / cards claro: #d4e5ff -->
+    <color name="drawer_background">#d4e5ff</color>
     <color name="drawer_text">#000000</color>
-    
+
     <color name="surface">#FFFFFF</color>
-    <color name="card_background">#F2F2F7</color>
-    
+    <color name="card_background">#d4e5ff</color>
+
     <color name="apps_section_background">#FFFFFF</color>
-    
+
     <color name="popup_background">#FFFFFF</color>
     <color name="popup_shadow">#14000000</color>
-    
-    <color name="dialog_background">#F2F2F7</color>
-    
-    <color name="divider">#E5E5EA</color>
-    
+
+    <color name="dialog_background">#d4e5ff</color>
+
+    <color name="divider">#C8D8F0</color>
+
     <color name="settings_section_label">#888888</color>
-    
+
     <color name="icon_tint">#000000</color>
     <color name="icon_tint_secondary">#888888</color>
-    
-    <color name="input_background">#F2F2F7</color>
+
+    <color name="input_background">#d4e5ff</color>
     <color name="input_text">#000000</color>
     <color name="input_hint">#AAAAAA</color>
     <color name="cursor_color">#007AFF</color>
-    
-    <color name="search_input_fill">#EBEBEB</color>
-    
+
+    <color name="search_input_fill">#d4e5ff</color>
+
     <color name="ripple_color">#1A000000</color>
-    
+
     <color name="incognito_bg">#1A1A2E</color>
     <color name="incognito_surface">#252540</color>
     <color name="incognito_text">#FFFFFF</color>
-    <color name="ask_ai_pill_color">#EBEBEB</color>
-    <color name="compound_pill_color">#EBEBEB</color>
+    <color name="ask_ai_pill_color">#d4e5ff</color>
+    <color name="compound_pill_color">#d4e5ff</color>
     <color name="send_btn_color">#000000</color>
     <color name="send_icon_color">#FFFFFF</color>
 </resources>
