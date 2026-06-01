@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -21,6 +22,7 @@ import com.caverock.androidsvg.SVG
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
+import com.ipc.app.ui.SettingsActivity
 import java.util.Locale
 
 class MainActiviy : BaseActivity() {
@@ -92,7 +94,15 @@ class MainActiviy : BaseActivity() {
             if (drawerOpen) closeDrawer() else openDrawer()
         }
         binding.drawerScrim.setOnClickListener { closeDrawer() }
-        binding.drawerItemSettings.setOnClickListener { closeDrawer() }
+
+        binding.drawerItemSettings.setOnClickListener {
+            closeDrawer()
+            binding.root.postDelayed({
+                startActivity(Intent(this, SettingsActivity::class.java))
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+            }, 250)
+        }
+
         binding.drawerItemAbout.setOnClickListener { closeDrawer() }
     }
 
@@ -120,7 +130,7 @@ class MainActiviy : BaseActivity() {
                 val value = anim.animatedValue as Float
                 binding.coordinatorLayout.translationX = value
                 val progress = value / drawerWidth
-                binding.drawerScrim.alpha = progress * 0.4f
+                binding.coordinatorLayout.elevation = 8f + (progress * 16f)
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {

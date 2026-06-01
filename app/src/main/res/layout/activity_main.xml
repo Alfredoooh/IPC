@@ -128,7 +128,9 @@
         android:id="@+id/coordinatorLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/background">
+        android:background="@color/background"
+        android:elevation="8dp"
+        android:outlineProvider="bounds">
 
         <com.google.android.material.appbar.AppBarLayout
             android:id="@+id/appBarLayout"
@@ -194,6 +196,7 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
+        <!-- Empty state -->
         <LinearLayout
             android:id="@+id/emptyState"
             android:layout_width="match_parent"
@@ -217,81 +220,86 @@
 
         </LinearLayout>
 
+        <!-- Scrim — apenas intercepta toques, sem cor -->
         <View
             android:id="@+id/drawerScrim"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#000000"
-            android:alpha="0"
+            android:background="@android:color/transparent"
+            android:alpha="1"
             android:visibility="gone"
             android:clickable="true"
             android:focusable="true" />
 
+        <!-- Bottom card: input + nav juntos -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:orientation="vertical"
-            android:background="@color/background"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/bottom_card_bg"
+            android:elevation="4dp"
             app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior">
 
-            <FrameLayout
+            <!-- Input row -->
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="4dp">
+                android:layout_height="52dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="18dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="8dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:background="@drawable/input_pill_bg"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="18dp"
-                    android:paddingEnd="6dp">
+                <EditText
+                    android:id="@+id/inputMessage"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="@string/input_hint"
+                    android:textSize="15sp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_hint"
+                    android:background="@null"
+                    android:singleLine="true"
+                    android:inputType="text" />
 
-                    <EditText
-                        android:id="@+id/inputMessage"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:hint="@string/input_hint"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary"
-                        android:textColorHint="@color/text_hint"
-                        android:background="@null"
-                        android:singleLine="true"
-                        android:inputType="text" />
+                <FrameLayout
+                    android:id="@+id/btnSend"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/send_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
-                    <FrameLayout
-                        android:id="@+id/btnSend"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/send_btn_bg"
-                        android:clickable="true"
-                        android:focusable="true">
+                    <ImageView
+                        android:id="@+id/btnSendIcon"
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_send_arrow" />
 
-                        <ImageView
-                            android:id="@+id/btnSendIcon"
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_send_arrow" />
+                </FrameLayout>
 
-                    </FrameLayout>
+            </LinearLayout>
 
-                </LinearLayout>
+            <!-- Divisor fino -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.5dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:background="@color/divider" />
 
-            </FrameLayout>
-
+            <!-- Bottom nav tabs -->
             <LinearLayout
                 android:id="@+id/bottomNav"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:background="@color/background"
+                android:layout_height="52dp"
                 android:orientation="horizontal">
 
                 <FrameLayout
