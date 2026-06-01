@@ -93,6 +93,7 @@ class MainActiviy : BaseActivity() {
         binding.btnMenu.setOnClickListener {
             if (drawerOpen) closeDrawer() else openDrawer()
         }
+        // Scrim só interceta toques, sem cor nem alpha
         binding.drawerScrim.setOnClickListener { closeDrawer() }
 
         binding.drawerItemSettings.setOnClickListener {
@@ -129,6 +130,7 @@ class MainActiviy : BaseActivity() {
             addUpdateListener { anim ->
                 val value = anim.animatedValue as Float
                 binding.coordinatorLayout.translationX = value
+                // Sem escurecimento — só sombra via elevation
                 val progress = value / drawerWidth
                 binding.coordinatorLayout.elevation = 8f + (progress * 16f)
             }
