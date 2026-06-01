@@ -1,6 +1,7 @@
 package com.ipc.app.ui
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.PorterDuff
@@ -14,6 +15,7 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.ipc.app.MainActiviy
 import com.ipc.app.R
 
 class SettingsActivity : BaseActivity() {
@@ -84,7 +86,13 @@ class SettingsActivity : BaseActivity() {
                     else
                         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
                     dialog.dismiss()
-                    recreate()
+
+                    // Reinicia a MainActivity e limpa o back stack todo
+                    val intent = Intent(this, MainActiviy::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    }
+                    startActivity(intent)
+                    finish()
                 }
                 .show()
         }
@@ -98,7 +106,12 @@ class SettingsActivity : BaseActivity() {
                     val lang = if (which == 1) "en" else "pt"
                     prefs.edit().putString("language", lang).apply()
                     dialog.dismiss()
-                    recreate()
+
+                    val intent = Intent(this, MainActiviy::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    }
+                    startActivity(intent)
+                    finish()
                 }
                 .show()
         }
