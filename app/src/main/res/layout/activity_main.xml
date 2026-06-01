@@ -196,12 +196,14 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Imagem de preview (tab Preview) — ocupa todo o espaço de conteúdo -->
+        <!-- Imagem de preview (tab Preview) -->
         <ImageView
             android:id="@+id/previewImage"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
+            android:adjustViewBounds="true"
+            android:padding="24dp"
             android:visibility="gone"
             app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
@@ -254,7 +256,7 @@
             android:elevation="4dp"
             app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior">
 
-            <!-- Input row — esconde no tab Preview -->
+            <!-- Input row — anima para fora no tab Preview -->
             <LinearLayout
                 android:id="@+id/inputRow"
                 android:layout_width="match_parent"
@@ -297,7 +299,7 @@
 
             </LinearLayout>
 
-            <!-- Divisor fino — esconde no tab Preview -->
+            <!-- Divisor fino -->
             <View
                 android:id="@+id/inputDivider"
                 android:layout_width="match_parent"

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.PorterDuff
@@ -34,6 +35,7 @@ class MainActiviy : BaseActivity() {
 
     private var drawerOpen = false
     private var drawerAnimator: ValueAnimator? = null
+    private var inputAnimator: ValueAnimator? = null
     private var currentTab = R.id.tabChat
 
     private val activeIconColor: Int
@@ -68,14 +70,12 @@ class MainActiviy : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Aplica padding de status bar ao AppBar para não ficar sob a barra
         ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
             val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             v.updatePadding(top = statusBars.top)
             insets
         }
 
-        // Aplica padding de navigation bar ao bottomNavWrapper
         ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavWrapper) { v, insets ->
             val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             v.updatePadding(bottom = navBars.bottom)
@@ -173,27 +173,52 @@ class MainActiviy : BaseActivity() {
         showBottomNav()
     }
 
-    /**
-     * Preview tab: mostra imagem preview.png e esconde o input row.
-     * Chat tab: esconde a imagem e mostra o input row.
-     */
     private fun updateContentForTab() {
         val isPreview = currentTab == R.id.tabPreview
-        // Preview image (fullscreen, por baixo da bottom card)
+
+        // Preview image
         binding.previewImage.visibility = if (isPreview) View.VISIBLE else View.GONE
-        // Estado vazio do chat
-        binding.emptyState.visibility = if (isPreview) View.GONE else View.VISIBLE
-        // Input row — visível só no tab Chat
-        binding.inputRow.visibility = if (isPreview) View.GONE else View.VISIBLE
-        // Divisor entre input e tabs — visível só quando input está presente
-        binding.inputDivider.visibility = if (isPreview) View.GONE else View.VISIBLE
+        binding.emptyState.visibility   = if (isPreview) View.GONE else View.VISIBLE
+
+        // Input row: anima altura de 52dp→0 (esconder) ou 0→52dp (mostrar)
+        val targetHeightDp = if (isPreview) 0 else 52
+        val targetHeightPx = (targetHeightDp * resources.displayMetrics.density).toInt()
+        val currentHeightPx = binding.inputRow.height.takeIf { it > 0 }
+            ?: (52 * resources.displayMetrics.density).toInt()
+
+        inputAnimator?.cancel()
+        inputAnimator = ValueAnimator.ofInt(currentHeightPx, targetHeightPx).apply {
+            duration = 380
+            interpolator = DecelerateInterpolator(2f)
+            addUpdateListener { anim ->
+                val h = anim.animatedValue as Int
+                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
+                binding.inputRow.requestLayout()
+                // Divider acompanha opacidade
+                binding.inputDivider.alpha = h.toFloat() / (52 * resources.displayMetrics.density)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    binding.inputRow.visibility    = if (isPreview) View.GONE else View.VISIBLE
+                    binding.inputDivider.visibility = if (isPreview) View.GONE else View.VISIBLE
+                    // Reset alpha
+                    binding.inputDivider.alpha = 1f
+                }
+            })
+            start()
+        }
+
+        // Se está a mostrar, precisa de estar visível antes da animação começar
+        if (!isPreview) {
+            binding.inputRow.visibility     = View.VISIBLE
+            binding.inputDivider.visibility = View.VISIBLE
+        }
     }
 
     private fun setupPreviewImage() {
-        // Carrega preview.png de assets
         val bitmap = runCatching {
             assets.open("icons/png/preview.png").use {
-                android.graphics.BitmapFactory.decodeStream(it)
+                BitmapFactory.decodeStream(it)
             }
         }.getOrNull()
         if (bitmap != null) {
