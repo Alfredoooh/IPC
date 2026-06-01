@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="colorPrimary">#007AFF</color>
+  <color name="colorPrimaryDark">#0055B3</color>
+  <color name="colorAccent">#007AFF</color>
+  <color name="blue_apple">#007AFF</color>
+  <color name="red_badge">#FF453A</color>
+  
+  <color name="background">#2b2b2b</color>
+  <color name="background_dark">#2b2b2b</color>
+  <color name="splash_background_light">#2b2b2b</color>
+  <color name="splash_background_dark">#2b2b2b</color>
+  
+  <color name="appbar_background">#2b2b2b</color>
+  
+  <color name="bottom_nav_background">#3b3b3b</color>
+  <color name="bottom_nav_text_color">#007AFF</color>
+  
+  <color name="text_primary">#F2F2F2</color>
+  <color name="text_secondary">#939393</color>
+  <color name="text_hint">#6E6E6E</color>
+  <color name="text_link">#007AFF</color>
+  
+  <color name="drawer_background">#3b3b3b</color>
+  <color name="drawer_text">#F2F2F2</color>
+  
+  <color name="surface">#3b3b3b</color>
+  <color name="card_background">#3b3b3b</color>
+  
+  <color name="apps_section_background">#2b2b2b</color>
+  
+  <color name="popup_background">#3b3b3b</color>
+  <color name="popup_shadow">#28000000</color>
+  <color name="dialog_background">#3b3b3b</color>
+  
+  <color name="divider">#444444</color>
+  
+  <color name="settings_section_label">#939393</color>
+  
+  <color name="icon_tint">#F2F2F2</color>
+  <color name="icon_tint_secondary">#939393</color>
+  
+  <color name="input_background">#3b3b3b</color>
+  <color name="input_text">#F2F2F2</color>
+  <color name="input_hint">#6E6E6E</color>
+  <color name="cursor_color">#007AFF</color>
+  
+  <color name="search_input_fill">#3b3b3b</color>
+  
+  <color name="ripple_color">#1AF2F2F2</color>
+  
+  <color name="incognito_bg">#0D0D1A</color>
+  <color name="incognito_surface">#1A1A2E</color>
+  <color name="incognito_text">#FFFFFF</color>
+  <color name="ask_ai_pill_color">#3b3b3b</color>
+  <color name="compound_pill_color">#3b3b3b</color>
+  <color name="send_btn_color">#F2F2F2</color>
+  <color name="send_icon_color">#2b2b2b</color>
+</resources>

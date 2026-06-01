@@ -5,4 +5,6 @@
     <string name="notification_channel_desc">Mantém o IPC activo em segundo plano</string>
     <string name="input_hint">Pergunta algo...</string>
     <string name="empty_state_label">Começa uma conversa</string>
+    <string name="drawer_settings">Definições</string>
+    <string name="drawer_about">Sobre</string>
 </resources>

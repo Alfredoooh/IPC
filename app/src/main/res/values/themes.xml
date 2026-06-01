@@ -2,23 +2,31 @@
 <resources>
     <style name="Theme.IPC" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorOnPrimary">@android:color/black</item>
+        <item name="colorOnPrimary">@android:color/white</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/card_background</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorSurfaceContainerLow">@color/dialog_background</item>
+        <item name="colorSurfaceContainerHigh">@color/dialog_background</item>
+        <item name="colorSurfaceContainer">@color/dialog_background</item>
+        <item name="colorControlActivated">@color/colorPrimary</item>
+        <item name="colorControlHighlight">@color/ripple_color</item>
+        <item name="android:colorEdgeEffect">@color/colorPrimary</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="android:textColorHint">@color/text_hint</item>
         <item name="android:textCursorDrawable">@null</item>
         <item name="android:colorControlActivated">@color/cursor_color</item>
         <item name="android:statusBarColor">@color/appbar_background</item>
-        <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/bottom_nav_background</item>
         <item name="android:windowBackground">@color/background</item>
-        <item name="colorControlHighlight">@color/ripple_color</item>
     </style>
 
     <style name="Theme.IPC.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background_light</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_screen</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_background_light</item>
         <item name="postSplashScreenTheme">@style/Theme.IPC</item>
     </style>
 </resources>

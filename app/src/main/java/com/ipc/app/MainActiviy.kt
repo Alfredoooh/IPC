@@ -1,5 +1,7 @@
 package com.ipc.app
 
+import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -7,13 +9,16 @@ import android.graphics.PorterDuff
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.view.View
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.GravityCompat
 import com.caverock.androidsvg.SVG
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
+import java.util.Locale
 
 class MainActiviy : BaseActivity() {
 
@@ -22,10 +27,27 @@ class MainActiviy : BaseActivity() {
     private var currentTab = R.id.tabChat
 
     private val activeIconColor: Int
-        get() = Color.WHITE
+        get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
 
     private val inactiveIconColor: Int
-        get() = Color.parseColor("#666666")
+        get() = Color.parseColor("#888888")
+
+    override fun attachBaseContext(newBase: Context) {
+        val prefs = newBase.getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE)
+        when (prefs.getString("theme", "light")) {
+            "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            else   -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        }
+        val lang = prefs.getString("language", "") ?: ""
+        val base = if (lang.isNotEmpty()) {
+            val locale = Locale(lang)
+            Locale.setDefault(locale)
+            val config = Configuration(newBase.resources.configuration)
+            config.setLocale(locale)
+            newBase.createConfigurationContext(config)
+        } else newBase
+        super.attachBaseContext(base)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -33,20 +55,44 @@ class MainActiviy : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setupTopBar()
+        setupDrawer()
         setupBottomTabs()
     }
 
-    private fun setupTopBar() {
+    private fun setupDrawer() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
+        val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
+
         binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/menu.svg", 18, iconTint))
+        binding.btnMenu.setOnClickListener {
+            if (binding.drawerLayout.isDrawerOpen(GravityCompat.START))
+                binding.drawerLayout.closeDrawer(GravityCompat.START)
+            else
+                binding.drawerLayout.openDrawer(GravityCompat.START)
+        }
+
         binding.btnMore.setImageDrawable(svgDrawable("icons/svg/more_vertical.svg", 18, iconTint))
+
+        binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 16, iconTint))
+        binding.drawerIconAbout.setImageDrawable(svgDrawable("icons/svg/about.svg", 16, iconTint))
+        binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 14, iconSec))
+        binding.drawerChevronAbout.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 14, iconSec))
+
+        binding.drawerItemSettings.setOnClickListener {
+            binding.drawerLayout.closeDrawer(GravityCompat.START)
+        }
+        binding.drawerItemAbout.setOnClickListener {
+            binding.drawerLayout.closeDrawer(GravityCompat.START)
+        }
+
+        // Empty state icon
+        binding.emptyIcon.setImageDrawable(svgDrawable("icons/svg/hub.svg", 64,
+            ContextCompat.getColor(this, R.color.icon_tint_secondary)))
     }
 
     private fun setupBottomTabs() {
         refreshTabIcons()
-
-        binding.tabChat.setOnClickListener   { selectTab(R.id.tabChat) }
+        binding.tabChat.setOnClickListener    { selectTab(R.id.tabChat) }
         binding.tabPreview.setOnClickListener { selectTab(R.id.tabPreview) }
     }
 
@@ -79,6 +125,14 @@ class MainActiviy : BaseActivity() {
         super.onResume()
         refreshTabIcons()
         showBottomNav()
+    }
+
+    override fun onBackPressed() {
+        if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            binding.drawerLayout.closeDrawer(GravityCompat.START)
+            return
+        }
+        super.onBackPressed()
     }
 
     @Suppress("UNCHECKED_CAST")

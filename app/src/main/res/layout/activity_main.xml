@@ -1,244 +1,366 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+<androidx.drawerlayout.widget.DrawerLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawerLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:fitsSystemWindows="false">
 
-    <!-- AppBar -->
-    <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/appBarLayout"
+    <!-- Conteúdo principal -->
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/coordinatorLayout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/appbar_background"
-        android:fitsSystemWindows="true"
-        app:elevation="0dp"
-        app:liftOnScroll="false">
+        android:layout_height="match_parent">
 
-        <RelativeLayout
+        <!-- AppBar -->
+        <com.google.android.material.appbar.AppBarLayout
+            android:id="@+id/appBarLayout"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            app:layout_scrollFlags="scroll|enterAlways|snap">
+            android:layout_height="wrap_content"
+            android:background="@color/appbar_background"
+            android:fitsSystemWindows="true"
+            app:elevation="0dp"
+            app:liftOnScroll="false">
 
-            <!-- Esquerda: menu + dots -->
-            <LinearLayout
-                android:id="@+id/leftIcons"
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                app:layout_scrollFlags="scroll|enterAlways|snap">
+
+                <LinearLayout
+                    android:id="@+id/leftIcons"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_centerVertical="true"
+                    android:layout_alignParentStart="true">
+
+                    <ImageView
+                        android:id="@+id/btnMenu"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:padding="11dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                    <ImageView
+                        android:id="@+id/btnMore"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:padding="11dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/btnCompound"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_centerVertical="true"
+                    android:layout_alignParentEnd="true"
+                    android:layout_marginEnd="4dp"
+                    android:text="Compound"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:background="@drawable/compound_pill_bg"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </RelativeLayout>
+
+        </com.google.android.material.appbar.AppBarLayout>
+
+        <!-- Empty state -->
+        <LinearLayout
+            android:id="@+id/emptyState"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+            <ImageView
+                android:id="@+id/emptyIcon"
+                android:layout_width="64dp"
+                android:layout_height="64dp" />
+
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_centerVertical="true"
-                android:layout_alignParentStart="true">
+                android:layout_marginTop="14dp"
+                android:text="@string/empty_state_label"
+                android:textSize="15sp"
+                android:textColor="@color/text_hint" />
 
-                <ImageView
-                    android:id="@+id/btnMenu"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:padding="11dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:clickable="true"
-                    android:focusable="true" />
+        </LinearLayout>
 
-                <ImageView
-                    android:id="@+id/btnMore"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:padding="11dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:clickable="true"
-                    android:focusable="true" />
-
-            </LinearLayout>
-
-            <!-- Direita: botão "Compound" pill -->
-            <TextView
-                android:id="@+id/btnCompound"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:layout_centerVertical="true"
-                android:layout_alignParentEnd="true"
-                android:layout_marginEnd="4dp"
-                android:text="Compound"
-                android:textSize="13sp"
-                android:textColor="@color/text_secondary"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:background="@drawable/compound_pill_bg"
-                android:gravity="center"
-                android:clickable="true"
-                android:focusable="true" />
-
-        </RelativeLayout>
-
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <!-- Conteúdo central (empty state) -->
-    <LinearLayout
-        android:id="@+id/emptyState"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <ImageView
-            android:id="@+id/emptyIcon"
-            android:layout_width="64dp"
-            android:layout_height="64dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:text="Começa uma conversa"
-            android:textSize="15sp"
-            android:textColor="@color/text_hint" />
-
-    </LinearLayout>
-
-    <!-- Bottom: input + nav -->
-    <LinearLayout
-        android:id="@+id/bottomNavWrapper"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:orientation="vertical"
-        android:background="@color/background"
-        app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior">
-
-        <!-- Input pill -->
-        <FrameLayout
+        <!-- Bottom: input + nav -->
+        <LinearLayout
+            android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="4dp">
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:background="@color/background"
+            app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior">
 
-            <LinearLayout
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:background="@drawable/input_pill_bg"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="18dp"
-                android:paddingEnd="6dp">
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="4dp">
 
-                <EditText
-                    android:id="@+id/inputMessage"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="Pergunta algo..."
-                    android:textSize="15sp"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_hint"
-                    android:background="@null"
-                    android:singleLine="true"
-                    android:inputType="text" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:background="@drawable/input_pill_bg"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="18dp"
+                    android:paddingEnd="6dp">
+
+                    <EditText
+                        android:id="@+id/inputMessage"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="@string/input_hint"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_hint"
+                        android:background="@null"
+                        android:singleLine="true"
+                        android:inputType="text" />
+
+                    <FrameLayout
+                        android:id="@+id/btnSend"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/send_btn_bg"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/btnSendIcon"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_send_arrow" />
+
+                    </FrameLayout>
+
+                </LinearLayout>
+
+            </FrameLayout>
+
+            <!-- Bottom nav tabs -->
+            <LinearLayout
+                android:id="@+id/bottomNav"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="@color/background"
+                android:orientation="horizontal">
 
                 <FrameLayout
-                    android:id="@+id/btnSend"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="@drawable/send_btn_bg"
+                    android:id="@+id/tabChat"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="?attr/selectableItemBackgroundBorderless"
                     android:clickable="true"
                     android:focusable="true">
 
-                    <ImageView
-                        android:id="@+id/btnSendIcon"
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:src="@drawable/ic_send_arrow" />
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <ImageView
+                            android:id="@+id/tabChatIcon"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp" />
+
+                        <TextView
+                            android:id="@+id/tabChatLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Chat"
+                            android:textSize="10sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
+
+                    </LinearLayout>
+
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/tabPreview"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:orientation="vertical"
+                        android:gravity="center">
+
+                        <ImageView
+                            android:id="@+id/tabPreviewIcon"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp" />
+
+                        <TextView
+                            android:id="@+id/tabPreviewLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Preview"
+                            android:textSize="10sp"
+                            android:textColor="@color/text_secondary" />
+
+                    </LinearLayout>
 
                 </FrameLayout>
 
             </LinearLayout>
 
-        </FrameLayout>
+        </LinearLayout>
 
-        <!-- Bottom nav tabs -->
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <!-- Drawer — lado ESQUERDO -->
+    <LinearLayout
+        android:id="@+id/drawerContainer"
+        android:layout_width="260dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:orientation="vertical"
+        android:background="@color/drawer_background"
+        android:fitsSystemWindows="true">
+
         <LinearLayout
-            android:id="@+id/bottomNav"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:background="@color/background"
-            android:orientation="horizontal">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="40dp"
+            android:paddingBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="IPC"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/drawer_text" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0.5dp"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:background="@color/divider" />
+
+        <LinearLayout
+            android:id="@+id/drawerItemSettings"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:background="?attr/selectableItemBackground">
 
             <FrameLayout
-                android:id="@+id/tabChat"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true">
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/drawer_icon_bg"
+                android:layout_marginEnd="16dp">
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:orientation="vertical"
-                    android:gravity="center">
-
-                    <ImageView
-                        android:id="@+id/tabChatIcon"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp" />
-
-                    <TextView
-                        android:id="@+id/tabChatLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Chat"
-                        android:textSize="10sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
-
-                </LinearLayout>
+                <ImageView
+                    android:id="@+id/drawerIconSettings"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center" />
 
             </FrameLayout>
 
-            <FrameLayout
-                android:id="@+id/tabPreview"
+            <TextView
                 android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true">
+                android:text="@string/drawer_settings"
+                android:textSize="15sp"
+                android:textColor="@color/drawer_text" />
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:orientation="vertical"
-                    android:gravity="center">
+            <ImageView
+                android:id="@+id/drawerChevronSettings"
+                android:layout_width="14dp"
+                android:layout_height="14dp" />
 
-                    <ImageView
-                        android:id="@+id/tabPreviewIcon"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp" />
+        </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/tabPreviewLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Preview"
-                        android:textSize="10sp"
-                        android:textColor="@color/text_secondary" />
+        <LinearLayout
+            android:id="@+id/drawerItemAbout"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:background="?attr/selectableItemBackground">
 
-                </LinearLayout>
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/drawer_icon_bg"
+                android:layout_marginEnd="16dp">
+
+                <ImageView
+                    android:id="@+id/drawerIconAbout"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center" />
 
             </FrameLayout>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/drawer_about"
+                android:textSize="15sp"
+                android:textColor="@color/drawer_text" />
+
+            <ImageView
+                android:id="@+id/drawerChevronAbout"
+                android:layout_width="14dp"
+                android:layout_height="14dp" />
 
         </LinearLayout>
 
     </LinearLayout>
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+</androidx.drawerlayout.widget.DrawerLayout>
