@@ -3,6 +3,7 @@ package com.ipc.app.ui
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
@@ -12,20 +13,40 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.updatePadding
 import com.caverock.androidsvg.SVG
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.ipc.app.R
+import com.ipc.app.databinding.ActivitySettingsBinding
 
 class SettingsActivity : BaseActivity() {
 
+    private lateinit var binding: ActivitySettingsBinding
     private val prefs by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Impede que a activity anterior fique escura
         window.setDimAmount(0f)
-        setContentView(R.layout.activity_settings)
+        binding = ActivitySettingsBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        // Edge-to-edge: a app desenha por baixo das system bars
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+
+        // Status bar padding
+        ViewCompat.setOnApplyWindowInsetsListener(binding.toolbar) { v, insets ->
+            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            v.updatePadding(top = statusBars.top)
+            insets
+        }
 
         setupIcons()
         setupActions()
@@ -35,63 +56,53 @@ class SettingsActivity : BaseActivity() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
 
-        findViewById<ImageView>(R.id.btnBack)
-            .setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 16, iconTint))
-        findViewById<ImageView>(R.id.iconTheme)
-            .setImageDrawable(svgDrawable("icons/svg/appearance.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconLanguage)
-            .setImageDrawable(svgDrawable("icons/svg/language.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconPrivacy)
-            .setImageDrawable(svgDrawable("icons/svg/privacy.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconNotifications)
-            .setImageDrawable(svgDrawable("icons/svg/notifications.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconAbout)
-            .setImageDrawable(svgDrawable("icons/svg/about.svg", 14, iconTint))
+        binding.btnBack.setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 16, iconTint))
+        binding.iconTheme.setImageDrawable(svgDrawable("icons/svg/appearance.svg", 14, iconTint))
+        binding.iconLanguage.setImageDrawable(svgDrawable("icons/svg/language.svg", 14, iconTint))
+        binding.iconPrivacy.setImageDrawable(svgDrawable("icons/svg/privacy.svg", 14, iconTint))
+        binding.iconNotifications.setImageDrawable(svgDrawable("icons/svg/notifications.svg", 14, iconTint))
+        binding.iconAbout.setImageDrawable(svgDrawable("icons/svg/about.svg", 14, iconTint))
 
-        listOf(R.id.chevronTheme, R.id.chevronLanguage, R.id.chevronPrivacy, R.id.chevronAbout).forEach {
-            findViewById<ImageView>(it)
-                .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-        }
-
-        val currentTheme = prefs.getString("theme", "light")
-        findViewById<TextView>(R.id.labelTheme).text =
-            if (currentTheme == "dark") "Escuro" else "Claro"
-
-        val currentLang = prefs.getString("language", "pt")
-        findViewById<TextView>(R.id.labelLanguage).text =
-            when (currentLang) {
-                "en" -> "English"
-                else -> "Português"
+        listOf(binding.chevronTheme, binding.chevronLanguage, binding.chevronPrivacy, binding.chevronAbout)
+            .forEach {
+                it.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
             }
 
-        val version = packageManager.getPackageInfo(packageName, 0).versionName
-        findViewById<TextView>(R.id.labelVersion).text = version
+        val currentTheme = prefs.getString("theme", "light")
+        binding.labelTheme.text = if (currentTheme == "dark") "Escuro" else "Claro"
 
-        val switchNotif = findViewById<SwitchCompat>(R.id.switchNotifications)
-        switchNotif.isChecked = prefs.getBoolean("notifications", true)
+        val currentLang = prefs.getString("language", "pt")
+        binding.labelLanguage.text = when (currentLang) {
+            "en" -> "English"
+            else -> "Português"
+        }
+
+        val version = packageManager.getPackageInfo(packageName, 0).versionName
+        binding.labelVersion.text = version
+
+        binding.switchNotifications.isChecked = prefs.getBoolean("notifications", true)
     }
 
     private fun setupActions() {
-        findViewById<ImageView>(R.id.btnBack).setOnClickListener { onBackPressed() }
+        binding.btnBack.setOnClickListener { onBackPressed() }
 
-        findViewById<View>(R.id.itemTheme).setOnClickListener {
+        binding.itemTheme.setOnClickListener {
             showThemeBottomSheet()
         }
 
-        findViewById<View>(R.id.itemLanguage).setOnClickListener {
+        binding.itemLanguage.setOnClickListener {
             showLanguageBottomSheet()
         }
 
-        val switchNotif = findViewById<SwitchCompat>(R.id.switchNotifications)
-        switchNotif.setOnCheckedChangeListener { _, isChecked ->
+        binding.switchNotifications.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("notifications", isChecked).apply()
         }
-        findViewById<View>(R.id.itemNotifications).setOnClickListener {
-            switchNotif.toggle()
+        binding.itemNotifications.setOnClickListener {
+            binding.switchNotifications.toggle()
         }
 
-        findViewById<View>(R.id.itemPrivacy).setOnClickListener { }
-        findViewById<View>(R.id.itemAbout).setOnClickListener { }
+        binding.itemPrivacy.setOnClickListener { }
+        binding.itemAbout.setOnClickListener { }
     }
 
     private fun showThemeBottomSheet() {
