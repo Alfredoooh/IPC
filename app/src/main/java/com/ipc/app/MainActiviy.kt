@@ -18,6 +18,7 @@ import android.text.TextWatcher
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -39,10 +40,13 @@ class MainActiviy : BaseActivity() {
     private var drawerOpen = false
     private var drawerAnimator: ValueAnimator? = null
     private var sendBtnAnimator: ValueAnimator? = null
+    private var inputRowAnimator: ValueAnimator? = null
     private var sendBtnVisible = false
+    private var inputRowVisible = true
+    private var inputRowHeight = 0
     private var currentTab = R.id.tabChat
 
-    // Swipe-to-open drawer
+    // Swipe drawer
     private var swipeStartX = 0f
     private var swipeStartY = 0f
     private var isSwipingDrawer = false
@@ -84,36 +88,41 @@ class MainActiviy : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Status bar padding no AppBar
+        // Status bar padding
         ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
             val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             v.updatePadding(top = statusBars.top)
             insets
         }
 
-        // Teclado sobe/desce o bottomNavWrapper suavemente
+        // ── Teclado sobe/desce o bottomNavWrapper suavemente ──────────────
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
+            val targetTY   = -extraShift.toFloat()
 
-            val imeHeight = imeInsets.bottom
-            val navHeight = navInsets.bottom
-            val extraShift = (imeHeight - navHeight).coerceAtLeast(0)
-
-            val targetTY = -extraShift.toFloat()
             binding.bottomNavWrapper.animate()
                 .translationY(targetTY)
-                .setDuration(220)
-                .setInterpolator(DecelerateInterpolator(1.4f))
+                .setDuration(260)
+                .setInterpolator(DecelerateInterpolator(1.6f))
                 .start()
 
-            binding.bottomNavWrapper.updatePadding(bottom = if (extraShift == 0) navHeight else 0)
-
+            binding.bottomNavWrapper.updatePadding(
+                bottom = if (extraShift == 0) navInsets.bottom else 0
+            )
             insets
         }
 
         binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
             it.width = drawerWidth
+        }
+
+        // Guarda a altura real do inputRow depois de medido
+        binding.inputRow.post {
+            if (inputRowHeight == 0) {
+                inputRowHeight = binding.inputRow.height
+            }
         }
 
         setupIcons()
@@ -137,9 +146,68 @@ class MainActiviy : BaseActivity() {
         binding.drawerChevronAbout.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
 
         binding.emptyIcon.setImageDrawable(svgDrawable("icons/svg/chat.svg", 58, iconSec))
+        binding.btnPullIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 16, iconTint))
+    }
 
-        // Ícone add.svg no botão Pull pill
-        binding.btnPullIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 14, iconTint))
+    // ── Animação suave do inputRow (sobe/desce com altura) ─────────────────
+    private fun showInputRow() {
+        if (inputRowVisible) return
+        inputRowVisible = true
+
+        // Garante que sabemos a altura
+        val targetH = if (inputRowHeight > 0) inputRowHeight else {
+            binding.inputRow.measure(
+                View.MeasureSpec.makeMeasureSpec(binding.inputRow.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            binding.inputRow.measuredHeight.also { inputRowHeight = it }
+        }
+
+        binding.inputRow.visibility = View.VISIBLE
+        inputRowAnimator?.cancel()
+        inputRowAnimator = ValueAnimator.ofInt(0, targetH).apply {
+            duration = 280
+            interpolator = DecelerateInterpolator(1.5f)
+            addUpdateListener { anim ->
+                binding.inputRow.layoutParams =
+                    binding.inputRow.layoutParams.also { it.height = anim.animatedValue as Int }
+                binding.inputRow.alpha = (anim.animatedValue as Int).toFloat() / targetH
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    binding.inputRow.layoutParams =
+                        binding.inputRow.layoutParams.also {
+                            it.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                        }
+                    binding.inputRow.alpha = 1f
+                }
+            })
+            start()
+        }
+    }
+
+    private fun hideInputRow() {
+        if (!inputRowVisible) return
+        inputRowVisible = false
+
+        val fromH = if (inputRowHeight > 0) inputRowHeight else binding.inputRow.height
+        inputRowAnimator?.cancel()
+        inputRowAnimator = ValueAnimator.ofInt(fromH, 0).apply {
+            duration = 240
+            interpolator = DecelerateInterpolator(1.5f)
+            addUpdateListener { anim ->
+                binding.inputRow.layoutParams =
+                    binding.inputRow.layoutParams.also { it.height = anim.animatedValue as Int }
+                binding.inputRow.alpha = (anim.animatedValue as Int).toFloat() / fromH
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    binding.inputRow.visibility = View.GONE
+                    binding.inputRow.alpha = 1f
+                }
+            })
+            start()
+        }
     }
 
     private fun setupInput() {
@@ -192,8 +260,9 @@ class MainActiviy : BaseActivity() {
         }
     }
 
+    // ── Swipe edge-to-open drawer ──────────────────────────────────────────
     private fun setupSwipeDrawer() {
-        val edgePx = SWIPE_EDGE_WIDTH * density
+        val edgePx    = SWIPE_EDGE_WIDTH * density
         val minDistPx = SWIPE_MIN_DIST * density
 
         binding.coordinatorLayout.setOnTouchListener { _, event ->
@@ -209,15 +278,16 @@ class MainActiviy : BaseActivity() {
                         val dx = event.rawX - swipeStartX
                         val dy = event.rawY - swipeStartY
                         if (kotlin.math.abs(dx) > kotlin.math.abs(dy) && dx > 0) {
-                            binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
+                            binding.coordinatorLayout.translationX =
+                                dx.coerceAtMost(drawerWidth.toFloat())
                             binding.drawerScrim.visibility = View.VISIBLE
                             true
                         } else false
                     } else if (drawerOpen) {
                         val dx = event.rawX - swipeStartX
                         if (dx < 0) {
-                            val newX = (drawerWidth + dx).coerceAtLeast(0f)
-                            binding.coordinatorLayout.translationX = newX
+                            binding.coordinatorLayout.translationX =
+                                (drawerWidth + dx).coerceAtLeast(0f)
                             true
                         } else false
                     } else false
@@ -228,20 +298,15 @@ class MainActiviy : BaseActivity() {
                         isSwipingDrawer = false
                         if (dx > minDistPx) {
                             drawerOpen = true
-                            animateDrawer(
-                                from = binding.coordinatorLayout.translationX,
-                                to = drawerWidth.toFloat()
-                            )
+                            animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat())
                         } else {
-                            animateDrawer(
-                                from = binding.coordinatorLayout.translationX,
-                                to = 0f
-                            ) { binding.drawerScrim.visibility = View.GONE }
+                            animateDrawer(binding.coordinatorLayout.translationX, 0f) {
+                                binding.drawerScrim.visibility = View.GONE
+                            }
                         }
                         true
                     } else if (drawerOpen && dx < -minDistPx) {
-                        closeDrawer()
-                        true
+                        closeDrawer(); true
                     } else false
                 }
                 else -> false
@@ -262,7 +327,6 @@ class MainActiviy : BaseActivity() {
                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
-
         binding.drawerItemAbout.setOnClickListener { closeDrawer() }
     }
 
@@ -270,13 +334,13 @@ class MainActiviy : BaseActivity() {
         if (drawerOpen) return
         drawerOpen = true
         binding.drawerScrim.visibility = View.VISIBLE
-        animateDrawer(from = binding.coordinatorLayout.translationX, to = drawerWidth.toFloat())
+        animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat())
     }
 
     private fun closeDrawer() {
         if (!drawerOpen) return
         drawerOpen = false
-        animateDrawer(from = binding.coordinatorLayout.translationX, to = 0f) {
+        animateDrawer(binding.coordinatorLayout.translationX, 0f) {
             binding.drawerScrim.visibility = View.GONE
         }
     }
@@ -287,14 +351,12 @@ class MainActiviy : BaseActivity() {
             duration = 300
             interpolator = DecelerateInterpolator(1.8f)
             addUpdateListener { anim ->
-                val value = anim.animatedValue as Float
-                binding.coordinatorLayout.translationX = value
-                binding.coordinatorLayout.elevation = 8f + ((value / drawerWidth) * 16f)
+                val v = anim.animatedValue as Float
+                binding.coordinatorLayout.translationX = v
+                binding.coordinatorLayout.elevation = 8f + ((v / drawerWidth) * 16f)
             }
             addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    onEnd?.invoke()
-                }
+                override fun onAnimationEnd(animation: Animator) { onEnd?.invoke() }
             })
             start()
         }
@@ -308,21 +370,16 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun showPullBottomSheet() {
-        val sheet = BottomSheetDialog(this)
+        val sheet = BottomSheetDialog(this, R.style.FloatingBottomSheet)
         val view  = layoutInflater.inflate(R.layout.bottom_sheet_pull, null)
-
         sheet.setContentView(view)
         sheet.behavior.apply {
             skipCollapsed = true
             state = BottomSheetBehavior.STATE_EXPANDED
+            isFitToContents = true
         }
 
-        // Fundo branco puro com cantos curvos
-        sheet.window?.findViewById<View>(
-            com.google.android.material.R.id.design_bottom_sheet
-        )?.background = ContextCompat.getDrawable(this, R.drawable.pull_sheet_bg)
-
-        // Ícones nas opções
+        // Ícones
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         view.findViewById<android.widget.ImageView>(R.id.pullIconImport)
             .setImageDrawable(svgDrawable("icons/svg/download.svg", 16, iconTint))
@@ -345,14 +402,14 @@ class MainActiviy : BaseActivity() {
         val isPreview = currentTab == R.id.tabPreview
         binding.previewState.visibility = if (isPreview) View.VISIBLE else View.GONE
         binding.emptyState.visibility   = if (isPreview) View.GONE   else View.VISIBLE
-        binding.inputRow.visibility     = if (isPreview) View.GONE   else View.VISIBLE
+
+        // Anima suavemente em vez de visibility abrupto
+        if (isPreview) hideInputRow() else showInputRow()
     }
 
     private fun setupPreviewImage() {
         val bitmap = runCatching {
-            assets.open("icons/png/preview.png").use {
-                BitmapFactory.decodeStream(it)
-            }
+            assets.open("icons/png/preview.png").use { BitmapFactory.decodeStream(it) }
         }.getOrNull()
         if (bitmap != null) binding.previewImage.setImageBitmap(bitmap)
         binding.previewState.visibility = View.GONE
@@ -386,10 +443,7 @@ class MainActiviy : BaseActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (drawerOpen) {
-            closeDrawer()
-            return
-        }
+        if (drawerOpen) { closeDrawer(); return }
         super.onBackPressed()
     }
 

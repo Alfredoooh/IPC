@@ -277,7 +277,6 @@
             android:focusable="true" />
 
         <!-- Bottom card: input + nav juntos -->
-        <!-- Sem HideBottomViewOnScrollBehavior — gerido manualmente via insets -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
@@ -290,7 +289,7 @@
             android:background="@drawable/bottom_card_bg"
             android:elevation="4dp">
 
-            <!-- Input row -->
+            <!-- Input row — anima altura suavemente -->
             <LinearLayout
                 android:id="@+id/inputRow"
                 android:layout_width="match_parent"
@@ -386,7 +385,7 @@
 
                 </FrameLayout>
 
-                <!-- Botão Pull central — pill idêntico ao Compound -->
+                <!-- Botão central — pill só com ícone add -->
                 <FrameLayout
                     android:id="@+id/btnPull"
                     android:layout_width="0dp"
@@ -396,30 +395,19 @@
                     android:clickable="true"
                     android:focusable="true">
 
-                    <LinearLayout
-                        android:layout_width="wrap_content"
+                    <FrameLayout
+                        android:layout_width="40dp"
                         android:layout_height="32dp"
                         android:layout_gravity="center"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
                         android:background="@drawable/compound_pill_bg">
 
                         <ImageView
                             android:id="@+id/btnPullIcon"
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:layout_marginEnd="6dp" />
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_gravity="center" />
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Pull"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary" />
-
-                    </LinearLayout>
+                    </FrameLayout>
 
                 </FrameLayout>
 
