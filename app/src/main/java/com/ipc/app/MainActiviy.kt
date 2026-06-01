@@ -13,6 +13,8 @@ import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.appcompat.app.AppCompatDelegate
@@ -35,8 +37,9 @@ class MainActiviy : BaseActivity() {
 
     private var drawerOpen = false
     private var drawerAnimator: ValueAnimator? = null
-    private var inputAnimator: ValueAnimator? = null
+    private var sendBtnAnimator: ValueAnimator? = null
     private var currentTab = R.id.tabChat
+    private var sendBtnVisible = false
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -70,12 +73,15 @@ class MainActiviy : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Status bar padding
         ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
             val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             v.updatePadding(top = statusBars.top)
             insets
         }
 
+        // Bottom nav sobe com o teclado via adjustResize no manifest
+        // Padding extra para navigation bar
         ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavWrapper) { v, insets ->
             val navBars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             v.updatePadding(bottom = navBars.bottom)
@@ -90,6 +96,7 @@ class MainActiviy : BaseActivity() {
         setupDrawer()
         setupBottomTabs()
         setupPreviewImage()
+        setupInput()
     }
 
     private fun setupIcons() {
@@ -107,6 +114,56 @@ class MainActiviy : BaseActivity() {
         binding.emptyIcon.setImageDrawable(svgDrawable("icons/svg/chat.svg", 58, iconSec))
     }
 
+    private fun setupInput() {
+        binding.inputMessage.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val hasText = !s.isNullOrBlank()
+                if (hasText && !sendBtnVisible) showSendBtn()
+                else if (!hasText && sendBtnVisible) hideSendBtn()
+            }
+        })
+    }
+
+    private fun showSendBtn() {
+        sendBtnVisible = true
+        binding.btnSend.visibility = View.VISIBLE
+        sendBtnAnimator?.cancel()
+        sendBtnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 180
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                val v = anim.animatedValue as Float
+                binding.btnSend.alpha = v
+                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
+                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
+            }
+            start()
+        }
+    }
+
+    private fun hideSendBtn() {
+        sendBtnVisible = false
+        sendBtnAnimator?.cancel()
+        sendBtnAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = 150
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                val v = anim.animatedValue as Float
+                binding.btnSend.alpha = v
+                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
+                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    binding.btnSend.visibility = View.GONE
+                }
+            })
+            start()
+        }
+    }
+
     private fun setupDrawer() {
         binding.btnMenu.setOnClickListener {
             if (drawerOpen) closeDrawer() else openDrawer()
@@ -117,6 +174,7 @@ class MainActiviy : BaseActivity() {
             closeDrawer()
             binding.root.postDelayed({
                 startActivity(Intent(this, SettingsActivity::class.java))
+                // Sem overridePendingTransition de escurecimento — slide simples
                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
@@ -163,6 +221,18 @@ class MainActiviy : BaseActivity() {
         refreshTabIcons()
         binding.tabChat.setOnClickListener    { selectTab(R.id.tabChat) }
         binding.tabPreview.setOnClickListener { selectTab(R.id.tabPreview) }
+        binding.btnPull.setOnClickListener    { showPullBottomSheet() }
+    }
+
+    private fun showPullBottomSheet() {
+        val sheet = com.google.android.material.bottomsheet.BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.bottom_sheet_pull, null)
+        sheet.setContentView(view)
+        sheet.behavior.apply {
+            skipCollapsed = true
+            state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+        }
+        sheet.show()
     }
 
     private fun selectTab(tabId: Int) {
@@ -176,43 +246,9 @@ class MainActiviy : BaseActivity() {
     private fun updateContentForTab() {
         val isPreview = currentTab == R.id.tabPreview
 
-        // Preview image
-        binding.previewImage.visibility = if (isPreview) View.VISIBLE else View.GONE
+        binding.previewState.visibility = if (isPreview) View.VISIBLE else View.GONE
         binding.emptyState.visibility   = if (isPreview) View.GONE else View.VISIBLE
-
-        // Input row: anima altura de 52dp→0 (esconder) ou 0→52dp (mostrar)
-        val targetHeightDp = if (isPreview) 0 else 52
-        val targetHeightPx = (targetHeightDp * resources.displayMetrics.density).toInt()
-        val currentHeightPx = binding.inputRow.height.takeIf { it > 0 }
-            ?: (52 * resources.displayMetrics.density).toInt()
-
-        inputAnimator?.cancel()
-        inputAnimator = ValueAnimator.ofInt(currentHeightPx, targetHeightPx).apply {
-            duration = 380
-            interpolator = DecelerateInterpolator(2f)
-            addUpdateListener { anim ->
-                val h = anim.animatedValue as Int
-                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
-                binding.inputRow.requestLayout()
-                // Divider acompanha opacidade
-                binding.inputDivider.alpha = h.toFloat() / (52 * resources.displayMetrics.density)
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    binding.inputRow.visibility    = if (isPreview) View.GONE else View.VISIBLE
-                    binding.inputDivider.visibility = if (isPreview) View.GONE else View.VISIBLE
-                    // Reset alpha
-                    binding.inputDivider.alpha = 1f
-                }
-            })
-            start()
-        }
-
-        // Se está a mostrar, precisa de estar visível antes da animação começar
-        if (!isPreview) {
-            binding.inputRow.visibility     = View.VISIBLE
-            binding.inputDivider.visibility = View.VISIBLE
-        }
+        binding.inputRow.visibility     = if (isPreview) View.GONE else View.VISIBLE
     }
 
     private fun setupPreviewImage() {
@@ -224,7 +260,7 @@ class MainActiviy : BaseActivity() {
         if (bitmap != null) {
             binding.previewImage.setImageBitmap(bitmap)
         }
-        binding.previewImage.visibility = View.GONE
+        binding.previewState.visibility = View.GONE
     }
 
     private fun refreshTabIcons() {

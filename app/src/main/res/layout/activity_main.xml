@@ -196,16 +196,50 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Imagem de preview (tab Preview) -->
-        <ImageView
-            android:id="@+id/previewImage"
+        <!-- Preview tab content -->
+        <LinearLayout
+            android:id="@+id/previewState"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="fitCenter"
-            android:adjustViewBounds="true"
-            android:padding="24dp"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingTop="80dp"
+            android:paddingBottom="140dp"
+            android:paddingStart="32dp"
+            android:paddingEnd="32dp"
             android:visibility="gone"
-            app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+            app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+            <ImageView
+                android:id="@+id/previewImage"
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true" />
+
+            <TextView
+                android:id="@+id/previewTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Resultado da Análise"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/previewSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="O output da sua consulta será apresentado aqui. Inicia uma conversa no separador Chat para ver os resultados."
+                android:textSize="14sp"
+                android:textColor="@color/text_hint"
+                android:gravity="center"
+                android:lineSpacingMultiplier="1.4" />
+
+        </LinearLayout>
 
         <!-- Empty state (tab Chat) -->
         <LinearLayout
@@ -256,37 +290,48 @@
             android:elevation="4dp"
             app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior">
 
-            <!-- Input row — anima para fora no tab Preview -->
+            <!-- Input row — expansível verticalmente -->
             <LinearLayout
                 android:id="@+id/inputRow"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
+                android:gravity="bottom"
                 android:paddingStart="18dp"
                 android:paddingEnd="8dp"
-                android:paddingTop="8dp">
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:minHeight="52dp">
 
                 <EditText
                     android:id="@+id/inputMessage"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:layout_gravity="center_vertical"
                     android:hint="@string/input_hint"
                     android:textSize="15sp"
                     android:textColor="@color/text_primary"
                     android:textColorHint="@color/text_hint"
                     android:background="@null"
-                    android:singleLine="true"
-                    android:inputType="text" />
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:minLines="1"
+                    android:maxLines="5"
+                    android:scrollbars="vertical"
+                    android:gravity="center_vertical" />
 
+                <!-- Botão enviar — visível só quando há texto -->
                 <FrameLayout
                     android:id="@+id/btnSend"
                     android:layout_width="36dp"
                     android:layout_height="36dp"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="2dp"
                     android:background="@drawable/send_btn_bg"
                     android:clickable="true"
-                    android:focusable="true">
+                    android:focusable="true"
+                    android:visibility="gone"
+                    android:alpha="0">
 
                     <ImageView
                         android:id="@+id/btnSendIcon"
@@ -299,22 +344,14 @@
 
             </LinearLayout>
 
-            <!-- Divisor fino -->
-            <View
-                android:id="@+id/inputDivider"
-                android:layout_width="match_parent"
-                android:layout_height="0.5dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:background="@color/divider" />
-
-            <!-- Bottom nav tabs — sempre visível -->
+            <!-- Bottom nav tabs -->
             <LinearLayout
                 android:id="@+id/bottomNav"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:orientation="horizontal">
 
+                <!-- Tab Chat -->
                 <FrameLayout
                     android:id="@+id/tabChat"
                     android:layout_width="0dp"
@@ -350,6 +387,36 @@
 
                 </FrameLayout>
 
+                <!-- Botão Pull central -->
+                <FrameLayout
+                    android:id="@+id/btnPull"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/pull_btn_bg">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="+"
+                            android:textSize="22sp"
+                            android:textColor="@color/background"
+                            android:includeFontPadding="false" />
+
+                    </FrameLayout>
+
+                </FrameLayout>
+
+                <!-- Tab Preview -->
                 <FrameLayout
                     android:id="@+id/tabPreview"
                     android:layout_width="0dp"

@@ -13,7 +13,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.ipc.app.R
 
 class SettingsActivity : BaseActivity() {
@@ -22,6 +23,8 @@ class SettingsActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Impede que a activity anterior fique escura
+        window.setDimAmount(0f)
         setContentView(R.layout.activity_settings)
 
         setupIcons()
@@ -72,35 +75,11 @@ class SettingsActivity : BaseActivity() {
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { onBackPressed() }
 
         findViewById<View>(R.id.itemTheme).setOnClickListener {
-            val options = arrayOf("Claro", "Escuro")
-            val current = if (prefs.getString("theme", "light") == "dark") 1 else 0
-            MaterialAlertDialogBuilder(this)
-                .setTitle("Tema")
-                .setSingleChoiceItems(options, current) { dialog, which ->
-                    val theme = if (which == 1) "dark" else "light"
-                    prefs.edit().putString("theme", theme).apply()
-                    if (which == 1)
-                        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-                    else
-                        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-                    dialog.dismiss()
-                    recreate()
-                }
-                .show()
+            showThemeBottomSheet()
         }
 
         findViewById<View>(R.id.itemLanguage).setOnClickListener {
-            val options = arrayOf("Português", "English")
-            val current = if (prefs.getString("language", "pt") == "en") 1 else 0
-            MaterialAlertDialogBuilder(this)
-                .setTitle("Idioma")
-                .setSingleChoiceItems(options, current) { dialog, which ->
-                    val lang = if (which == 1) "en" else "pt"
-                    prefs.edit().putString("language", lang).apply()
-                    dialog.dismiss()
-                    recreate()
-                }
-                .show()
+            showLanguageBottomSheet()
         }
 
         val switchNotif = findViewById<SwitchCompat>(R.id.switchNotifications)
@@ -113,6 +92,65 @@ class SettingsActivity : BaseActivity() {
 
         findViewById<View>(R.id.itemPrivacy).setOnClickListener { }
         findViewById<View>(R.id.itemAbout).setOnClickListener { }
+    }
+
+    private fun showThemeBottomSheet() {
+        val sheet = BottomSheetDialog(this)
+        val view  = layoutInflater.inflate(R.layout.bottom_sheet_theme, null)
+        sheet.setContentView(view)
+        sheet.behavior.skipCollapsed = true
+        sheet.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+
+        val currentTheme = prefs.getString("theme", "light")
+
+        view.findViewById<View>(R.id.optionLight).setOnClickListener {
+            prefs.edit().putString("theme", "light").apply()
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            sheet.dismiss()
+            recreate()
+        }
+        view.findViewById<View>(R.id.optionDark).setOnClickListener {
+            prefs.edit().putString("theme", "dark").apply()
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            sheet.dismiss()
+            recreate()
+        }
+
+        // Marca a opção atual
+        view.findViewById<ImageView>(R.id.checkLight).visibility =
+            if (currentTheme != "dark") View.VISIBLE else View.INVISIBLE
+        view.findViewById<ImageView>(R.id.checkDark).visibility =
+            if (currentTheme == "dark") View.VISIBLE else View.INVISIBLE
+
+        sheet.show()
+    }
+
+    private fun showLanguageBottomSheet() {
+        val sheet = BottomSheetDialog(this)
+        val view  = layoutInflater.inflate(R.layout.bottom_sheet_language, null)
+        sheet.setContentView(view)
+        sheet.behavior.skipCollapsed = true
+        sheet.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+
+        val currentLang = prefs.getString("language", "pt")
+
+        view.findViewById<View>(R.id.optionPt).setOnClickListener {
+            prefs.edit().putString("language", "pt").apply()
+            sheet.dismiss()
+            recreate()
+        }
+        view.findViewById<View>(R.id.optionEn).setOnClickListener {
+            prefs.edit().putString("language", "en").apply()
+            sheet.dismiss()
+            recreate()
+        }
+
+        view.findViewById<ImageView>(R.id.checkPt).visibility =
+            if (currentLang != "en") View.VISIBLE else View.INVISIBLE
+        view.findViewById<ImageView>(R.id.checkEn).visibility =
+            if (currentLang == "en") View.VISIBLE else View.INVISIBLE
+
+        sheet.show()
     }
 
     @Deprecated("Deprecated in Java")
