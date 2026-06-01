@@ -10,7 +10,7 @@
     <!-- Drawer lado esquerdo -->
     <LinearLayout
         android:id="@+id/drawerContainer"
-        android:layout_width="75%"
+        android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:orientation="vertical"
@@ -146,7 +146,6 @@
                 android:paddingEnd="8dp"
                 app:layout_scrollFlags="scroll|enterAlways|snap">
 
-                <!-- Esquerda: só o menu -->
                 <ImageView
                     android:id="@+id/btnMenu"
                     android:layout_width="40dp"
@@ -158,7 +157,6 @@
                     android:clickable="true"
                     android:focusable="true" />
 
-                <!-- Direita: more_vertical + compound -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -196,7 +194,6 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Empty state -->
         <LinearLayout
             android:id="@+id/emptyState"
             android:layout_width="match_parent"
@@ -220,7 +217,6 @@
 
         </LinearLayout>
 
-        <!-- Scrim -->
         <View
             android:id="@+id/drawerScrim"
             android:layout_width="match_parent"
@@ -231,7 +227,6 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- Bottom: input + nav -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"

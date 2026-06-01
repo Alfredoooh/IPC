@@ -63,6 +63,10 @@ class MainActiviy : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
+            it.width = drawerWidth
+        }
+
         setupIcons()
         setupDrawer()
         setupBottomTabs()
