@@ -20,12 +20,13 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.caverock.androidsvg.SVG
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
 import com.ipc.app.ui.SettingsActivity
@@ -45,8 +46,8 @@ class MainActiviy : BaseActivity() {
     private var swipeStartX = 0f
     private var swipeStartY = 0f
     private var isSwipingDrawer = false
-    private val SWIPE_EDGE_WIDTH = 40f  // dp da borda esquerda que activa o swipe
-    private val SWIPE_MIN_DIST = 30f    // dp mínimos para considerar swipe horizontal
+    private val SWIPE_EDGE_WIDTH = 40f
+    private val SWIPE_MIN_DIST = 30f
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -78,7 +79,7 @@ class MainActiviy : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        androidx.core.splashscreen.SplashScreen.installSplashScreen(this)
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -90,20 +91,15 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
-        // ── Teclado sobe/desce o bottomNavWrapper suavemente ──────────────────
-        // O CoordinatorLayout recebe os insets e anima translationY do wrapper
+        // Teclado sobe/desce o bottomNavWrapper suavemente
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
 
-            // Quando o teclado está visível, imeInsets.bottom > navInsets.bottom
             val imeHeight = imeInsets.bottom
             val navHeight = navInsets.bottom
-
-            // translação extra = o quanto o teclado ultrapassa a nav bar
             val extraShift = (imeHeight - navHeight).coerceAtLeast(0)
 
-            // Anima suavemente
             val targetTY = -extraShift.toFloat()
             binding.bottomNavWrapper.animate()
                 .translationY(targetTY)
@@ -111,7 +107,6 @@ class MainActiviy : BaseActivity() {
                 .setInterpolator(DecelerateInterpolator(1.4f))
                 .start()
 
-            // padding bottom da nav bar quando teclado está fechado
             binding.bottomNavWrapper.updatePadding(bottom = if (extraShift == 0) navHeight else 0)
 
             insets
@@ -197,7 +192,6 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ── Swipe edge-to-open drawer ─────────────────────────────────────────────
     private fun setupSwipeDrawer() {
         val edgePx = SWIPE_EDGE_WIDTH * density
         val minDistPx = SWIPE_MIN_DIST * density
@@ -215,8 +209,6 @@ class MainActiviy : BaseActivity() {
                         val dx = event.rawX - swipeStartX
                         val dy = event.rawY - swipeStartY
                         if (kotlin.math.abs(dx) > kotlin.math.abs(dy) && dx > 0) {
-                            // Acompanha o dedo
-                            val progress = (dx / drawerWidth).coerceIn(0f, 1f)
                             binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
                             binding.drawerScrim.visibility = View.VISIBLE
                             true
@@ -235,14 +227,12 @@ class MainActiviy : BaseActivity() {
                     if (isSwipingDrawer) {
                         isSwipingDrawer = false
                         if (dx > minDistPx) {
-                            // Confirma abertura
                             drawerOpen = true
                             animateDrawer(
                                 from = binding.coordinatorLayout.translationX,
                                 to = drawerWidth.toFloat()
                             )
                         } else {
-                            // Cancela, fecha
                             animateDrawer(
                                 from = binding.coordinatorLayout.translationX,
                                 to = 0f
@@ -321,14 +311,13 @@ class MainActiviy : BaseActivity() {
         val sheet = BottomSheetDialog(this)
         val view  = layoutInflater.inflate(R.layout.bottom_sheet_pull, null)
 
-        // Fundo branco puro com cantos curvos
         sheet.setContentView(view)
         sheet.behavior.apply {
             skipCollapsed = true
             state = BottomSheetBehavior.STATE_EXPANDED
         }
 
-        // Força o fundo do container do BottomSheetDialog a ser branco puro
+        // Fundo branco puro com cantos curvos
         sheet.window?.findViewById<View>(
             com.google.android.material.R.id.design_bottom_sheet
         )?.background = ContextCompat.getDrawable(this, R.drawable.pull_sheet_bg)
