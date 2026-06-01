@@ -1,5 +1,8 @@
 package com.ipc.app
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -9,11 +12,11 @@ import android.graphics.PorterDuff
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.core.view.GravityCompat
 import com.caverock.androidsvg.SVG
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.ipc.app.databinding.ActivityMainBinding
@@ -24,6 +27,8 @@ class MainActiviy : BaseActivity() {
 
     lateinit var binding: ActivityMainBinding
 
+    private var drawerOpen = false
+    private var drawerAnimator: ValueAnimator? = null
     private var currentTab = R.id.tabChat
 
     private val activeIconColor: Int
@@ -31,6 +36,9 @@ class MainActiviy : BaseActivity() {
 
     private val inactiveIconColor: Int
         get() = Color.parseColor("#888888")
+
+    private val drawerWidth: Int
+        get() = (resources.displayMetrics.widthPixels * 0.75f).toInt()
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE)
@@ -55,39 +63,68 @@ class MainActiviy : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        setupIcons()
         setupDrawer()
         setupBottomTabs()
     }
 
-    private fun setupDrawer() {
+    private fun setupIcons() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
 
-        binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/menu.svg", 18, iconTint))
+        binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
+        binding.btnMore.setImageDrawable(svgDrawable("icons/svg/more_vertical.svg", 16, iconTint))
+
+        binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
+        binding.drawerIconAbout.setImageDrawable(svgDrawable("icons/svg/about.svg", 14, iconTint))
+        binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
+        binding.drawerChevronAbout.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
+
+        binding.emptyIcon.setImageDrawable(svgDrawable("icons/svg/chat.svg", 58, iconSec))
+    }
+
+    private fun setupDrawer() {
         binding.btnMenu.setOnClickListener {
-            if (binding.drawerLayout.isDrawerOpen(GravityCompat.START))
-                binding.drawerLayout.closeDrawer(GravityCompat.START)
-            else
-                binding.drawerLayout.openDrawer(GravityCompat.START)
+            if (drawerOpen) closeDrawer() else openDrawer()
         }
+        binding.drawerScrim.setOnClickListener { closeDrawer() }
+        binding.drawerItemSettings.setOnClickListener { closeDrawer() }
+        binding.drawerItemAbout.setOnClickListener { closeDrawer() }
+    }
 
-        binding.btnMore.setImageDrawable(svgDrawable("icons/svg/more_vertical.svg", 18, iconTint))
+    private fun openDrawer() {
+        if (drawerOpen) return
+        drawerOpen = true
+        binding.drawerScrim.visibility = View.VISIBLE
+        animateDrawer(from = binding.coordinatorLayout.translationX, to = drawerWidth.toFloat())
+    }
 
-        binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 16, iconTint))
-        binding.drawerIconAbout.setImageDrawable(svgDrawable("icons/svg/about.svg", 16, iconTint))
-        binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 14, iconSec))
-        binding.drawerChevronAbout.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 14, iconSec))
-
-        binding.drawerItemSettings.setOnClickListener {
-            binding.drawerLayout.closeDrawer(GravityCompat.START)
+    private fun closeDrawer() {
+        if (!drawerOpen) return
+        drawerOpen = false
+        animateDrawer(from = binding.coordinatorLayout.translationX, to = 0f) {
+            binding.drawerScrim.visibility = View.GONE
         }
-        binding.drawerItemAbout.setOnClickListener {
-            binding.drawerLayout.closeDrawer(GravityCompat.START)
-        }
+    }
 
-        // Empty state icon
-        binding.emptyIcon.setImageDrawable(svgDrawable("icons/svg/hub.svg", 64,
-            ContextCompat.getColor(this, R.color.icon_tint_secondary)))
+    private fun animateDrawer(from: Float, to: Float, onEnd: (() -> Unit)? = null) {
+        drawerAnimator?.cancel()
+        drawerAnimator = ValueAnimator.ofFloat(from, to).apply {
+            duration = 300
+            interpolator = DecelerateInterpolator(1.8f)
+            addUpdateListener { anim ->
+                val value = anim.animatedValue as Float
+                binding.coordinatorLayout.translationX = value
+                val progress = value / drawerWidth
+                binding.drawerScrim.alpha = progress * 0.4f
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    onEnd?.invoke()
+                }
+            })
+            start()
+        }
     }
 
     private fun setupBottomTabs() {
@@ -109,16 +146,19 @@ class MainActiviy : BaseActivity() {
 
         binding.tabChatIcon.setImageDrawable(
             if (currentTab == R.id.tabChat)
-                svgDrawable("icons/svg/hub_filled.svg", 24, active)
+                svgDrawable("icons/svg/chat_filled.svg", 22, active)
             else
-                svgDrawable("icons/svg/hub.svg", 24, inactive)
+                svgDrawable("icons/svg/chat.svg", 22, inactive)
         )
         binding.tabChatLabel.setTextColor(if (currentTab == R.id.tabChat) active else inactive)
 
         binding.tabPreviewIcon.setImageDrawable(
-            svgDrawable("icons/svg/side_panel.svg", 24, inactive)
+            if (currentTab == R.id.tabPreview)
+                svgDrawable("icons/svg/preview_filled.svg", 22, active)
+            else
+                svgDrawable("icons/svg/preview.svg", 22, inactive)
         )
-        binding.tabPreviewLabel.setTextColor(inactive)
+        binding.tabPreviewLabel.setTextColor(if (currentTab == R.id.tabPreview) active else inactive)
     }
 
     override fun onResume() {
@@ -127,9 +167,10 @@ class MainActiviy : BaseActivity() {
         showBottomNav()
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
-            binding.drawerLayout.closeDrawer(GravityCompat.START)
+        if (drawerOpen) {
+            closeDrawer()
             return
         }
         super.onBackPressed()
