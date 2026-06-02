@@ -30,6 +30,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
 import com.ipc.app.ui.SettingsActivity
+import java.util.Calendar
 import java.util.Locale
 
 class MainActiviy : BaseActivity() {
@@ -122,6 +123,7 @@ class MainActiviy : BaseActivity() {
         setupSwipeDrawer()
         setupBottomTabs()
         setupPreviewImage()
+        setupChatHeader()
         setupInput()
     }
 
@@ -134,11 +136,35 @@ class MainActiviy : BaseActivity() {
         binding.btnPullIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 16, iconTint))
 
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
-        binding.drawerIconAbout.setImageDrawable(svgDrawable("icons/svg/about.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-        binding.drawerChevronAbout.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
+    }
 
-        binding.emptyIcon.setImageDrawable(svgDrawable("icons/svg/chat.svg", 58, iconSec))
+    private fun setupChatHeader() {
+        // Logo
+        val logoBitmap = runCatching {
+            assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
+        }.getOrNull()
+        if (logoBitmap != null) binding.chatLogo.setImageBitmap(logoBitmap)
+
+        // Saudação baseada na hora
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val greeting = when {
+            hour < 12 -> "Bom dia! ☀️"
+            hour < 18 -> "Boa tarde! 🌤️"
+            else      -> "Boa noite! 🌙"
+        }
+
+        val subGreetings = listOf(
+            "Em que estás a pensar?",
+            "Como posso ajudar-te hoje?",
+            "O que tens em mente?",
+            "Pergunta o que quiseres.",
+            "Pronto para te ajudar!"
+        )
+        val subGreeting = subGreetings.random()
+
+        binding.chatGreeting.text = greeting
+        binding.chatSubGreeting.text = subGreeting
     }
 
     private fun showInputRow() {
@@ -197,6 +223,9 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun setupInput() {
+        // Auto-grow suave: o EditText já é multiline com maxLines=5,
+        // mas limitamos o container a crescer com animação via TextWatcher
+        var lastLineCount = 1
         binding.inputMessage.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -204,6 +233,16 @@ class MainActiviy : BaseActivity() {
                 val hasText = !s.isNullOrBlank()
                 if (hasText && !sendBtnVisible) showSendBtn()
                 else if (!hasText && sendBtnVisible) hideSendBtn()
+
+                // Smooth grow ao mudar número de linhas
+                val newLineCount = binding.inputMessage.lineCount
+                if (newLineCount != lastLineCount) {
+                    lastLineCount = newLineCount
+                    binding.inputMessage.animate()
+                        .setDuration(120)
+                        .setInterpolator(DecelerateInterpolator(1.2f))
+                        .start()
+                }
             }
         })
     }
@@ -309,7 +348,6 @@ class MainActiviy : BaseActivity() {
                 overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
-        binding.drawerItemAbout.setOnClickListener { closeDrawer() }
     }
 
     private fun openDrawer() {
@@ -418,6 +456,7 @@ class MainActiviy : BaseActivity() {
     override fun onResume() {
         super.onResume()
         refreshTabIcons()
+        setupChatHeader() // atualiza saudação ao voltar
     }
 
     @Deprecated("Deprecated in Java")

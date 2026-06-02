@@ -44,6 +44,7 @@
             android:layout_marginBottom="4dp"
             android:background="@color/divider" />
 
+        <!-- Apenas Definições, Sobre removido -->
         <LinearLayout
             android:id="@+id/drawerItemSettings"
             android:layout_width="match_parent"
@@ -78,45 +79,6 @@
 
             <ImageView
                 android:id="@+id/drawerChevronSettings"
-                android:layout_width="13dp"
-                android:layout_height="13dp" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/drawerItemAbout"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:background="?attr/selectableItemBackground">
-
-            <FrameLayout
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:background="@drawable/drawer_icon_bg"
-                android:layout_marginEnd="16dp">
-
-                <ImageView
-                    android:id="@+id/drawerIconAbout"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_gravity="center" />
-
-            </FrameLayout>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/drawer_about"
-                android:textSize="15sp"
-                android:textColor="@color/drawer_text" />
-
-            <ImageView
-                android:id="@+id/drawerChevronAbout"
                 android:layout_width="13dp"
                 android:layout_height="13dp" />
 
@@ -160,7 +122,6 @@
                     android:clickable="true"
                     android:focusable="true" />
 
-                <!-- Botão + circular no lugar do Compound -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -246,27 +207,59 @@
 
         </LinearLayout>
 
-        <!-- Empty state (tab Chat) -->
+        <!-- Empty state (tab Chat) com gradiente azul, logo e saudação -->
         <LinearLayout
             android:id="@+id/emptyState"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:gravity="center"
+            android:gravity="center_horizontal"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-            <ImageView
-                android:id="@+id/emptyIcon"
-                android:layout_width="58dp"
-                android:layout_height="58dp" />
+            <!-- Zona superior com gradiente azul -->
+            <LinearLayout
+                android:id="@+id/chatHeaderGradient"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center_horizontal|top"
+                android:paddingTop="40dp"
+                android:paddingStart="32dp"
+                android:paddingEnd="32dp"
+                android:background="@drawable/chat_gradient_bg">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="@string/empty_state_label"
-                android:textSize="15sp"
-                android:textColor="@color/text_hint" />
+                <!-- Logo no centro topo -->
+                <ImageView
+                    android:id="@+id/chatLogo"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:scaleType="fitCenter"
+                    android:adjustViewBounds="true" />
+
+                <!-- Saudação -->
+                <TextView
+                    android:id="@+id/chatGreeting"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:gravity="center" />
+
+                <!-- Subtítulo tipo "Em que estás a pensar?" -->
+                <TextView
+                    android:id="@+id/chatSubGreeting"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textSize="15sp"
+                    android:textColor="#CCE8FF"
+                    android:gravity="center"
+                    android:lineSpacingMultiplier="1.4" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
@@ -347,7 +340,7 @@
 
             </LinearLayout>
 
-            <!-- Bottom nav — só 2 tabs, sem botão central -->
+            <!-- Bottom nav — 2 tabs sem gradiente -->
             <LinearLayout
                 android:id="@+id/bottomNav"
                 android:layout_width="match_parent"

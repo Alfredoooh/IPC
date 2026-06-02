@@ -256,7 +256,7 @@
                     android:textSize="15sp"
                     android:textColor="@color/text_primary" />
 
-                <androidx.appcompat.widget.SwitchCompat
+                <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switchNotifications"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />

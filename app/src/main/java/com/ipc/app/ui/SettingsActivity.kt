@@ -1,6 +1,5 @@
 package com.ipc.app.ui
 
-import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -11,9 +10,10 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.ipc.app.R
 
 class SettingsActivity : BaseActivity() {
@@ -63,7 +63,7 @@ class SettingsActivity : BaseActivity() {
         }.getOrDefault("—")
         findViewById<TextView>(R.id.labelVersion).text = version
 
-        val switchNotif = findViewById<SwitchCompat>(R.id.switchNotifications)
+        val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
         switchNotif.isChecked = prefs.getBoolean("notifications", true)
     }
 
@@ -73,7 +73,7 @@ class SettingsActivity : BaseActivity() {
         findViewById<View>(R.id.itemTheme).setOnClickListener { showThemeDialog() }
         findViewById<View>(R.id.itemLanguage).setOnClickListener { showLanguageDialog() }
 
-        val switchNotif = findViewById<SwitchCompat>(R.id.switchNotifications)
+        val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
         switchNotif.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("notifications", isChecked).apply()
         }
@@ -87,7 +87,7 @@ class SettingsActivity : BaseActivity() {
         val options = arrayOf("Claro", "Escuro")
         val selected = if (currentTheme == "dark") 1 else 0
 
-        AlertDialog.Builder(this, R.style.IpcAlertDialog)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Tema")
             .setSingleChoiceItems(options, selected) { dialog, which ->
                 val theme = if (which == 1) "dark" else "light"
@@ -107,7 +107,7 @@ class SettingsActivity : BaseActivity() {
         val options = arrayOf("Português", "English")
         val selected = if (currentLang == "en") 1 else 0
 
-        AlertDialog.Builder(this, R.style.IpcAlertDialog)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Idioma")
             .setSingleChoiceItems(options, selected) { dialog, which ->
                 val lang = if (which == 1) "en" else "pt"
