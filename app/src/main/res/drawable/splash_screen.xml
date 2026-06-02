@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android" android:opacity="opaque">
-    <item android:drawable="@color/splash_background_light" />
-    <item><bitmap android:src="@drawable/splash_icon" android:gravity="center" /></item>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:drawable="@color/splash_background_light"
+        android:gravity="fill" />
+    <item
+        android:top="25%"
+        android:bottom="25%"
+        android:left="25%"
+        android:right="25%">
+        <bitmap
+            android:src="@drawable/splash_icon"
+            android:gravity="center"
+            android:scaleType="fitCenter" />
+    </item>
 </layer-list>
