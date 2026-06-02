@@ -56,4 +56,8 @@
     <color name="compound_pill_color">#EBEBEB</color>
     <color name="send_btn_color">#000000</color>
     <color name="send_icon_color">#FFFFFF</color>
+    
+    <!-- Gradiente azul fundo -->
+    <color name="gradient_blue_top">#E8F1FF</color>
+    <color name="gradient_blue_bottom">#FFFFFF</color>
 </resources>

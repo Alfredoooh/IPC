@@ -256,78 +256,11 @@
                     android:textSize="15sp"
                     android:textColor="@color/text_primary" />
 
+                <!-- Switch M3 -->
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switchNotifications"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
-
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="0.5dp"
-                android:layout_marginStart="24dp"
-                android:layout_marginEnd="24dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="24dp"
-                android:background="@color/divider" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Sobre"
-                android:textSize="12sp"
-                android:textAllCaps="true"
-                android:textColor="@color/settings_section_label"
-                android:paddingStart="24dp"
-                android:paddingBottom="8dp" />
-
-            <LinearLayout
-                android:id="@+id/itemAbout"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="24dp"
-                android:paddingEnd="24dp"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true">
-
-                <FrameLayout
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@drawable/drawer_icon_bg"
-                    android:layout_marginEnd="16dp">
-
-                    <ImageView
-                        android:id="@+id/iconAbout"
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
-                        android:layout_gravity="center" />
-
-                </FrameLayout>
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/drawer_about"
-                    android:textSize="15sp"
-                    android:textColor="@color/text_primary" />
-
-                <TextView
-                    android:id="@+id/labelVersion"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_secondary"
-                    android:layout_marginEnd="8dp" />
-
-                <ImageView
-                    android:id="@+id/chevronAbout"
-                    android:layout_width="13dp"
-                    android:layout_height="13dp" />
 
             </LinearLayout>
 

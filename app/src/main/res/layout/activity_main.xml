@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/drawer_background">
 
-    <!-- Drawer lado esquerdo -->
+    <!-- Drawer -->
     <LinearLayout
         android:id="@+id/drawerContainer"
         android:layout_width="match_parent"
@@ -44,7 +44,7 @@
             android:layout_marginBottom="4dp"
             android:background="@color/divider" />
 
-        <!-- Apenas Definições, Sobre removido -->
+        <!-- Só Settings, sem Sobre -->
         <LinearLayout
             android:id="@+id/drawerItemSettings"
             android:layout_width="match_parent"
@@ -91,7 +91,7 @@
         android:id="@+id/coordinatorLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/background"
+        android:background="@drawable/bg_gradient_blue"
         android:elevation="8dp"
         android:outlineProvider="bounds">
 
@@ -99,7 +99,7 @@
             android:id="@+id/appBarLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/appbar_background"
+            android:background="@android:color/transparent"
             android:fitsSystemWindows="false"
             app:elevation="0dp"
             app:liftOnScroll="false">
@@ -162,7 +162,7 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Preview tab content -->
+        <!-- Preview tab -->
         <LinearLayout
             android:id="@+id/previewState"
             android:layout_width="match_parent"
@@ -199,7 +199,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="O output da sua consulta será apresentado aqui. Inicia uma conversa no separador Chat para ver os resultados."
+                android:text="O output da sua consulta será apresentado aqui."
                 android:textSize="14sp"
                 android:textColor="@color/text_hint"
                 android:gravity="center"
@@ -207,59 +207,44 @@
 
         </LinearLayout>
 
-        <!-- Empty state (tab Chat) com gradiente azul, logo e saudação -->
+        <!-- Empty state (Chat) — logo + saudação -->
         <LinearLayout
             android:id="@+id/emptyState"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:gravity="center_horizontal"
+            android:gravity="center"
+            android:paddingBottom="120dp"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-            <!-- Zona superior com gradiente azul -->
-            <LinearLayout
-                android:id="@+id/chatHeaderGradient"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center_horizontal|top"
-                android:paddingTop="40dp"
-                android:paddingStart="32dp"
-                android:paddingEnd="32dp"
-                android:background="@drawable/chat_gradient_bg">
+            <!-- Logo centrado no topo da área -->
+            <ImageView
+                android:id="@+id/emptyLogo"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true" />
 
-                <!-- Logo no centro topo -->
-                <ImageView
-                    android:id="@+id/chatLogo"
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
-                    android:scaleType="fitCenter"
-                    android:adjustViewBounds="true" />
+            <!-- Saudação dinâmica -->
+            <TextView
+                android:id="@+id/emptyGreeting"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:gravity="center" />
 
-                <!-- Saudação -->
-                <TextView
-                    android:id="@+id/chatGreeting"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFFFF"
-                    android:gravity="center" />
-
-                <!-- Subtítulo tipo "Em que estás a pensar?" -->
-                <TextView
-                    android:id="@+id/chatSubGreeting"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textSize="15sp"
-                    android:textColor="#CCE8FF"
-                    android:gravity="center"
-                    android:lineSpacingMultiplier="1.4" />
-
-            </LinearLayout>
+            <!-- Subtítulo -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Em que estás a pensar?"
+                android:textSize="15sp"
+                android:textColor="@color/text_secondary"
+                android:gravity="center" />
 
         </LinearLayout>
 
@@ -269,12 +254,11 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@android:color/transparent"
-            android:alpha="1"
             android:visibility="gone"
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- Bottom card: input + nav -->
+        <!-- Bottom card -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
@@ -340,12 +324,13 @@
 
             </LinearLayout>
 
-            <!-- Bottom nav — 2 tabs sem gradiente -->
+            <!-- Bottom nav -->
             <LinearLayout
                 android:id="@+id/bottomNav"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:background="@color/background">
 
                 <FrameLayout
                     android:id="@+id/tabChat"

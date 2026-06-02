@@ -118,13 +118,31 @@ class MainActiviy : BaseActivity() {
             if (inputRowHeight == 0) inputRowHeight = binding.inputRow.height
         }
 
+        setupLogo()
+        setupGreeting()
         setupIcons()
         setupDrawer()
         setupSwipeDrawer()
         setupBottomTabs()
         setupPreviewImage()
-        setupChatHeader()
         setupInput()
+    }
+
+    private fun setupLogo() {
+        runCatching {
+            val bmp = assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
+            binding.emptyLogo.setImageBitmap(bmp)
+        }
+    }
+
+    private fun setupGreeting() {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val greeting = when {
+            hour < 12 -> "Bom dia 👋"
+            hour < 18 -> "Boa tarde 👋"
+            else      -> "Boa noite 👋"
+        }
+        binding.emptyGreeting.text = greeting
     }
 
     private fun setupIcons() {
@@ -139,33 +157,10 @@ class MainActiviy : BaseActivity() {
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
     }
 
-    private fun setupChatHeader() {
-        // Logo
-        val logoBitmap = runCatching {
-            assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
-        }.getOrNull()
-        if (logoBitmap != null) binding.chatLogo.setImageBitmap(logoBitmap)
-
-        // Saudação baseada na hora
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val greeting = when {
-            hour < 12 -> "Bom dia! ☀️"
-            hour < 18 -> "Boa tarde! 🌤️"
-            else      -> "Boa noite! 🌙"
-        }
-
-        val subGreetings = listOf(
-            "Em que estás a pensar?",
-            "Como posso ajudar-te hoje?",
-            "O que tens em mente?",
-            "Pergunta o que quiseres.",
-            "Pronto para te ajudar!"
-        )
-        val subGreeting = subGreetings.random()
-
-        binding.chatGreeting.text = greeting
-        binding.chatSubGreeting.text = subGreeting
-    }
+    // ── Input cresce suavemente ────────────────────────────────────────────
+    // O EditText já cresce sozinho com wrap_content + maxLines=5.
+    // O wrapper inputRow também é wrap_content — portanto cresce pixel a pixel
+    // conforme o conteúdo. Só precisamos de animar a transição ao mudar de tab.
 
     private fun showInputRow() {
         if (inputRowVisible) return
@@ -184,14 +179,16 @@ class MainActiviy : BaseActivity() {
             interpolator = DecelerateInterpolator(1.5f)
             addUpdateListener { anim ->
                 val h = anim.animatedValue as Int
-                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
+                binding.inputRow.layoutParams =
+                    binding.inputRow.layoutParams.also { it.height = h }
                 binding.inputRow.alpha = h.toFloat() / targetH
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
-                    binding.inputRow.layoutParams = binding.inputRow.layoutParams.also {
-                        it.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-                    }
+                    binding.inputRow.layoutParams =
+                        binding.inputRow.layoutParams.also {
+                            it.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                        }
                     binding.inputRow.alpha = 1f
                 }
             })
@@ -209,7 +206,8 @@ class MainActiviy : BaseActivity() {
             interpolator = DecelerateInterpolator(1.5f)
             addUpdateListener { anim ->
                 val h = anim.animatedValue as Int
-                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
+                binding.inputRow.layoutParams =
+                    binding.inputRow.layoutParams.also { it.height = h }
                 binding.inputRow.alpha = h.toFloat() / fromH
             }
             addListener(object : AnimatorListenerAdapter() {
@@ -223,9 +221,6 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun setupInput() {
-        // Auto-grow suave: o EditText já é multiline com maxLines=5,
-        // mas limitamos o container a crescer com animação via TextWatcher
-        var lastLineCount = 1
         binding.inputMessage.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -233,16 +228,6 @@ class MainActiviy : BaseActivity() {
                 val hasText = !s.isNullOrBlank()
                 if (hasText && !sendBtnVisible) showSendBtn()
                 else if (!hasText && sendBtnVisible) hideSendBtn()
-
-                // Smooth grow ao mudar número de linhas
-                val newLineCount = binding.inputMessage.lineCount
-                if (newLineCount != lastLineCount) {
-                    lastLineCount = newLineCount
-                    binding.inputMessage.animate()
-                        .setDuration(120)
-                        .setInterpolator(DecelerateInterpolator(1.2f))
-                        .start()
-                }
             }
         })
     }
@@ -302,14 +287,16 @@ class MainActiviy : BaseActivity() {
                         val dx = event.rawX - swipeStartX
                         val dy = event.rawY - swipeStartY
                         if (kotlin.math.abs(dx) > kotlin.math.abs(dy) && dx > 0) {
-                            binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
+                            binding.coordinatorLayout.translationX =
+                                dx.coerceAtMost(drawerWidth.toFloat())
                             binding.drawerScrim.visibility = View.VISIBLE
                             true
                         } else false
                     } else if (drawerOpen) {
                         val dx = event.rawX - swipeStartX
                         if (dx < 0) {
-                            binding.coordinatorLayout.translationX = (drawerWidth + dx).coerceAtLeast(0f)
+                            binding.coordinatorLayout.translationX =
+                                (drawerWidth + dx).coerceAtLeast(0f)
                             true
                         } else false
                     } else false
@@ -456,7 +443,6 @@ class MainActiviy : BaseActivity() {
     override fun onResume() {
         super.onResume()
         refreshTabIcons()
-        setupChatHeader() // atualiza saudação ao voltar
     }
 
     @Deprecated("Deprecated in Java")
