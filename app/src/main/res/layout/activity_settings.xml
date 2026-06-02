@@ -5,17 +5,14 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/background"
-    android:fitsSystemWindows="false">
+    android:fitsSystemWindows="true">
 
-    <!-- Toolbar — padding top aplicado via código para status bar transparente -->
     <RelativeLayout
         android:id="@+id/settingsToolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="?attr/actionBarSize"
+        android:layout_height="?attr/actionBarSize"
         android:paddingStart="4dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="8dp"
         android:background="@color/appbar_background">
 
         <ImageView
@@ -23,7 +20,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:padding="11dp"
-            android:layout_alignParentBottom="true"
+            android:layout_centerVertical="true"
             android:layout_alignParentStart="true"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
@@ -32,9 +29,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerHorizontal="true"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom="10dp"
+            android:layout_centerInParent="true"
             android:text="@string/drawer_settings"
             android:textSize="17sp"
             android:textStyle="bold"

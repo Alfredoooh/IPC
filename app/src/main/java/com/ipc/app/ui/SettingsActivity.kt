@@ -7,16 +7,12 @@ import android.graphics.Canvas
 import android.graphics.PorterDuff
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import com.caverock.androidsvg.SVG
 import com.ipc.app.R
 
@@ -26,16 +22,7 @@ class SettingsActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.setDimAmount(0f)
         setContentView(R.layout.activity_settings)
-
-        // Empurra toolbar para baixo do status bar transparente
-        val toolbar = findViewById<View>(R.id.settingsToolbar)
-        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { v, insets ->
-            val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-            v.updatePadding(top = statusBar.top)
-            insets
-        }
 
         setupIcons()
         setupActions()
