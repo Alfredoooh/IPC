@@ -155,6 +155,15 @@ class MainActiviy : BaseActivity() {
 
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
+
+        runCatching {
+            val bmp = assets.open("icons/png/coin.png").use { BitmapFactory.decodeStream(it) }
+            binding.btnCoin.setImageBitmap(bmp)
+        }
+
+        binding.btnCoin.setOnClickListener {
+            startActivity(Intent(this, MyCoinActivity::class.java))
+        }
     }
 
     private fun showInputRow() {
