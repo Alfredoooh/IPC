@@ -157,11 +157,6 @@ class MainActiviy : BaseActivity() {
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
     }
 
-    // ── Input cresce suavemente ────────────────────────────────────────────
-    // O EditText já cresce sozinho com wrap_content + maxLines=5.
-    // O wrapper inputRow também é wrap_content — portanto cresce pixel a pixel
-    // conforme o conteúdo. Só precisamos de animar a transição ao mudar de tab.
-
     private fun showInputRow() {
         if (inputRowVisible) return
         inputRowVisible = true
