@@ -1,6 +1,5 @@
 package com.ipc.app.ui
 
-import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -11,9 +10,10 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.ipc.app.R
 
 class SettingsActivity : BaseActivity() {
@@ -23,7 +23,6 @@ class SettingsActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
-
         setupIcons()
         setupActions()
     }
@@ -42,10 +41,8 @@ class SettingsActivity : BaseActivity() {
             .setImageDrawable(svgDrawable("icons/svg/privacy.svg", 14, iconTint))
         findViewById<ImageView>(R.id.iconNotifications)
             .setImageDrawable(svgDrawable("icons/svg/notifications.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconAbout)
-            .setImageDrawable(svgDrawable("icons/svg/about.svg", 14, iconTint))
 
-        listOf(R.id.chevronTheme, R.id.chevronLanguage, R.id.chevronPrivacy, R.id.chevronAbout).forEach {
+        listOf(R.id.chevronTheme, R.id.chevronLanguage, R.id.chevronPrivacy).forEach {
             findViewById<ImageView>(it)
                 .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
         }
@@ -58,28 +55,21 @@ class SettingsActivity : BaseActivity() {
         findViewById<TextView>(R.id.labelLanguage).text =
             when (currentLang) { "en" -> "English"; else -> "Português" }
 
-        val version = runCatching {
-            packageManager.getPackageInfo(packageName, 0).versionName
-        }.getOrDefault("—")
-        findViewById<TextView>(R.id.labelVersion).text = version
-
-        val switchNotif = findViewById<SwitchCompat>(R.id.switchNotifications)
+        val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
         switchNotif.isChecked = prefs.getBoolean("notifications", true)
     }
 
     private fun setupActions() {
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { onBackPressed() }
-
         findViewById<View>(R.id.itemTheme).setOnClickListener { showThemeDialog() }
         findViewById<View>(R.id.itemLanguage).setOnClickListener { showLanguageDialog() }
 
-        val switchNotif = findViewById<SwitchCompat>(R.id.switchNotifications)
+        val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
         switchNotif.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("notifications", isChecked).apply()
         }
         findViewById<View>(R.id.itemNotifications).setOnClickListener { switchNotif.toggle() }
         findViewById<View>(R.id.itemPrivacy).setOnClickListener { }
-        findViewById<View>(R.id.itemAbout).setOnClickListener { }
     }
 
     private fun showThemeDialog() {
@@ -87,11 +77,10 @@ class SettingsActivity : BaseActivity() {
         val options = arrayOf("Claro", "Escuro")
         val selected = if (currentTheme == "dark") 1 else 0
 
-        AlertDialog.Builder(this, R.style.IpcAlertDialog)
+        MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
             .setTitle("Tema")
             .setSingleChoiceItems(options, selected) { dialog, which ->
-                val theme = if (which == 1) "dark" else "light"
-                prefs.edit().putString("theme", theme).apply()
+                prefs.edit().putString("theme", if (which == 1) "dark" else "light").apply()
                 AppCompatDelegate.setDefaultNightMode(
                     if (which == 1) AppCompatDelegate.MODE_NIGHT_YES
                     else AppCompatDelegate.MODE_NIGHT_NO
@@ -107,11 +96,10 @@ class SettingsActivity : BaseActivity() {
         val options = arrayOf("Português", "English")
         val selected = if (currentLang == "en") 1 else 0
 
-        AlertDialog.Builder(this, R.style.IpcAlertDialog)
+        MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
             .setTitle("Idioma")
             .setSingleChoiceItems(options, selected) { dialog, which ->
-                val lang = if (which == 1) "en" else "pt"
-                prefs.edit().putString("language", lang).apply()
+                prefs.edit().putString("language", if (which == 1) "en" else "pt").apply()
                 dialog.dismiss()
                 recreate()
             }
