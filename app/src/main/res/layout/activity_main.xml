@@ -218,8 +218,8 @@
 
             <ImageView
                 android:id="@+id/emptyLogo"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
+                android:layout_width="96dp"
+                android:layout_height="96dp"
                 android:scaleType="fitCenter"
                 android:adjustViewBounds="true" />
 
@@ -254,7 +254,7 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- Bottom card: input + nav — igual ao original, sem background extra -->
+        <!-- Bottom card -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
@@ -267,7 +267,6 @@
             android:background="@drawable/bottom_card_bg"
             android:elevation="4dp">
 
-            <!-- Input row -->
             <LinearLayout
                 android:id="@+id/inputRow"
                 android:layout_width="match_parent"
@@ -320,7 +319,6 @@
 
             </LinearLayout>
 
-            <!-- Bottom nav — exactamente como estava no original -->
             <LinearLayout
                 android:id="@+id/bottomNav"
                 android:layout_width="match_parent"
