@@ -23,8 +23,8 @@
             android:orientation="vertical"
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
-            android:paddingTop="56dp"
-            android:paddingBottom="16dp">
+            android:paddingTop="32dp"
+            android:paddingBottom="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -41,6 +41,7 @@
             android:layout_height="0.5dp"
             android:layout_marginStart="24dp"
             android:layout_marginEnd="24dp"
+            android:layout_marginBottom="4dp"
             android:background="@color/divider" />
 
         <LinearLayout
@@ -159,6 +160,7 @@
                     android:clickable="true"
                     android:focusable="true" />
 
+                <!-- Botão + circular no lugar do Compound -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -167,19 +169,22 @@
                     android:layout_centerVertical="true"
                     android:layout_alignParentEnd="true">
 
-                    <TextView
-                        android:id="@+id/btnCompound"
-                        android:layout_width="wrap_content"
-                        android:layout_height="32dp"
-                        android:text="Compound"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:background="@drawable/compound_pill_bg"
-                        android:gravity="center"
+                    <FrameLayout
+                        android:id="@+id/btnPull"
+                        android:layout_width="34dp"
+                        android:layout_height="34dp"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/add_circle_bg"
                         android:clickable="true"
-                        android:focusable="true" />
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/btnPullIcon"
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_gravity="center" />
+
+                    </FrameLayout>
 
                     <ImageView
                         android:id="@+id/btnMore"
@@ -276,7 +281,7 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- Bottom card: input + nav juntos -->
+        <!-- Bottom card: input + nav -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
@@ -289,7 +294,7 @@
             android:background="@drawable/bottom_card_bg"
             android:elevation="4dp">
 
-            <!-- Input row — anima altura suavemente -->
+            <!-- Input row -->
             <LinearLayout
                 android:id="@+id/inputRow"
                 android:layout_width="match_parent"
@@ -342,14 +347,13 @@
 
             </LinearLayout>
 
-            <!-- Bottom nav tabs -->
+            <!-- Bottom nav — só 2 tabs, sem botão central -->
             <LinearLayout
                 android:id="@+id/bottomNav"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:orientation="horizontal">
 
-                <!-- Tab Chat -->
                 <FrameLayout
                     android:id="@+id/tabChat"
                     android:layout_width="0dp"
@@ -385,33 +389,6 @@
 
                 </FrameLayout>
 
-                <!-- Botão central — pill só com ícone add -->
-                <FrameLayout
-                    android:id="@+id/btnPull"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="32dp"
-                        android:layout_gravity="center"
-                        android:background="@drawable/compound_pill_bg">
-
-                        <ImageView
-                            android:id="@+id/btnPullIcon"
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:layout_gravity="center" />
-
-                    </FrameLayout>
-
-                </FrameLayout>
-
-                <!-- Tab Preview -->
                 <FrameLayout
                     android:id="@+id/tabPreview"
                     android:layout_width="0dp"
