@@ -44,7 +44,6 @@
             android:layout_marginBottom="4dp"
             android:background="@color/divider" />
 
-        <!-- Só Settings, sem Sobre -->
         <LinearLayout
             android:id="@+id/drawerItemSettings"
             android:layout_width="match_parent"
@@ -207,7 +206,7 @@
 
         </LinearLayout>
 
-        <!-- Empty state (Chat) — logo + saudação -->
+        <!-- Empty state Chat — logo + saudação -->
         <LinearLayout
             android:id="@+id/emptyState"
             android:layout_width="match_parent"
@@ -217,7 +216,6 @@
             android:paddingBottom="120dp"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-            <!-- Logo centrado no topo da área -->
             <ImageView
                 android:id="@+id/emptyLogo"
                 android:layout_width="72dp"
@@ -225,7 +223,6 @@
                 android:scaleType="fitCenter"
                 android:adjustViewBounds="true" />
 
-            <!-- Saudação dinâmica -->
             <TextView
                 android:id="@+id/emptyGreeting"
                 android:layout_width="wrap_content"
@@ -236,7 +233,6 @@
                 android:textColor="@color/text_primary"
                 android:gravity="center" />
 
-            <!-- Subtítulo -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -258,7 +254,7 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- Bottom card -->
+        <!-- Bottom card: input + nav — igual ao original, sem background extra -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
@@ -324,13 +320,12 @@
 
             </LinearLayout>
 
-            <!-- Bottom nav -->
+            <!-- Bottom nav — exactamente como estava no original -->
             <LinearLayout
                 android:id="@+id/bottomNav"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:orientation="horizontal"
-                android:background="@color/background">
+                android:orientation="horizontal">
 
                 <FrameLayout
                     android:id="@+id/tabChat"
