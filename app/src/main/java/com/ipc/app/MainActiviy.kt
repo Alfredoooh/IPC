@@ -1,4 +1,3 @@
-// MainActiviy.kt
 package com.ipc.app
 
 import android.animation.Animator
@@ -13,6 +12,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -43,16 +43,24 @@ class MainActiviy : BaseActivity() {
     private var drawerAnimator: ValueAnimator? = null
     private var sendBtnAnimator: ValueAnimator? = null
     private var inputRowAnimator: ValueAnimator? = null
+    private var bottomBarAnimator: ValueAnimator? = null
     private var sendBtnVisible = false
     private var inputRowVisible = true
     private var inputRowHeight = 0
     private var currentTab = R.id.tabChat
+    private var bottomBarCollapsed = false
 
     private var swipeStartX = 0f
     private var swipeStartY = 0f
     private var isSwipingDrawer = false
     private val SWIPE_EDGE_WIDTH = 40f
     private val SWIPE_MIN_DIST = 30f
+
+    // Margem lateral normal e colapsada (dp)
+    private val MARGIN_NORMAL_DP  = 10f
+    private val MARGIN_COLLAPSED_DP = 28f
+    private val RADIUS_NORMAL_DP  = 20f
+    private val RADIUS_COLLAPSED_DP = 32f
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -120,6 +128,7 @@ class MainActiviy : BaseActivity() {
             if (inputRowHeight == 0) inputRowHeight = binding.inputRow.height
         }
 
+        setupAppBarScrollListener()
         setupLogo()
         setupGreeting()
         setupIcons()
@@ -128,6 +137,51 @@ class MainActiviy : BaseActivity() {
         setupBottomTabs()
         setupPreviewImage()
         setupInput()
+    }
+
+    private fun setupAppBarScrollListener() {
+        binding.appBarLayout.addOnOffsetChangedListener { _, verticalOffset ->
+            val collapsed = verticalOffset < -10
+            if (collapsed != bottomBarCollapsed) {
+                bottomBarCollapsed = collapsed
+                animateBottomBar(collapsed)
+            }
+        }
+    }
+
+    private fun animateBottomBar(collapse: Boolean) {
+        val d = density
+        val marginFrom = if (collapse) (MARGIN_NORMAL_DP * d).toInt() else (MARGIN_COLLAPSED_DP * d).toInt()
+        val marginTo   = if (collapse) (MARGIN_COLLAPSED_DP * d).toInt() else (MARGIN_NORMAL_DP * d).toInt()
+        val radiusFrom = if (collapse) RADIUS_NORMAL_DP * d else RADIUS_COLLAPSED_DP * d
+        val radiusTo   = if (collapse) RADIUS_COLLAPSED_DP * d else RADIUS_NORMAL_DP * d
+
+        val bgDrawable = (binding.bottomNavWrapper.background as? GradientDrawable)
+            ?: GradientDrawable().also {
+                it.setColor(ContextCompat.getColor(this, R.color.card_background))
+                binding.bottomNavWrapper.background = it
+            }
+
+        bottomBarAnimator?.cancel()
+        bottomBarAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 350
+            interpolator = DecelerateInterpolator(2f)
+            addUpdateListener { anim ->
+                val f = anim.animatedFraction
+                val margin = (marginFrom + (marginTo - marginFrom) * f).toInt()
+                val radius = radiusFrom + (radiusTo - radiusFrom) * f
+
+                bgDrawable.cornerRadius = radius
+
+                val lp = binding.bottomNavWrapper.layoutParams
+                    as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
+                lp.marginStart = margin
+                lp.marginEnd   = margin
+                lp.bottomMargin = (10 * d).toInt()
+                binding.bottomNavWrapper.layoutParams = lp
+            }
+            start()
+        }
     }
 
     private fun setupLogo() {
@@ -338,6 +392,7 @@ class MainActiviy : BaseActivity() {
             closeDrawer()
             binding.root.postDelayed({
                 startActivity(Intent(this, SettingsActivity::class.java))
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
     }
