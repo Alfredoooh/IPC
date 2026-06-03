@@ -1,3 +1,4 @@
+// SettingsActivity.kt
 package com.ipc.app.ui
 
 import android.content.Context
@@ -119,7 +120,6 @@ class SettingsActivity : BaseActivity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         super.onBackPressed()
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {

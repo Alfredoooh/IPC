@@ -1,3 +1,4 @@
+// MainActiviy.kt
 package com.ipc.app
 
 import android.animation.Animator
@@ -337,7 +338,6 @@ class MainActiviy : BaseActivity() {
             closeDrawer()
             binding.root.postDelayed({
                 startActivity(Intent(this, SettingsActivity::class.java))
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
     }
