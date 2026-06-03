@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.PorterDuff
+import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -198,6 +199,12 @@ class MainActiviy : BaseActivity() {
             else      -> "Boa noite 👋"
         }
         binding.emptyGreeting.text = greeting
+
+        runCatching {
+            val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
+            binding.emptyGreeting.typeface = Typeface.create(tf, Typeface.BOLD)
+            binding.emptySubtitle.typeface = tf
+        }
     }
 
     private fun setupIcons() {

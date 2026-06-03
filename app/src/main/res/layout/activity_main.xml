@@ -246,17 +246,16 @@
                 android:layout_marginTop="20dp"
                 android:textSize="24.2sp"
                 android:textStyle="bold"
-                android:fontFamily="@font/times_new_roman"
                 android:textColor="@color/text_primary"
                 android:gravity="center" />
 
             <TextView
+                android:id="@+id/emptySubtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="Em que estás a pensar?"
                 android:textSize="16.5sp"
-                android:fontFamily="@font/times_new_roman"
                 android:textColor="@color/text_secondary"
                 android:gravity="center" />
 
