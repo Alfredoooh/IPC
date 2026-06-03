@@ -7,7 +7,6 @@
     android:layout_height="match_parent"
     android:background="@color/drawer_background">
 
-    <!-- Drawer -->
     <LinearLayout
         android:id="@+id/drawerContainer"
         android:layout_width="match_parent"
@@ -85,7 +84,6 @@
 
     </LinearLayout>
 
-    <!-- Conteúdo principal -->
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:id="@+id/coordinatorLayout"
         android:layout_width="match_parent"
@@ -178,7 +176,6 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Preview tab -->
         <LinearLayout
             android:id="@+id/previewState"
             android:layout_width="match_parent"
@@ -223,7 +220,6 @@
 
         </LinearLayout>
 
-        <!-- Empty state Chat -->
         <LinearLayout
             android:id="@+id/emptyState"
             android:layout_width="match_parent"
@@ -266,7 +262,6 @@
 
         </LinearLayout>
 
-        <!-- Scrim -->
         <View
             android:id="@+id/drawerScrim"
             android:layout_width="match_parent"
@@ -276,7 +271,6 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- Bottom card -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
