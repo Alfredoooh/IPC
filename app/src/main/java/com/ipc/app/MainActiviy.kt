@@ -56,9 +56,9 @@ class MainActiviy : BaseActivity() {
     private val SWIPE_EDGE_WIDTH = 40f
     private val SWIPE_MIN_DIST = 30f
 
-    private val MARGIN_NORMAL_DP   = 10f
+    private val MARGIN_NORMAL_DP    = 10f
     private val MARGIN_COLLAPSED_DP = 28f
-    private val RADIUS_NORMAL_DP   = 20f
+    private val RADIUS_NORMAL_DP    = 20f
     private val RADIUS_COLLAPSED_DP = 32f
 
     private val activeIconColor: Int
