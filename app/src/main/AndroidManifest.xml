@@ -32,6 +32,12 @@
             android:theme="@style/Theme.IPC"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".ui.MyCoinActivity"
+            android:exported="false"
+            android:theme="@style/Theme.IPC"
+            android:windowSoftInputMode="adjustResize" />
+
     </application>
 
 </manifest>

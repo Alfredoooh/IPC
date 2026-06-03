@@ -29,6 +29,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
+import com.ipc.app.ui.MyCoinActivity
 import com.ipc.app.ui.SettingsActivity
 import java.util.Calendar
 import java.util.Locale
