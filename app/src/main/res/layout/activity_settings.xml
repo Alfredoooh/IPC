@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/background"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="false">
 
     <RelativeLayout
         android:id="@+id/settingsToolbar"
@@ -256,7 +256,6 @@
                     android:textSize="15sp"
                     android:textColor="@color/text_primary" />
 
-                <!-- Switch M3 -->
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switchNotifications"
                     android:layout_width="wrap_content"

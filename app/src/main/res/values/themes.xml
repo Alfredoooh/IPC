@@ -18,6 +18,7 @@
         <item name="android:textColorHint">@color/text_hint</item>
         <item name="android:textCursorDrawable">@null</item>
         <item name="android:colorControlActivated">@color/cursor_color</item>
+        <!-- Edge-to-edge: status bar e nav bar transparentes -->
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowTranslucentStatus">false</item>
