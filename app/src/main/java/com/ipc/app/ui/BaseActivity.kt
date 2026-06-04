@@ -1,11 +1,7 @@
 package com.ipc.app.ui
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.PorterDuff
-import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -14,7 +10,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
-import com.caverock.androidsvg.SVG
 
 open class BaseActivity : AppCompatActivity() {
 
@@ -29,6 +24,7 @@ open class BaseActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Edge-to-edge: a app desenha por baixo das system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
@@ -52,6 +48,7 @@ open class BaseActivity : AppCompatActivity() {
             .isAppearanceLightStatusBars = !isDark
     }
 
+    /** Aplica padding de status bar ao topo de qualquer view raiz que precise. */
     protected fun applyStatusBarPaddingTo(vararg viewIds: android.view.View) {
         viewIds.forEach { v ->
             ViewCompat.setOnApplyWindowInsetsListener(v) { view, insets ->
@@ -64,19 +61,4 @@ open class BaseActivity : AppCompatActivity() {
 
     protected val isAppDarkMode: Boolean
         get() = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
-
-    fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
-        val px  = (sizeDp * resources.displayMetrics.density).toInt().coerceAtLeast(1)
-        val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
-        runCatching {
-            SVG.getFromAsset(assets, path).apply {
-                documentWidth  = px.toFloat()
-                documentHeight = px.toFloat()
-                renderToCanvas(Canvas(bmp))
-            }
-        }
-        return BitmapDrawable(resources, bmp).also {
-            it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
-        }
-    }
 }

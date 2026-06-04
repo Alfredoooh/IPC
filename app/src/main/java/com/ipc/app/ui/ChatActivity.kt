@@ -2,6 +2,8 @@
 package com.ipc.app.ui
 
 import android.content.Context
+import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -9,11 +11,13 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -62,9 +66,11 @@ class ChatActivity : BaseActivity() {
             setBackgroundColor(ContextCompat.getColor(context, R.color.background))
         }
 
+        // AppBar
         val appBar = buildAppBar()
         root.addView(appBar)
 
+        // Divider
         root.addView(View(this).apply {
             setBackgroundColor(ContextCompat.getColor(context, R.color.divider))
             layoutParams = LinearLayout.LayoutParams(
@@ -72,6 +78,7 @@ class ChatActivity : BaseActivity() {
             )
         })
 
+        // RecyclerView
         recycler = RecyclerView(this).apply {
             id = R.id.chatRecyclerView
             layoutParams = LinearLayout.LayoutParams(
@@ -81,13 +88,16 @@ class ChatActivity : BaseActivity() {
             mgr.stackFromEnd = true
             layoutManager = mgr
             overScrollMode = View.OVER_SCROLL_NEVER
-            setPadding(dp(16), dp(12), dp(16), dp(8))
+            setPadding(
+                dp(16), dp(12), dp(16), dp(8)
+            )
             clipToPadding = false
         }
         adapter = ChatAdapter(displayMessages)
         recycler.adapter = adapter
         root.addView(recycler)
 
+        // Input bar
         val inputBar = buildInputBar()
         root.addView(inputBar)
 
@@ -151,6 +161,7 @@ class ChatActivity : BaseActivity() {
             )
             setPadding(dp(12), dp(8), dp(12), dp(12))
 
+            // Input pill
             val pillBg = GradientDrawable().apply {
                 cornerRadius = dp(28).toFloat()
                 setColor(ContextCompat.getColor(context, R.color.input_background))
@@ -184,6 +195,7 @@ class ChatActivity : BaseActivity() {
             pillContainer.addView(inputField)
             addView(pillContainer)
 
+            // Botão enviar
             val sendBg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(ContextCompat.getColor(context, R.color.colorPrimary))
@@ -227,6 +239,7 @@ class ChatActivity : BaseActivity() {
         adapter.notifyItemInserted(displayMessages.lastIndex)
         recycler.smoothScrollToPosition(displayMessages.lastIndex)
 
+        // Placeholder para resposta AI (streaming)
         val aiMsg = DisplayMessage("assistant", "", isStreaming = true)
         displayMessages.add(aiMsg)
         val aiIndex = displayMessages.lastIndex
@@ -255,7 +268,7 @@ class ChatActivity : BaseActivity() {
                     }
                     is StreamChunk.Error -> {
                         aiMsg.isStreaming = false
-                        aiMsg.content = chunk.message
+                        aiMsg.content = "⚠️ ${chunk.message}"
                         adapter.notifyItemChanged(aiIndex)
                         progressSend.visibility = View.GONE
                     }
@@ -264,35 +277,33 @@ class ChatActivity : BaseActivity() {
         }
     }
 
+    // ── Adapter ──────────────────────────────────────────────────────────────
+
     inner class ChatAdapter(
         private val msgs: List<DisplayMessage>
     ) : RecyclerView.Adapter<ChatAdapter.VH>() {
 
-        inner class VH(val container: FrameLayout, val tv: TextView) : RecyclerView.ViewHolder(container)
+        inner class VH(val tv: TextView) : RecyclerView.ViewHolder(tv)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val container = FrameLayout(parent.context).apply {
+            val tv = TextView(parent.context).apply {
                 layoutParams = RecyclerView.LayoutParams(
-                    RecyclerView.LayoutParams.MATCH_PARENT,
+                    RecyclerView.LayoutParams.WRAP_CONTENT,
                     RecyclerView.LayoutParams.WRAP_CONTENT
                 )
-                setPadding(0, dp(4), 0, dp(4))
-            }
-            val tv = TextView(parent.context).apply {
                 textSize = 15f
                 setLineSpacing(0f, 1.4f)
                 maxWidth = (parent.width * 0.82f).toInt()
                 setPadding(dp(14), dp(10), dp(14), dp(10))
             }
-            container.addView(tv)
-            return VH(container, tv)
+            return VH(tv)
         }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val msg = msgs[position]
             holder.tv.text = if (msg.isStreaming && msg.content.isEmpty()) "…" else msg.content
 
-            val lp = holder.tv.layoutParams as FrameLayout.LayoutParams
+            val lp = holder.tv.layoutParams as RecyclerView.LayoutParams
 
             if (msg.role == "user") {
                 holder.tv.setTextColor(Color.WHITE)
@@ -302,8 +313,8 @@ class ChatActivity : BaseActivity() {
                 }
                 holder.tv.background = bg
                 lp.gravity = Gravity.END
-                lp.topMargin = dp(2)
-                lp.bottomMargin = dp(2)
+                lp.topMargin = dp(6)
+                lp.bottomMargin = dp(6)
                 lp.marginStart = dp(48)
                 lp.marginEnd = dp(0)
             } else {
@@ -314,8 +325,8 @@ class ChatActivity : BaseActivity() {
                 }
                 holder.tv.background = bg
                 lp.gravity = Gravity.START
-                lp.topMargin = dp(2)
-                lp.bottomMargin = dp(2)
+                lp.topMargin = dp(6)
+                lp.bottomMargin = dp(6)
                 lp.marginStart = dp(0)
                 lp.marginEnd = dp(48)
             }
