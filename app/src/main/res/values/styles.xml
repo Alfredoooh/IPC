@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="IpcAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="colorSurface">@color/dialog_background</item>
-        <item name="colorOnSurface">@color/text_primary</item>
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="android:windowMinWidthMajor">80%</item>
-        <item name="android:windowMinWidthMinor">80%</item>
-    </style>
-
     <style name="FloatingBottomSheet" parent="Theme.Material3.DayNight.BottomSheetDialog">
         <item name="bottomSheetStyle">@style/FloatingBottomSheetStyle</item>
         <item name="android:windowIsFloating">false</item>
