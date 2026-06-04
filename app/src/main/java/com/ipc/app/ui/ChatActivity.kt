@@ -2,8 +2,6 @@
 package com.ipc.app.ui
 
 import android.content.Context
-import android.content.Intent
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -11,13 +9,11 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -66,11 +62,9 @@ class ChatActivity : BaseActivity() {
             setBackgroundColor(ContextCompat.getColor(context, R.color.background))
         }
 
-        // AppBar
         val appBar = buildAppBar()
         root.addView(appBar)
 
-        // Divider
         root.addView(View(this).apply {
             setBackgroundColor(ContextCompat.getColor(context, R.color.divider))
             layoutParams = LinearLayout.LayoutParams(
@@ -78,7 +72,6 @@ class ChatActivity : BaseActivity() {
             )
         })
 
-        // RecyclerView
         recycler = RecyclerView(this).apply {
             id = R.id.chatRecyclerView
             layoutParams = LinearLayout.LayoutParams(
@@ -95,7 +88,6 @@ class ChatActivity : BaseActivity() {
         recycler.adapter = adapter
         root.addView(recycler)
 
-        // Input bar
         val inputBar = buildInputBar()
         root.addView(inputBar)
 
@@ -272,8 +264,6 @@ class ChatActivity : BaseActivity() {
         }
     }
 
-    // ── Adapter ──────────────────────────────────────────────────────────────
-
     inner class ChatAdapter(
         private val msgs: List<DisplayMessage>
     ) : RecyclerView.Adapter<ChatAdapter.VH>() {
@@ -333,8 +323,6 @@ class ChatActivity : BaseActivity() {
         }
 
         override fun getItemCount() = msgs.size
-
-        private fun dp(v: Int) = (v * itemView.resources.displayMetrics.density).toInt()
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
