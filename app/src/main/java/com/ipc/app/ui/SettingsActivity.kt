@@ -9,6 +9,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
@@ -30,16 +31,10 @@ class SettingsActivity : BaseActivity() {
         setupActions()
     }
 
-    /**
-     * Aplica Times New Roman Bold ao título da toolbar de Settings.
-     * O TextView do título não tem id próprio no layout — é o único TextView
-     * dentro do settingsToolbar que não é o btnBack, por isso encontramo-lo
-     * por travessia directa.
-     */
     private fun applyTimesNewRomanTitle() {
         runCatching {
             val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
-            val toolbar = findViewById<android.view.ViewGroup>(R.id.settingsToolbar)
+            val toolbar = findViewById<ViewGroup>(R.id.settingsToolbar)
             for (i in 0 until toolbar.childCount) {
                 val child = toolbar.getChildAt(i)
                 if (child is TextView) {
@@ -132,8 +127,6 @@ class SettingsActivity : BaseActivity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         super.onBackPressed()
-        // Slide de volta: sai pela direita, MainActivity volta da esquerda
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {

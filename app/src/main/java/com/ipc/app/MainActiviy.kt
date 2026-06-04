@@ -24,6 +24,7 @@ import android.text.TextWatcher
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import androidx.appcompat.app.AppCompatDelegate
@@ -67,15 +68,19 @@ class MainActiviy : BaseActivity() {
     private val MARGIN_PREVIEW_DP = 36f
     private val RADIUS_CHAT_DP    = 20f
     private val RADIUS_PREVIEW_DP = 38f
-    private val BOTTOM_MARGIN_DP  = 12f  // subiu 2x relativamente ao fundo
+    private val BOTTOM_MARGIN_DP  = 20f  // mais alto — era 10dp, agora 20dp
 
-    // Fonte de verdade dos valores actuais do bottom bar
+    // Fonte de verdade do bottom bar — actualizada frame a frame durante animação
     private var currentBarMarginPx: Int = -1
     private var currentBarRadiusPx: Float = -1f
 
-    // Altura actual do inputRow que a animação conhece — usada para interceptar
-    // mudanças de height antes que o layout as aplique instantaneamente
-    private var lastKnownInputRowHeight = 0
+    // Altura do inputRow que o sistema de animação conhece.
+    // Mantida manualmente para impedir que o layout salte antes da animação.
+    private var frozenInputRowHeight: Int = 0
+    // Flag: true quando o inputRow está com altura fixa (congelada pela animação)
+    private var inputRowHeightFrozen = false
+    // PreDrawListener activo para interceptar o próximo frame antes do draw
+    private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -166,7 +171,7 @@ class MainActiviy : BaseActivity() {
         binding.inputRow.post {
             if (inputRowHeight == 0) {
                 inputRowHeight = binding.inputRow.height
-                lastKnownInputRowHeight = inputRowHeight
+                frozenInputRowHeight = inputRowHeight
             }
         }
 
@@ -196,7 +201,6 @@ class MainActiviy : BaseActivity() {
             setColor(Color.TRANSPARENT)
         }
         binding.bottomBlurBg.background = blurBg
-
         binding.bottomNavWrapper.post { syncBlurBgSize() }
     }
 
@@ -280,6 +284,198 @@ class MainActiviy : BaseActivity() {
             }
     }
 
+    // ─── Input: expansão suave sem fases ─────────────────────────────────────
+
+    /**
+     * Estratégia para expansão/contracção suave do inputRow sem fases:
+     *
+     * O Android expande o EditText → o layout do inputRow vai mudar de altura.
+     * Se deixarmos isso acontecer, o inputRow salta instantaneamente e depois
+     * a animação começa — criando a "segunda fase" / congelamento visível.
+     *
+     * Fix: registar um OnPreDrawListener no ViewTreeObserver do inputMessage.
+     * Este listener é chamado ANTES de qualquer draw após a mudança de layout.
+     * Dentro dele:
+     *   1. Lemos a nova altura que o sistema calculou para o inputMessage
+     *   2. Re-fixamos o inputRow na altura antiga (impedindo o salto)
+     *   3. Devolvemos false para cancelar este frame de draw
+     *   4. Arrancamos a animação do valor antigo para o novo
+     *   5. Removemos o listener
+     *
+     * Resultado: o utilizador nunca vê o salto — só vê a animação contínua.
+     */
+    private fun setupInput() {
+        binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, oldTop, _, oldBottom ->
+            val newMsgH = bottom - top
+            val oldMsgH = oldBottom - oldTop
+            if (newMsgH == oldMsgH || newMsgH <= 0 || oldMsgH <= 0) return@addOnLayoutChangeListener
+            if (!inputRowVisible) return@addOnLayoutChangeListener
+
+            val delta = newMsgH - oldMsgH
+            val fromH = if (inputRowHeightFrozen) frozenInputRowHeight else binding.inputRow.height
+            if (fromH <= 0) return@addOnLayoutChangeListener
+            val toH = (fromH + delta).coerceAtLeast(1)
+            if (fromH == toH) return@addOnLayoutChangeListener
+
+            // Remover listener anterior se ainda activo
+            preDrawListener?.let { binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(it) }
+
+            // Congelar inputRow na altura actual ANTES do próximo draw
+            preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(this)
+                    preDrawListener = null
+
+                    // Fixar altura para impedir salto
+                    inputRowHeightFrozen = true
+                    frozenInputRowHeight = fromH
+                    binding.inputRow.layoutParams =
+                        binding.inputRow.layoutParams.also { it.height = fromH }
+
+                    // Animar do valor congelado para o destino
+                    inputHeightAnimator?.cancel()
+                    inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
+                        duration = 180
+                        interpolator = DecelerateInterpolator(1.5f)
+                        addUpdateListener { anim ->
+                            val h = anim.animatedValue as Int
+                            frozenInputRowHeight = h
+                            binding.inputRow.layoutParams =
+                                binding.inputRow.layoutParams.also { it.height = h }
+                            syncBlurBgSize()
+                        }
+                        addListener(object : AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: Animator) {
+                                inputRowHeightFrozen = false
+                                binding.inputRow.layoutParams =
+                                    binding.inputRow.layoutParams.also {
+                                        it.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                                    }
+                                syncBlurBgSize()
+                            }
+                        })
+                        start()
+                    }
+
+                    // false = cancelar este frame, o próximo já terá a altura fixa
+                    return false
+                }
+            }
+            binding.inputMessage.viewTreeObserver.addOnPreDrawListener(preDrawListener)
+        }
+
+        binding.inputMessage.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val hasText = !s.isNullOrBlank()
+                if (hasText && !sendBtnVisible) showSendBtn()
+                else if (!hasText && sendBtnVisible) hideSendBtn()
+            }
+        })
+    }
+
+    private fun showInputRow() {
+        if (inputRowVisible) return
+        inputRowVisible = true
+        val targetH = if (inputRowHeight > 0) inputRowHeight else {
+            binding.inputRow.measure(
+                View.MeasureSpec.makeMeasureSpec(binding.inputRow.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            binding.inputRow.measuredHeight.also { inputRowHeight = it }
+        }
+        binding.inputRow.visibility = View.VISIBLE
+        inputRowAnimator?.cancel()
+        inputRowAnimator = ValueAnimator.ofInt(0, targetH).apply {
+            duration = 280
+            interpolator = DecelerateInterpolator(1.5f)
+            addUpdateListener { anim ->
+                val h = anim.animatedValue as Int
+                binding.inputRow.layoutParams =
+                    binding.inputRow.layoutParams.also { it.height = h }
+                binding.inputRow.alpha = h.toFloat() / targetH
+                syncBlurBgSize()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    binding.inputRow.layoutParams =
+                        binding.inputRow.layoutParams.also {
+                            it.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                        }
+                    binding.inputRow.alpha = 1f
+                    frozenInputRowHeight = binding.inputRow.height
+                    syncBlurBgSize()
+                }
+            })
+            start()
+        }
+    }
+
+    private fun hideInputRow() {
+        if (!inputRowVisible) return
+        inputRowVisible = false
+        val fromH = if (inputRowHeight > 0) inputRowHeight else binding.inputRow.height
+        inputRowAnimator?.cancel()
+        inputRowAnimator = ValueAnimator.ofInt(fromH, 0).apply {
+            duration = 240
+            interpolator = DecelerateInterpolator(1.5f)
+            addUpdateListener { anim ->
+                val h = anim.animatedValue as Int
+                binding.inputRow.layoutParams =
+                    binding.inputRow.layoutParams.also { it.height = h }
+                binding.inputRow.alpha = h.toFloat() / fromH
+                syncBlurBgSize()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    binding.inputRow.visibility = View.GONE
+                    binding.inputRow.alpha = 1f
+                    syncBlurBgSize()
+                }
+            })
+            start()
+        }
+    }
+
+    private fun showSendBtn() {
+        sendBtnVisible = true
+        binding.btnSend.visibility = View.VISIBLE
+        sendBtnAnimator?.cancel()
+        sendBtnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 180
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                val v = anim.animatedValue as Float
+                binding.btnSend.alpha = v
+                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
+                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
+            }
+            start()
+        }
+    }
+
+    private fun hideSendBtn() {
+        sendBtnVisible = false
+        sendBtnAnimator?.cancel()
+        sendBtnAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = 150
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                val v = anim.animatedValue as Float
+                binding.btnSend.alpha = v
+                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
+                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    binding.btnSend.visibility = View.GONE
+                }
+            })
+            start()
+        }
+    }
+
     private fun setupLogo() {
         runCatching {
             val bmp = assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
@@ -332,8 +528,6 @@ class MainActiviy : BaseActivity() {
 
         binding.btnPull.setOnClickListener {
             startActivity(Intent(this, MyCoinActivity::class.java))
-            // Slide da direita para a esquerda — igual ao Settings
-            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
 
         binding.popupOverlay.setOnClickListener { hidePopup() }
@@ -400,169 +594,6 @@ class MainActiviy : BaseActivity() {
             .start()
     }
 
-    private fun showInputRow() {
-        if (inputRowVisible) return
-        inputRowVisible = true
-        val targetH = if (inputRowHeight > 0) inputRowHeight else {
-            binding.inputRow.measure(
-                View.MeasureSpec.makeMeasureSpec(binding.inputRow.width, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-            )
-            binding.inputRow.measuredHeight.also { inputRowHeight = it }
-        }
-        binding.inputRow.visibility = View.VISIBLE
-        inputRowAnimator?.cancel()
-        inputRowAnimator = ValueAnimator.ofInt(0, targetH).apply {
-            duration = 280
-            interpolator = DecelerateInterpolator(1.5f)
-            addUpdateListener { anim ->
-                val h = anim.animatedValue as Int
-                binding.inputRow.layoutParams =
-                    binding.inputRow.layoutParams.also { it.height = h }
-                binding.inputRow.alpha = h.toFloat() / targetH
-                syncBlurBgSize()
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    binding.inputRow.layoutParams =
-                        binding.inputRow.layoutParams.also {
-                            it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                        }
-                    binding.inputRow.alpha = 1f
-                    lastKnownInputRowHeight = binding.inputRow.height
-                    syncBlurBgSize()
-                }
-            })
-            start()
-        }
-    }
-
-    private fun hideInputRow() {
-        if (!inputRowVisible) return
-        inputRowVisible = false
-        val fromH = if (inputRowHeight > 0) inputRowHeight else binding.inputRow.height
-        inputRowAnimator?.cancel()
-        inputRowAnimator = ValueAnimator.ofInt(fromH, 0).apply {
-            duration = 240
-            interpolator = DecelerateInterpolator(1.5f)
-            addUpdateListener { anim ->
-                val h = anim.animatedValue as Int
-                binding.inputRow.layoutParams =
-                    binding.inputRow.layoutParams.also { it.height = h }
-                binding.inputRow.alpha = h.toFloat() / fromH
-                syncBlurBgSize()
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    binding.inputRow.visibility = View.GONE
-                    binding.inputRow.alpha = 1f
-                    syncBlurBgSize()
-                }
-            })
-            start()
-        }
-    }
-
-    private fun setupInput() {
-        // Intercepta ANTES do layout expandir: fixa a altura actual no inputRow
-        // para que a animação parta desse valor, sem deixar o layout fazer o salto sozinho.
-        binding.inputMessage.addOnLayoutChangeListener { v, _, top, _, bottom, _, oldTop, _, oldBottom ->
-            val newH = bottom - top
-            val oldH = oldBottom - oldTop
-            if (newH == oldH || newH <= 0 || oldH <= 0) return@addOnLayoutChangeListener
-            if (!inputRowVisible) return@addOnLayoutChangeListener
-
-            // Altura actual do inputRow (pode estar em WRAP_CONTENT ou valor fixo da animação anterior)
-            val rowCurrentH = binding.inputRow.height
-            if (rowCurrentH <= 0) return@addOnLayoutChangeListener
-
-            // Delta de altura do texto — aplica ao inputRow
-            val delta = newH - oldH
-            val fromH = rowCurrentH
-            val toH   = (rowCurrentH + delta).coerceAtLeast(1)
-
-            if (fromH == toH) return@addOnLayoutChangeListener
-
-            // Fixar imediatamente para impedir o layout de saltar sozinho
-            binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = fromH }
-            lastKnownInputRowHeight = fromH
-
-            inputHeightAnimator?.cancel()
-            inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
-                duration = 200
-                interpolator = DecelerateInterpolator(1.6f)
-                addUpdateListener { anim ->
-                    val h = anim.animatedValue as Int
-                    binding.inputRow.layoutParams =
-                        binding.inputRow.layoutParams.also { it.height = h }
-                    lastKnownInputRowHeight = h
-                    syncBlurBgSize()
-                }
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        // Só volta para WRAP_CONTENT no fim, garantindo que
-                        // o layout não salta durante a animação
-                        binding.inputRow.layoutParams =
-                            binding.inputRow.layoutParams.also {
-                                it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                            }
-                        lastKnownInputRowHeight = binding.inputRow.height
-                        syncBlurBgSize()
-                    }
-                })
-                start()
-            }
-        }
-
-        binding.inputMessage.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val hasText = !s.isNullOrBlank()
-                if (hasText && !sendBtnVisible) showSendBtn()
-                else if (!hasText && sendBtnVisible) hideSendBtn()
-            }
-        })
-    }
-
-    private fun showSendBtn() {
-        sendBtnVisible = true
-        binding.btnSend.visibility = View.VISIBLE
-        sendBtnAnimator?.cancel()
-        sendBtnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 180
-            interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                val v = anim.animatedValue as Float
-                binding.btnSend.alpha = v
-                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
-                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
-            }
-            start()
-        }
-    }
-
-    private fun hideSendBtn() {
-        sendBtnVisible = false
-        sendBtnAnimator?.cancel()
-        sendBtnAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = 150
-            interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                val v = anim.animatedValue as Float
-                binding.btnSend.alpha = v
-                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
-                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    binding.btnSend.visibility = View.GONE
-                }
-            })
-            start()
-        }
-    }
-
     private fun setupSwipeDrawer() {
         val edgePx    = SWIPE_EDGE_WIDTH * density
         val minDistPx = SWIPE_MIN_DIST * density
@@ -625,7 +656,6 @@ class MainActiviy : BaseActivity() {
             closeDrawer()
             binding.root.postDelayed({
                 startActivity(Intent(this, SettingsActivity::class.java))
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
     }
