@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#007AFF</color>
-    <color name="colorPrimaryDark">#0055B3</color>
-    <color name="colorAccent">#007AFF</color>
-    <color name="blue_apple">#007AFF</color>
+    <color name="colorPrimary">#FF6044</color>
+    <color name="colorPrimaryDark">#D94530</color>
+    <color name="colorAccent">#FF6044</color>
+    <color name="brand_orange">#FF6044</color>
+    <color name="brand_cream">#F7E7CE</color>
     <color name="red_badge">#FF453A</color>
     
     <color name="background">#121212</color>
@@ -13,12 +14,12 @@
     
     <color name="appbar_background">#121212</color>
     <color name="bottom_nav_background">#121212</color>
-    <color name="bottom_nav_text_color">#007AFF</color>
+    <color name="bottom_nav_text_color">#FF6044</color>
     
     <color name="text_primary">#F2F2F2</color>
     <color name="text_secondary">#939393</color>
     <color name="text_hint">#6E6E6E</color>
-    <color name="text_link">#007AFF</color>
+    <color name="text_link">#FF8066</color>
     
     <color name="drawer_background">#1f1f1f</color>
     <color name="drawer_text">#F2F2F2</color>
@@ -42,7 +43,7 @@
     <color name="input_background">#1f1f1f</color>
     <color name="input_text">#F2F2F2</color>
     <color name="input_hint">#6E6E6E</color>
-    <color name="cursor_color">#007AFF</color>
+    <color name="cursor_color">#FF6044</color>
     
     <color name="search_input_fill">#1f1f1f</color>
     
@@ -53,9 +54,15 @@
     <color name="incognito_text">#FFFFFF</color>
     <color name="ask_ai_pill_color">#1f1f1f</color>
     <color name="compound_pill_color">#1f1f1f</color>
-    <color name="send_btn_color">#F2F2F2</color>
-    <color name="send_icon_color">#121212</color>
+    <color name="send_btn_color">#FF6044</color>
+    <color name="send_icon_color">#FFFFFF</color>
     
-    <!-- AppBar button: escuro → branco muito subtil -->
+    <!-- Auth screens dark -->
+    <color name="auth_button_bg">#FF6044</color>
+    <color name="auth_button_text">#FFFFFF</color>
+    <color name="auth_input_bg">#1f1f1f</color>
+    <color name="auth_link_color">#FF8066</color>
+    
+    <!-- AppBar button: escuro -->
     <color name="appbar_btn_bg_color">#18FFFFFF</color>
 </resources>

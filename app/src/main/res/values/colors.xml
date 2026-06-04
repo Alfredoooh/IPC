@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#007AFF</color>
-    <color name="colorPrimaryDark">#0055B3</color>
-    <color name="colorAccent">#007AFF</color>
-    <color name="blue_apple">#007AFF</color>
+    <color name="colorPrimary">#FF6044</color>
+    <color name="colorPrimaryDark">#D94530</color>
+    <color name="colorAccent">#FF6044</color>
+    <color name="brand_orange">#FF6044</color>
+    <color name="brand_cream">#F7E7CE</color>
     <color name="red_badge">#FF3B30</color>
     
     <color name="background">#FFFFFF</color>
@@ -13,12 +14,12 @@
     
     <color name="appbar_background">#FFFFFF</color>
     <color name="bottom_nav_background">#FFFFFF</color>
-    <color name="bottom_nav_text_color">#007AFF</color>
+    <color name="bottom_nav_text_color">#FF6044</color>
     
     <color name="text_primary">#000000</color>
     <color name="text_secondary">#888888</color>
     <color name="text_hint">#AAAAAA</color>
-    <color name="text_link">#007AFF</color>
+    <color name="text_link">#FF6044</color>
     
     <color name="drawer_background">#F2F2F7</color>
     <color name="drawer_text">#000000</color>
@@ -43,7 +44,7 @@
     <color name="input_background">#F2F2F7</color>
     <color name="input_text">#000000</color>
     <color name="input_hint">#AAAAAA</color>
-    <color name="cursor_color">#007AFF</color>
+    <color name="cursor_color">#FF6044</color>
     
     <color name="search_input_fill">#EBEBEB</color>
     
@@ -54,13 +55,22 @@
     <color name="incognito_text">#FFFFFF</color>
     <color name="ask_ai_pill_color">#EBEBEB</color>
     <color name="compound_pill_color">#EBEBEB</color>
-    <color name="send_btn_color">#000000</color>
+    <color name="send_btn_color">#FF6044</color>
     <color name="send_icon_color">#FFFFFF</color>
     
-    <!-- Gradiente azul fundo -->
-    <color name="gradient_blue_top">#E8F1FF</color>
+    <!-- Gradiente quente fundo (substitui gradiente azul) -->
+    <color name="gradient_warm_top">#FFF5EC</color>
+    <color name="gradient_warm_bottom">#FFFFFF</color>
+    <!-- mantidos para compatibilidade -->
+    <color name="gradient_blue_top">#FFF5EC</color>
     <color name="gradient_blue_bottom">#FFFFFF</color>
     
-    <!-- AppBar button: claro → quase invisível, mínimo hint -->
+    <!-- Auth screens -->
+    <color name="auth_button_bg">#FF6044</color>
+    <color name="auth_button_text">#FFFFFF</color>
+    <color name="auth_input_bg">#F2F2F7</color>
+    <color name="auth_link_color">#FF6044</color>
+    
+    <!-- AppBar button: claro -->
     <color name="appbar_btn_bg_color">#0F000000</color>
 </resources>
