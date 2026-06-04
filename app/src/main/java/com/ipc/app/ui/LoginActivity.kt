@@ -46,7 +46,6 @@ class LoginActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Se já tem sessão, vai direto ao app
         if (prefs.getString("auth_token", null) != null) {
             goToMain()
             return
@@ -120,11 +119,10 @@ class LoginActivity : BaseActivity() {
 
         goRegister.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
-            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
 
         forgotPassword.setOnClickListener {
-            // TODO: implementar recuperação de password
+            // TODO: recuperação de password
         }
     }
 
@@ -173,8 +171,9 @@ class LoginActivity : BaseActivity() {
     }
 
     private fun goToMain() {
-        startActivity(Intent(this, MainActiviy::class.java))
-        finish()
+        val intent = Intent(this, MainActiviy::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
     }
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {

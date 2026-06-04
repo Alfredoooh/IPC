@@ -28,7 +28,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="32dp">
+                android:layout_marginBottom="28dp">
 
                 <ImageView
                     android:id="@+id/registerBack"
@@ -58,7 +58,7 @@
                 android:text="Preenche os campos para começar"
                 android:textSize="15sp"
                 android:textColor="@color/text_secondary"
-                android:layout_marginBottom="40dp" />
+                android:layout_marginBottom="36dp" />
 
             <!-- Campo Nome -->
             <LinearLayout
@@ -67,9 +67,9 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/auth_input_bg"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:layout_marginBottom="12dp">
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:layout_marginBottom="14dp">
 
                 <EditText
                     android:id="@+id/registerName"
@@ -93,9 +93,9 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/auth_input_bg"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:layout_marginBottom="12dp">
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:layout_marginBottom="14dp">
 
                 <EditText
                     android:id="@+id/registerEmail"
@@ -119,9 +119,9 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/auth_input_bg"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:layout_marginBottom="12dp">
+                android:paddingStart="20dp"
+                android:paddingEnd="16dp"
+                android:layout_marginBottom="14dp">
 
                 <EditText
                     android:id="@+id/registerPassword"
@@ -154,9 +154,9 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/auth_input_bg"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:layout_marginBottom="32dp">
+                android:paddingStart="20dp"
+                android:paddingEnd="16dp"
+                android:layout_marginBottom="14dp">
 
                 <EditText
                     android:id="@+id/registerPasswordConfirm"
@@ -182,6 +182,19 @@
 
             </LinearLayout>
 
+            <!-- Erro -->
+            <TextView
+                android:id="@+id/registerError"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#FF3B30"
+                android:gravity="center"
+                android:visibility="gone"
+                android:layout_marginBottom="14dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp" />
+
             <!-- Botão Registar -->
             <FrameLayout
                 android:id="@+id/registerBtn"
@@ -190,7 +203,7 @@
                 android:background="@drawable/auth_btn_bg"
                 android:clickable="true"
                 android:focusable="true"
-                android:layout_marginBottom="16dp">
+                android:layout_marginBottom="20dp">
 
                 <TextView
                     android:id="@+id/registerBtnText"
@@ -211,17 +224,6 @@
                     android:visibility="gone" />
 
             </FrameLayout>
-
-            <!-- Erro -->
-            <TextView
-                android:id="@+id/registerError"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="#FF3B30"
-                android:gravity="center"
-                android:visibility="gone"
-                android:layout_marginBottom="16dp" />
 
             <!-- Link Login -->
             <LinearLayout

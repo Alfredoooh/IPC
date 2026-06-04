@@ -33,10 +33,11 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.caverock.androidsvg.SVG
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
-import com.ipc.app.ui.MyCoinActivity
+import com.ipc.app.ui.LoginActivity
 import com.ipc.app.ui.SettingsActivity
 import java.util.Calendar
 import java.util.Locale
@@ -58,8 +59,6 @@ class MainActiviy : BaseActivity() {
     private var currentTab = R.id.tabChat
     private var keyboardOpen = false
 
-    // translationY actual do emptyState imposta pelo teclado — mantida aqui
-    // para que o inputRow crescer não interfira
     private var emptyStateKeyboardShift = 0f
 
     private var swipeStartX = 0f
@@ -81,6 +80,8 @@ class MainActiviy : BaseActivity() {
     private var inputRowHeightFrozen = false
     private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
 
+    private val prefs by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
+
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
 
@@ -94,12 +95,12 @@ class MainActiviy : BaseActivity() {
         get() = resources.displayMetrics.density
 
     override fun attachBaseContext(newBase: Context) {
-        val prefs = newBase.getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE)
-        when (prefs.getString("theme", "light")) {
+        val p = newBase.getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE)
+        when (p.getString("theme", "light")) {
             "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             else   -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         }
-        val lang = prefs.getString("language", "") ?: ""
+        val lang = p.getString("language", "") ?: ""
         val base = if (lang.isNotEmpty()) {
             val locale = Locale(lang)
             Locale.setDefault(locale)
@@ -146,7 +147,6 @@ class MainActiviy : BaseActivity() {
 
             if (imeNowOpen && !keyboardOpen) {
                 keyboardOpen = true
-                // Subir o suficiente para não ficar tapado pelo teclado + bottom bar
                 emptyStateKeyboardShift = -(extraShift * 0.55f)
                 binding.emptyState.animate()
                     .translationY(emptyStateKeyboardShift)
@@ -214,8 +214,6 @@ class MainActiviy : BaseActivity() {
             }
         }
     }
-
-    // ─── Bottom bar ──────────────────────────────────────────────────────────
 
     private fun animateBottomBarState() {
         val d = density
@@ -286,8 +284,6 @@ class MainActiviy : BaseActivity() {
             }
     }
 
-    // ─── Input: expansão suave sem fases ─────────────────────────────────────
-
     private fun setupInput() {
         binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
             val newMsgH = bottom - top
@@ -323,7 +319,6 @@ class MainActiviy : BaseActivity() {
                             binding.inputRow.layoutParams =
                                 binding.inputRow.layoutParams.also { it.height = h }
                             syncBlurBgSize()
-                            // Manter o emptyState fixo durante expansão do input
                             if (keyboardOpen) {
                                 binding.emptyState.translationY = emptyStateKeyboardShift
                             }
@@ -359,6 +354,17 @@ class MainActiviy : BaseActivity() {
                 else if (!hasText && sendBtnVisible) hideSendBtn()
             }
         })
+
+        // Send → vai para ChatActivity com o texto
+        binding.btnSend.setOnClickListener {
+            val text = binding.inputMessage.text.toString().trim()
+            if (text.isNotEmpty()) {
+                binding.inputMessage.text?.clear()
+                val intent = Intent(this, com.ipc.app.ui.ChatActivity::class.java)
+                intent.putExtra("initial_message", text)
+                startActivity(intent)
+            }
+        }
     }
 
     private fun showInputRow() {
@@ -495,14 +501,11 @@ class MainActiviy : BaseActivity() {
         binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
         binding.btnMore.setImageDrawable(svgDrawable("icons/svg/more_vertical.svg", 16, iconTint))
 
-        runCatching {
-            val bmp = assets.open("icons/png/coin.png").use { BitmapFactory.decodeStream(it) }
-            binding.btnPullIcon.setImageBitmap(bmp)
-            binding.btnPullIcon.clearColorFilter()
-        }
-
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
+        binding.drawerIconLogout.setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 14, Color.parseColor("#FF3B30")))
+        binding.drawerNewChatIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 14, iconTint))
+        binding.drawerNewChatChevron.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
 
         binding.popupImportIcon.setImageDrawable(svgDrawable("icons/svg/download.svg", 18, iconTint))
         binding.popupCameraIcon.setImageDrawable(svgDrawable("icons/svg/preview.svg", 18, iconTint))
@@ -511,11 +514,6 @@ class MainActiviy : BaseActivity() {
 
     private fun setupPopupMenu() {
         binding.btnMore.setOnClickListener { showPopup() }
-
-        binding.btnPull.setOnClickListener {
-            startActivity(Intent(this, MyCoinActivity::class.java))
-        }
-
         binding.popupOverlay.setOnClickListener { hidePopup() }
         binding.popupItemImport.setOnClickListener { hidePopup() }
         binding.popupItemCamera.setOnClickListener { hidePopup() }
@@ -528,7 +526,6 @@ class MainActiviy : BaseActivity() {
         binding.popupOverlay.visibility = View.VISIBLE
         binding.popupOverlay.alpha = 0f
 
-        // Fix: calcular pivot DEPOIS do layout estar pronto para evitar width=0 na 1ª abertura
         binding.popupMenu.post {
             binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
             binding.popupMenu.pivotY = 0f
@@ -642,12 +639,46 @@ class MainActiviy : BaseActivity() {
             if (drawerOpen) closeDrawer() else openDrawer()
         }
         binding.drawerScrim.setOnClickListener { closeDrawer() }
+
         binding.drawerItemSettings.setOnClickListener {
             closeDrawer()
             binding.root.postDelayed({
                 startActivity(Intent(this, SettingsActivity::class.java))
             }, 250)
         }
+
+        binding.drawerNewChat.setOnClickListener {
+            closeDrawer()
+            binding.root.postDelayed({
+                startActivity(Intent(this, com.ipc.app.ui.ChatActivity::class.java))
+            }, 250)
+        }
+
+        binding.drawerItemLogout.setOnClickListener {
+            closeDrawer()
+            binding.root.postDelayed({ showLogoutDialog() }, 300)
+        }
+    }
+
+    private fun showLogoutDialog() {
+        MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
+            .setTitle("Terminar sessão")
+            .setMessage("Tens a certeza que queres sair?")
+            .setPositiveButton("Sair") { _, _ -> doLogout() }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun doLogout() {
+        prefs.edit()
+            .remove("auth_token")
+            .remove("auth_user_id")
+            .remove("auth_user_name")
+            .remove("auth_user_email")
+            .apply()
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
     }
 
     private fun openDrawer() {

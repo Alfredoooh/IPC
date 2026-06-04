@@ -7,6 +7,10 @@
     <string name="empty_state_label">Começa uma conversa</string>
     <string name="drawer_settings">Definições</string>
     <string name="drawer_about">Sobre</string>
+    <string name="drawer_logout">Terminar sessão</string>
+    <string name="drawer_conversations">Conversas</string>
     <string name="preview_title">Resultado da Análise</string>
     <string name="preview_subtitle">O output da tua consulta será apresentado aqui. Inicia uma conversa no separador Chat para ver os resultados.</string>
+    <string name="settings_profile">O meu perfil</string>
+    <string name="settings_logout">Terminar sessão</string>
 </resources>

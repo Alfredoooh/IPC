@@ -15,7 +15,6 @@
         android:theme="@style/Theme.IPC.Splash"
         tools:targetApi="31">
 
-        <!-- LAUNCHER → Login (verifica sessão internamente) -->
         <activity
             android:name=".ui.LoginActivity"
             android:exported="true"
@@ -46,7 +45,13 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".ui.MyCoinActivity"
+            android:name=".ui.UserProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.IPC"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.ChatActivity"
             android:exported="false"
             android:theme="@style/Theme.IPC"
             android:windowSoftInputMode="adjustResize" />

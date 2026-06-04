@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/drawer_background">
 
+    <!-- DRAWER -->
     <LinearLayout
         android:id="@+id/drawerContainer"
         android:layout_width="match_parent"
@@ -16,6 +17,7 @@
         android:background="@color/drawer_background"
         android:fitsSystemWindows="true">
 
+        <!-- Header drawer -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -23,7 +25,7 @@
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
             android:paddingTop="32dp"
-            android:paddingBottom="8dp">
+            android:paddingBottom="12dp">
 
             <TextView
                 android:id="@+id/drawerAppName"
@@ -44,6 +46,87 @@
             android:layout_marginBottom="4dp"
             android:background="@color/divider" />
 
+        <!-- Secção Conversas -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/drawer_conversations"
+            android:textSize="11sp"
+            android:textAllCaps="true"
+            android:textColor="@color/settings_section_label"
+            android:paddingStart="24dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="6dp" />
+
+        <!-- Lista de conversas recentes (ScrollView para futuras entradas) -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:overScrollMode="never"
+            android:fillViewport="false">
+
+            <LinearLayout
+                android:id="@+id/drawerConversationsList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="8dp">
+
+                <!-- Item conversa nova (placeholder fixo sempre visível) -->
+                <LinearLayout
+                    android:id="@+id/drawerNewChat"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <FrameLayout
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:background="@drawable/drawer_icon_bg"
+                        android:layout_marginEnd="16dp">
+
+                        <ImageView
+                            android:id="@+id/drawerNewChatIcon"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:layout_gravity="center" />
+
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Nova conversa"
+                        android:textSize="15sp"
+                        android:textColor="@color/drawer_text" />
+
+                    <ImageView
+                        android:id="@+id/drawerNewChatChevron"
+                        android:layout_width="13dp"
+                        android:layout_height="13dp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </ScrollView>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0.5dp"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:background="@color/divider" />
+
+        <!-- Rodapé drawer: Definições + Logout -->
         <LinearLayout
             android:id="@+id/drawerItemSettings"
             android:layout_width="match_parent"
@@ -83,8 +166,50 @@
 
         </LinearLayout>
 
+        <!-- Logout drawer -->
+        <LinearLayout
+            android:id="@+id/drawerItemLogout"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:background="?attr/selectableItemBackground">
+
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/logout_icon_bg"
+                android:layout_marginEnd="16dp">
+
+                <ImageView
+                    android:id="@+id/drawerIconLogout"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_gravity="center" />
+
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/drawer_logout"
+                android:textSize="15sp"
+                android:textColor="#FF3B30" />
+
+        </LinearLayout>
+
+        <!-- Espaço para nav bar do sistema -->
+        <View
+            android:id="@+id/drawerNavSpacer"
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
     </LinearLayout>
 
+    <!-- CONTEÚDO PRINCIPAL -->
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:id="@+id/coordinatorLayout"
         android:layout_width="match_parent"
@@ -108,76 +233,43 @@
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp">
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
+                <!-- Botão menu esquerda -->
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
                     android:layout_centerVertical="true"
-                    android:layout_alignParentStart="true">
+                    android:layout_alignParentStart="true"
+                    android:background="@drawable/appbar_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
-                    <FrameLayout
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/appbar_btn_bg"
-                        android:clickable="true"
-                        android:focusable="true">
+                    <ImageView
+                        android:id="@+id/btnMenu"
+                        android:layout_width="17dp"
+                        android:layout_height="17dp"
+                        android:layout_gravity="center"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
 
-                        <ImageView
-                            android:id="@+id/btnMenu"
-                            android:layout_width="17dp"
-                            android:layout_height="17dp"
-                            android:layout_gravity="center"
-                            android:background="?attr/selectableItemBackgroundBorderless" />
+                </FrameLayout>
 
-                    </FrameLayout>
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
+                <!-- Botões direita: só mais (sem coin) -->
+                <FrameLayout
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
                     android:layout_centerVertical="true"
-                    android:layout_alignParentEnd="true">
+                    android:layout_alignParentEnd="true"
+                    android:background="@drawable/appbar_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
-                    <FrameLayout
-                        android:id="@+id/btnPull"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:layout_marginEnd="6dp"
-                        android:background="@drawable/appbar_btn_bg"
-                        android:clickable="true"
-                        android:focusable="true">
+                    <ImageView
+                        android:id="@+id/btnMore"
+                        android:layout_width="17dp"
+                        android:layout_height="17dp"
+                        android:layout_gravity="center"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
 
-                        <ImageView
-                            android:id="@+id/btnPullIcon"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:layout_gravity="center"
-                            android:scaleType="fitCenter"
-                            android:adjustViewBounds="true" />
-
-                    </FrameLayout>
-
-                    <FrameLayout
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/appbar_btn_bg"
-                        android:clickable="true"
-                        android:focusable="true">
-
-                        <ImageView
-                            android:id="@+id/btnMore"
-                            android:layout_width="17dp"
-                            android:layout_height="17dp"
-                            android:layout_gravity="center"
-                            android:background="?attr/selectableItemBackgroundBorderless" />
-
-                    </FrameLayout>
-
-                </LinearLayout>
+                </FrameLayout>
 
             </RelativeLayout>
 
@@ -270,6 +362,20 @@
 
         </LinearLayout>
 
+        <!-- Chat messages list (visível quando há mensagens) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/chatRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="140dp"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            android:visibility="gone"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
         <!-- Scrim -->
         <View
             android:id="@+id/drawerScrim"
@@ -280,7 +386,7 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- iOS popup menu overlay -->
+        <!-- iOS popup menu -->
         <FrameLayout
             android:id="@+id/popupOverlay"
             android:layout_width="match_parent"
@@ -403,10 +509,6 @@
 
         </FrameLayout>
 
-        <!--
-            Camada de blur: posicionada ABAIXO do bottomNavWrapper na z-order.
-            Margens sincronizadas com o wrapper via código.
-        -->
         <View
             android:id="@+id/bottomBlurBg"
             android:layout_width="match_parent"

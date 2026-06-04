@@ -23,16 +23,14 @@
             android:paddingBottom="48dp"
             android:gravity="center_horizontal">
 
-            <!-- Logo -->
             <ImageView
                 android:id="@+id/loginLogo"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
                 android:scaleType="fitCenter"
                 android:adjustViewBounds="true"
                 android:layout_marginBottom="32dp" />
 
-            <!-- Título -->
             <TextView
                 android:id="@+id/loginTitle"
                 android:layout_width="wrap_content"
@@ -60,9 +58,9 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/auth_input_bg"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:layout_marginBottom="12dp">
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:layout_marginBottom="14dp">
 
                 <EditText
                     android:id="@+id/loginEmail"
@@ -86,9 +84,9 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/auth_input_bg"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:layout_marginBottom="8dp">
+                android:paddingStart="20dp"
+                android:paddingEnd="16dp"
+                android:layout_marginBottom="10dp">
 
                 <EditText
                     android:id="@+id/loginPassword"
@@ -123,11 +121,24 @@
                 android:textSize="13sp"
                 android:textColor="@color/auth_link_color"
                 android:layout_gravity="end"
-                android:layout_marginBottom="32dp"
+                android:layout_marginBottom="28dp"
                 android:paddingTop="8dp"
                 android:paddingBottom="4dp"
                 android:clickable="true"
                 android:focusable="true" />
+
+            <!-- Erro -->
+            <TextView
+                android:id="@+id/loginError"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#FF3B30"
+                android:gravity="center"
+                android:visibility="gone"
+                android:layout_marginBottom="14dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp" />
 
             <!-- Botão Entrar -->
             <FrameLayout
@@ -137,7 +148,7 @@
                 android:background="@drawable/auth_btn_bg"
                 android:clickable="true"
                 android:focusable="true"
-                android:layout_marginBottom="24dp">
+                android:layout_marginBottom="28dp">
 
                 <TextView
                     android:id="@+id/loginBtnText"
@@ -158,17 +169,6 @@
                     android:visibility="gone" />
 
             </FrameLayout>
-
-            <!-- Erro -->
-            <TextView
-                android:id="@+id/loginError"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="#FF3B30"
-                android:gravity="center"
-                android:visibility="gone"
-                android:layout_marginBottom="16dp" />
 
             <!-- Divisor -->
             <LinearLayout
