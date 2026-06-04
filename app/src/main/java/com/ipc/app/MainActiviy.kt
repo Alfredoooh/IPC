@@ -305,64 +305,59 @@ class MainActiviy : BaseActivity() {
      * Resultado: o utilizador nunca vê o salto — só vê a animação contínua.
      */
     private fun setupInput() {
-        binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, oldTop, _, oldBottom ->
-            val newMsgH = bottom - top
-            val oldMsgH = oldBottom - oldTop
-            if (newMsgH == oldMsgH || newMsgH <= 0 || oldMsgH <= 0) return@addOnLayoutChangeListener
-            if (!inputRowVisible) return@addOnLayoutChangeListener
+        binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+    val newMsgH = bottom - top
+    val oldMsgH = oldBottom - oldTop
+    if (newMsgH == oldMsgH || newMsgH <= 0 || oldMsgH <= 0) return@addOnLayoutChangeListener
+    if (!inputRowVisible) return@addOnLayoutChangeListener
 
-            val delta = newMsgH - oldMsgH
-            val fromH = if (inputRowHeightFrozen) frozenInputRowHeight else binding.inputRow.height
-            if (fromH <= 0) return@addOnLayoutChangeListener
-            val toH = (fromH + delta).coerceAtLeast(1)
-            if (fromH == toH) return@addOnLayoutChangeListener
+    val delta = newMsgH - oldMsgH
+    val fromH = if (inputRowHeightFrozen) frozenInputRowHeight else binding.inputRow.height
+    if (fromH <= 0) return@addOnLayoutChangeListener
+    val toH = (fromH + delta).coerceAtLeast(1)
+    if (fromH == toH) return@addOnLayoutChangeListener
 
-            // Remover listener anterior se ainda activo
-            preDrawListener?.let { binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(it) }
+    preDrawListener?.let { binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(it) }
 
-            // Congelar inputRow na altura actual ANTES do próximo draw
-            preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(this)
-                    preDrawListener = null
+    preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
+        override fun onPreDraw(): Boolean {
+            binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(this)
+            preDrawListener = null
 
-                    // Fixar altura para impedir salto
-                    inputRowHeightFrozen = true
-                    frozenInputRowHeight = fromH
+            inputRowHeightFrozen = true
+            frozenInputRowHeight = fromH
+            binding.inputRow.layoutParams =
+                binding.inputRow.layoutParams.also { it.height = fromH }
+
+            inputHeightAnimator?.cancel()
+            inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
+                duration = 180
+                interpolator = DecelerateInterpolator(1.5f)
+                addUpdateListener { anim ->
+                    val h = anim.animatedValue as Int
+                    frozenInputRowHeight = h
                     binding.inputRow.layoutParams =
-                        binding.inputRow.layoutParams.also { it.height = fromH }
-
-                    // Animar do valor congelado para o destino
-                    inputHeightAnimator?.cancel()
-                    inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
-                        duration = 180
-                        interpolator = DecelerateInterpolator(1.5f)
-                        addUpdateListener { anim ->
-                            val h = anim.animatedValue as Int
-                            frozenInputRowHeight = h
-                            binding.inputRow.layoutParams =
-                                binding.inputRow.layoutParams.also { it.height = h }
-                            syncBlurBgSize()
-                        }
-                        addListener(object : AnimatorListenerAdapter() {
-                            override fun onAnimationEnd(animation: Animator) {
-                                inputRowHeightFrozen = false
-                                binding.inputRow.layoutParams =
-                                    binding.inputRow.layoutParams.also {
-                                        it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                                    }
-                                syncBlurBgSize()
-                            }
-                        })
-                        start()
-                    }
-
-                    // false = cancelar este frame, o próximo já terá a altura fixa
-                    return false
+                        binding.inputRow.layoutParams.also { it.height = h }
+                    syncBlurBgSize()
                 }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        inputRowHeightFrozen = false
+                        binding.inputRow.layoutParams =
+                            binding.inputRow.layoutParams.also {
+                                it.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                            }
+                        syncBlurBgSize()
+                    }
+                })
+                start()
             }
-            binding.inputMessage.viewTreeObserver.addOnPreDrawListener(preDrawListener)
+
+            return false
         }
+    }
+    binding.inputMessage.viewTreeObserver.addOnPreDrawListener(preDrawListener)
+}
 
         binding.inputMessage.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
