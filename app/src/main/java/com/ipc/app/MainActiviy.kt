@@ -20,6 +20,8 @@ import android.text.TextWatcher
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
+import android.widget.ImageView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -27,8 +29,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.caverock.androidsvg.SVG
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
 import com.ipc.app.ui.MyCoinActivity
@@ -41,6 +41,7 @@ class MainActiviy : BaseActivity() {
     lateinit var binding: ActivityMainBinding
 
     private var drawerOpen = false
+    private var popupVisible = false
     private var drawerAnimator: ValueAnimator? = null
     private var sendBtnAnimator: ValueAnimator? = null
     private var inputRowAnimator: ValueAnimator? = null
@@ -137,6 +138,7 @@ class MainActiviy : BaseActivity() {
         setupBottomTabs()
         setupPreviewImage()
         setupInput()
+        setupPopupMenu()
     }
 
     private fun setupAppBarScrollListener() {
@@ -170,9 +172,7 @@ class MainActiviy : BaseActivity() {
                 val f = anim.animatedFraction
                 val margin = (marginFrom + (marginTo - marginFrom) * f).toInt()
                 val radius = radiusFrom + (radiusTo - radiusFrom) * f
-
                 bgDrawable.cornerRadius = radius
-
                 val lp = binding.bottomNavWrapper.layoutParams
                     as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
                 lp.marginStart  = margin
@@ -204,6 +204,8 @@ class MainActiviy : BaseActivity() {
             val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
             binding.emptyGreeting.typeface = Typeface.create(tf, Typeface.BOLD)
             binding.emptySubtitle.typeface = tf
+            binding.previewTitle.typeface = Typeface.create(tf, Typeface.BOLD)
+            binding.previewSubtitle.typeface = tf
         }
     }
 
@@ -218,14 +220,79 @@ class MainActiviy : BaseActivity() {
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
 
+        // Coin no popup
         runCatching {
             val bmp = assets.open("icons/png/coin.png").use { BitmapFactory.decodeStream(it) }
-            binding.btnCoin.setImageBitmap(bmp)
+            binding.popupCoinIcon.setImageBitmap(bmp)
         }
 
-        binding.btnCoin.setOnClickListener {
+        binding.popupImportIcon.setImageDrawable(svgDrawable("icons/svg/download.svg", 18, iconTint))
+        binding.popupCameraIcon.setImageDrawable(svgDrawable("icons/svg/preview.svg", 18, iconTint))
+        binding.popupUrlIcon.setImageDrawable(svgDrawable("icons/svg/external.svg", 18, iconTint))
+    }
+
+    private fun setupPopupMenu() {
+        binding.btnMore.setOnClickListener { showPopup() }
+        binding.btnPull.setOnClickListener { showPopup() }
+
+        binding.popupOverlay.setOnClickListener { hidePopup() }
+
+        binding.popupItemCoin.setOnClickListener {
+            hidePopup()
             startActivity(Intent(this, MyCoinActivity::class.java))
         }
+
+        binding.popupItemImport.setOnClickListener { hidePopup() }
+        binding.popupItemCamera.setOnClickListener { hidePopup() }
+        binding.popupItemUrl.setOnClickListener { hidePopup() }
+    }
+
+    private fun showPopup() {
+        if (popupVisible) return
+        popupVisible = true
+        binding.popupOverlay.visibility = View.VISIBLE
+        binding.popupOverlay.alpha = 0f
+        binding.popupMenu.scaleX = 0.85f
+        binding.popupMenu.scaleY = 0.85f
+        binding.popupMenu.alpha = 0f
+        binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
+        binding.popupMenu.pivotY = 0f
+
+        binding.popupOverlay.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+
+        binding.popupMenu.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(300)
+            .setInterpolator(OvershootInterpolator(1.2f))
+            .start()
+    }
+
+    private fun hidePopup() {
+        if (!popupVisible) return
+        popupVisible = false
+
+        binding.popupMenu.animate()
+            .scaleX(0.85f)
+            .scaleY(0.85f)
+            .alpha(0f)
+            .setDuration(180)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+
+        binding.popupOverlay.animate()
+            .alpha(0f)
+            .setDuration(180)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                binding.popupOverlay.visibility = View.GONE
+            }
+            .start()
     }
 
     private fun showInputRow() {
@@ -398,7 +465,6 @@ class MainActiviy : BaseActivity() {
             closeDrawer()
             binding.root.postDelayed({
                 startActivity(Intent(this, SettingsActivity::class.java))
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
     }
@@ -439,28 +505,6 @@ class MainActiviy : BaseActivity() {
         refreshTabIcons()
         binding.tabChat.setOnClickListener    { selectTab(R.id.tabChat) }
         binding.tabPreview.setOnClickListener { selectTab(R.id.tabPreview) }
-        binding.btnPull.setOnClickListener    { showPullBottomSheet() }
-    }
-
-    private fun showPullBottomSheet() {
-        val sheet = BottomSheetDialog(this, R.style.FloatingBottomSheet)
-        val view  = layoutInflater.inflate(R.layout.bottom_sheet_pull, null)
-        sheet.setContentView(view)
-        sheet.behavior.apply {
-            skipCollapsed = true
-            state = BottomSheetBehavior.STATE_EXPANDED
-            isFitToContents = true
-        }
-
-        val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
-        view.findViewById<android.widget.ImageView>(R.id.pullIconImport)
-            .setImageDrawable(svgDrawable("icons/svg/download.svg", 16, iconTint))
-        view.findViewById<android.widget.ImageView>(R.id.pullIconCamera)
-            .setImageDrawable(svgDrawable("icons/svg/preview.svg", 16, iconTint))
-        view.findViewById<android.widget.ImageView>(R.id.pullIconUrl)
-            .setImageDrawable(svgDrawable("icons/svg/external.svg", 16, iconTint))
-
-        sheet.show()
     }
 
     private fun selectTab(tabId: Int) {
@@ -513,6 +557,7 @@ class MainActiviy : BaseActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        if (popupVisible) { hidePopup(); return }
         if (drawerOpen) { closeDrawer(); return }
         super.onBackPressed()
     }

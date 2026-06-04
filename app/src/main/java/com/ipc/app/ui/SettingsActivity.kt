@@ -1,4 +1,3 @@
-// SettingsActivity.kt
 package com.ipc.app.ui
 
 import android.content.Context
@@ -136,4 +135,4 @@ class SettingsActivity : BaseActivity() {
             it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
         }
     }
-}
+} 

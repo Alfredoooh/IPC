@@ -125,15 +125,6 @@
                         android:clickable="true"
                         android:focusable="true" />
 
-                    <ImageView
-                        android:id="@+id/btnCoin"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginStart="4dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:clickable="true"
-                        android:focusable="true" />
-
                 </LinearLayout>
 
                 <LinearLayout
@@ -176,13 +167,14 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
+        <!-- Preview tab -->
         <LinearLayout
             android:id="@+id/previewState"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:paddingTop="80dp"
+            android:paddingTop="100dp"
             android:paddingBottom="140dp"
             android:paddingStart="32dp"
             android:paddingEnd="32dp"
@@ -220,13 +212,14 @@
 
         </LinearLayout>
 
+        <!-- Empty state Chat -->
         <LinearLayout
             android:id="@+id/emptyState"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:paddingTop="80dp"
+            android:paddingTop="100dp"
             android:paddingBottom="140dp"
             android:paddingStart="32dp"
             android:paddingEnd="32dp"
@@ -244,7 +237,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:textSize="24.2sp"
+                android:textSize="48sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
                 android:gravity="center" />
@@ -261,6 +254,7 @@
 
         </LinearLayout>
 
+        <!-- Scrim -->
         <View
             android:id="@+id/drawerScrim"
             android:layout_width="match_parent"
@@ -270,6 +264,166 @@
             android:clickable="true"
             android:focusable="true" />
 
+        <!-- iOS popup menu overlay -->
+        <FrameLayout
+            android:id="@+id/popupOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="#44000000">
+
+            <LinearLayout
+                android:id="@+id/popupMenu"
+                android:layout_width="220dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="56dp"
+                android:layout_marginEnd="8dp"
+                android:orientation="vertical"
+                android:background="@drawable/popup_menu_bg"
+                android:elevation="16dp">
+
+                <LinearLayout
+                    android:id="@+id/popupItemCoin"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="My Coin"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:id="@+id/popupCoinIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:scaleType="fitCenter"
+                        android:adjustViewBounds="true" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="@color/divider" />
+
+                <LinearLayout
+                    android:id="@+id/popupItemImport"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Importar Ficheiro"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:id="@+id/popupImportIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center_vertical" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="@color/divider" />
+
+                <LinearLayout
+                    android:id="@+id/popupItemCamera"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Câmara"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:id="@+id/popupCameraIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center_vertical" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="@color/divider" />
+
+                <LinearLayout
+                    android:id="@+id/popupItemUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="URL / Link"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:id="@+id/popupUrlIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center_vertical" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+        <!-- Bottom card -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
