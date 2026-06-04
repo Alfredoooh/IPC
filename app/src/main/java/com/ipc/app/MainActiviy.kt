@@ -58,28 +58,27 @@ class MainActiviy : BaseActivity() {
     private var currentTab = R.id.tabChat
     private var keyboardOpen = false
 
+    // translationY actual do emptyState imposta pelo teclado — mantida aqui
+    // para que o inputRow crescer não interfira
+    private var emptyStateKeyboardShift = 0f
+
     private var swipeStartX = 0f
     private var swipeStartY = 0f
     private var isSwipingDrawer = false
     private val SWIPE_EDGE_WIDTH = 40f
     private val SWIPE_MIN_DIST = 30f
 
-    private val MARGIN_CHAT_DP    = 10f
+    private val MARGIN_CHAT_DP    = 16f
     private val MARGIN_PREVIEW_DP = 36f
     private val RADIUS_CHAT_DP    = 20f
     private val RADIUS_PREVIEW_DP = 38f
-    private val BOTTOM_MARGIN_DP  = 20f  // mais alto — era 10dp, agora 20dp
+    private val BOTTOM_MARGIN_DP  = 20f
 
-    // Fonte de verdade do bottom bar — actualizada frame a frame durante animação
     private var currentBarMarginPx: Int = -1
     private var currentBarRadiusPx: Float = -1f
 
-    // Altura do inputRow que o sistema de animação conhece.
-    // Mantida manualmente para impedir que o layout salte antes da animação.
     private var frozenInputRowHeight: Int = 0
-    // Flag: true quando o inputRow está com altura fixa (congelada pela animação)
     private var inputRowHeightFrozen = false
-    // PreDrawListener activo para interceptar o próximo frame antes do draw
     private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
 
     private val activeIconColor: Int
@@ -147,13 +146,16 @@ class MainActiviy : BaseActivity() {
 
             if (imeNowOpen && !keyboardOpen) {
                 keyboardOpen = true
+                // Subir o suficiente para não ficar tapado pelo teclado + bottom bar
+                emptyStateKeyboardShift = -(extraShift * 0.55f)
                 binding.emptyState.animate()
-                    .translationY(-(extraShift * 0.35f))
+                    .translationY(emptyStateKeyboardShift)
                     .setDuration(260)
                     .setInterpolator(DecelerateInterpolator(1.6f))
                     .start()
             } else if (!imeNowOpen && keyboardOpen) {
                 keyboardOpen = false
+                emptyStateKeyboardShift = 0f
                 binding.emptyState.animate()
                     .translationY(0f)
                     .setDuration(300)
@@ -286,78 +288,67 @@ class MainActiviy : BaseActivity() {
 
     // ─── Input: expansão suave sem fases ─────────────────────────────────────
 
-    /**
-     * Estratégia para expansão/contracção suave do inputRow sem fases:
-     *
-     * O Android expande o EditText → o layout do inputRow vai mudar de altura.
-     * Se deixarmos isso acontecer, o inputRow salta instantaneamente e depois
-     * a animação começa — criando a "segunda fase" / congelamento visível.
-     *
-     * Fix: registar um OnPreDrawListener no ViewTreeObserver do inputMessage.
-     * Este listener é chamado ANTES de qualquer draw após a mudança de layout.
-     * Dentro dele:
-     *   1. Lemos a nova altura que o sistema calculou para o inputMessage
-     *   2. Re-fixamos o inputRow na altura antiga (impedindo o salto)
-     *   3. Devolvemos false para cancelar este frame de draw
-     *   4. Arrancamos a animação do valor antigo para o novo
-     *   5. Removemos o listener
-     *
-     * Resultado: o utilizador nunca vê o salto — só vê a animação contínua.
-     */
     private fun setupInput() {
         binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
-    val newMsgH = bottom - top
-    val oldMsgH = oldBottom - oldTop
-    if (newMsgH == oldMsgH || newMsgH <= 0 || oldMsgH <= 0) return@addOnLayoutChangeListener
-    if (!inputRowVisible) return@addOnLayoutChangeListener
+            val newMsgH = bottom - top
+            val oldMsgH = oldBottom - oldTop
+            if (newMsgH == oldMsgH || newMsgH <= 0 || oldMsgH <= 0) return@addOnLayoutChangeListener
+            if (!inputRowVisible) return@addOnLayoutChangeListener
 
-    val delta = newMsgH - oldMsgH
-    val fromH = if (inputRowHeightFrozen) frozenInputRowHeight else binding.inputRow.height
-    if (fromH <= 0) return@addOnLayoutChangeListener
-    val toH = (fromH + delta).coerceAtLeast(1)
-    if (fromH == toH) return@addOnLayoutChangeListener
+            val delta = newMsgH - oldMsgH
+            val fromH = if (inputRowHeightFrozen) frozenInputRowHeight else binding.inputRow.height
+            if (fromH <= 0) return@addOnLayoutChangeListener
+            val toH = (fromH + delta).coerceAtLeast(1)
+            if (fromH == toH) return@addOnLayoutChangeListener
 
-    preDrawListener?.let { binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(it) }
+            preDrawListener?.let { binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(it) }
 
-    preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
-        override fun onPreDraw(): Boolean {
-            binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(this)
-            preDrawListener = null
+            preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(this)
+                    preDrawListener = null
 
-            inputRowHeightFrozen = true
-            frozenInputRowHeight = fromH
-            binding.inputRow.layoutParams =
-                binding.inputRow.layoutParams.also { it.height = fromH }
-
-            inputHeightAnimator?.cancel()
-            inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
-                duration = 180
-                interpolator = DecelerateInterpolator(1.5f)
-                addUpdateListener { anim ->
-                    val h = anim.animatedValue as Int
-                    frozenInputRowHeight = h
+                    inputRowHeightFrozen = true
+                    frozenInputRowHeight = fromH
                     binding.inputRow.layoutParams =
-                        binding.inputRow.layoutParams.also { it.height = h }
-                    syncBlurBgSize()
-                }
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        inputRowHeightFrozen = false
-                        binding.inputRow.layoutParams =
-                            binding.inputRow.layoutParams.also {
-                                it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                            }
-                        syncBlurBgSize()
-                    }
-                })
-                start()
-            }
+                        binding.inputRow.layoutParams.also { it.height = fromH }
 
-            return false
+                    inputHeightAnimator?.cancel()
+                    inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
+                        duration = 180
+                        interpolator = DecelerateInterpolator(1.5f)
+                        addUpdateListener { anim ->
+                            val h = anim.animatedValue as Int
+                            frozenInputRowHeight = h
+                            binding.inputRow.layoutParams =
+                                binding.inputRow.layoutParams.also { it.height = h }
+                            syncBlurBgSize()
+                            // Manter o emptyState fixo durante expansão do input
+                            if (keyboardOpen) {
+                                binding.emptyState.translationY = emptyStateKeyboardShift
+                            }
+                        }
+                        addListener(object : AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: Animator) {
+                                inputRowHeightFrozen = false
+                                binding.inputRow.layoutParams =
+                                    binding.inputRow.layoutParams.also {
+                                        it.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                                    }
+                                syncBlurBgSize()
+                                if (keyboardOpen) {
+                                    binding.emptyState.translationY = emptyStateKeyboardShift
+                                }
+                            }
+                        })
+                        start()
+                    }
+
+                    return false
+                }
+            }
+            binding.inputMessage.viewTreeObserver.addOnPreDrawListener(preDrawListener)
         }
-    }
-    binding.inputMessage.viewTreeObserver.addOnPreDrawListener(preDrawListener)
-}
 
         binding.inputMessage.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -536,31 +527,35 @@ class MainActiviy : BaseActivity() {
         popupVisible = true
         binding.popupOverlay.visibility = View.VISIBLE
         binding.popupOverlay.alpha = 0f
-        binding.popupMenu.scaleX = 0.85f
-        binding.popupMenu.scaleY = 0.85f
-        binding.popupMenu.alpha = 0f
-        binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
-        binding.popupMenu.pivotY = 0f
 
-        binding.bottomNavWrapper.animate()
-            .alpha(0.35f)
-            .setDuration(200)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
+        // Fix: calcular pivot DEPOIS do layout estar pronto para evitar width=0 na 1ª abertura
+        binding.popupMenu.post {
+            binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
+            binding.popupMenu.pivotY = 0f
+            binding.popupMenu.scaleX = 0.85f
+            binding.popupMenu.scaleY = 0.85f
+            binding.popupMenu.alpha = 0f
 
-        binding.popupOverlay.animate()
-            .alpha(1f)
-            .setDuration(200)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
+            binding.bottomNavWrapper.animate()
+                .alpha(0.35f)
+                .setDuration(200)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
 
-        binding.popupMenu.animate()
-            .scaleX(1f)
-            .scaleY(1f)
-            .alpha(1f)
-            .setDuration(300)
-            .setInterpolator(OvershootInterpolator(1.2f))
-            .start()
+            binding.popupOverlay.animate()
+                .alpha(1f)
+                .setDuration(200)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+
+            binding.popupMenu.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(300)
+                .setInterpolator(OvershootInterpolator(1.2f))
+                .start()
+        }
     }
 
     private fun hidePopup() {
