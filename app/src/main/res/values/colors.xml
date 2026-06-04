@@ -61,7 +61,6 @@
     <color name="gradient_blue_top">#E8F1FF</color>
     <color name="gradient_blue_bottom">#FFFFFF</color>
     
-    <!-- AppBar button circular bg: modo claro — cinza escuro visível -->
-    <color name="appbar_btn_bg_color">#22000000</color>
-    <color name="appbar_btn_border_color">#33000000</color>
+    <!-- AppBar button: claro → quase invisível, mínimo hint -->
+    <color name="appbar_btn_bg_color">#0F000000</color>
 </resources>

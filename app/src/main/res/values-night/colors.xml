@@ -56,7 +56,6 @@
     <color name="send_btn_color">#F2F2F2</color>
     <color name="send_icon_color">#121212</color>
     
-    <!-- AppBar button circular bg: modo escuro — branco semitransparente -->
-    <color name="appbar_btn_bg_color">#28FFFFFF</color>
-    <color name="appbar_btn_border_color">#20FFFFFF</color>
+    <!-- AppBar button: escuro → branco muito subtil -->
+    <color name="appbar_btn_bg_color">#18FFFFFF</color>
 </resources>

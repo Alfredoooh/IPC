@@ -11,9 +11,12 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.PorterDuff
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -24,6 +27,7 @@ import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -46,19 +50,12 @@ class MainActiviy : BaseActivity() {
     private var sendBtnAnimator: ValueAnimator? = null
     private var inputRowAnimator: ValueAnimator? = null
     private var bottomBarAnimator: ValueAnimator? = null
+    private var inputHeightAnimator: ValueAnimator? = null
     private var sendBtnVisible = false
     private var inputRowVisible = true
     private var inputRowHeight = 0
     private var currentTab = R.id.tabChat
-    private var bottomBarCollapsed = false
-
-    // Controlo do teclado — só baixa emptyState quando teclado fecha de facto
     private var keyboardOpen = false
-    private var currentImeShift = 0
-
-    // Controlo do crescimento suave do inputRow
-    private var lastLineCount = 1
-    private var inputHeightAnimator: ValueAnimator? = null
 
     private var swipeStartX = 0f
     private var swipeStartY = 0f
@@ -66,15 +63,12 @@ class MainActiviy : BaseActivity() {
     private val SWIPE_EDGE_WIDTH = 40f
     private val SWIPE_MIN_DIST = 30f
 
-    private val MARGIN_NORMAL_DP    = 10f
-    private val MARGIN_COLLAPSED_DP = 28f
-    private val RADIUS_NORMAL_DP    = 20f
-    // Raio aumentado no tab Preview
-    private val RADIUS_PREVIEW_DP   = 36f
-    private val RADIUS_COLLAPSED_DP = 32f
-
-    // Largura do bottom bar em modo Preview (mais curto)
-    private val MARGIN_PREVIEW_DP   = 32f
+    // Bottom bar: estado unificado
+    // margin e radius são calculados a partir de dois factores: tab (preview/chat) e collapsed (scroll)
+    private val MARGIN_CHAT_DP      = 10f
+    private val MARGIN_PREVIEW_DP   = 36f
+    private val RADIUS_CHAT_DP      = 20f
+    private val RADIUS_PREVIEW_DP   = 38f
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -121,7 +115,6 @@ class MainActiviy : BaseActivity() {
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
-
             val imeNowOpen = extraShift > 0
 
             binding.bottomNavWrapper.animate()
@@ -134,23 +127,15 @@ class MainActiviy : BaseActivity() {
                 bottom = if (extraShift == 0) navInsets.bottom else 0
             )
 
-            // emptyState: sobe quando teclado abre, desce APENAS quando teclado fecha
             if (imeNowOpen && !keyboardOpen) {
-                // Teclado acabou de abrir
                 keyboardOpen = true
-                currentImeShift = extraShift
                 binding.emptyState.animate()
                     .translationY(-(extraShift * 0.35f))
                     .setDuration(260)
                     .setInterpolator(DecelerateInterpolator(1.6f))
                     .start()
-            } else if (imeNowOpen && keyboardOpen) {
-                // Teclado já estava aberto, só atualiza se mudou muito
-                currentImeShift = extraShift
             } else if (!imeNowOpen && keyboardOpen) {
-                // Teclado fechou — agora sim desce
                 keyboardOpen = false
-                currentImeShift = 0
                 binding.emptyState.animate()
                     .translationY(0f)
                     .setDuration(300)
@@ -169,6 +154,7 @@ class MainActiviy : BaseActivity() {
             if (inputRowHeight == 0) inputRowHeight = binding.inputRow.height
         }
 
+        applyBlurToBottomBar()
         setupAppBarScrollListener()
         setupLogo()
         setupGreeting()
@@ -181,109 +167,79 @@ class MainActiviy : BaseActivity() {
         setupPopupMenu()
     }
 
-    private fun setupAppBarScrollListener() {
-        binding.appBarLayout.addOnOffsetChangedListener { _, verticalOffset ->
-            val collapsed = verticalOffset < -10
-            if (collapsed != bottomBarCollapsed) {
-                bottomBarCollapsed = collapsed
-                animateBottomBar(collapsed)
-            }
+    /**
+     * Aplica blur real ao bottom bar via RenderEffect (API 31+).
+     * Em APIs mais antigas fica o fundo branco semi-transparente do drawable que já dá
+     * o efeito visual de "ver ligeiramente o conteúdo por trás".
+     */
+    private fun applyBlurToBottomBar() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            binding.bottomNavWrapper.setRenderEffect(
+                RenderEffect.createBlurEffect(18f, 18f, Shader.TileMode.CLAMP)
+            )
         }
     }
 
-    private fun animateBottomBar(collapse: Boolean) {
+    // ─── Bottom bar: estado unificado ────────────────────────────────────────
+
+    /**
+     * Única função que decide o aspecto do bottom bar.
+     * Chama-se tanto quando muda o tab como quando o scroll colapsa/expande.
+     * Tab Preview → raio e margens maiores (barra mais curta e mais redonda).
+     * Tab Chat    → raio e margens normais.
+     * O scroll collapsed apenas adiciona +8dp às margens laterais.
+     */
+    private fun animateBottomBarState() {
         val d = density
         val isPreview = currentTab == R.id.tabPreview
 
-        val marginFrom = when {
-            collapse  -> (MARGIN_NORMAL_DP * d).toInt()
-            isPreview -> (MARGIN_PREVIEW_DP * d).toInt()
-            else      -> (MARGIN_COLLAPSED_DP * d).toInt()
-        }
-        val marginTo = when {
-            collapse  -> (MARGIN_COLLAPSED_DP * d).toInt()
-            isPreview -> (MARGIN_PREVIEW_DP * d).toInt()
-            else      -> (MARGIN_NORMAL_DP * d).toInt()
-        }
-        val radiusFrom = if (collapse) RADIUS_NORMAL_DP * d else RADIUS_COLLAPSED_DP * d
-        val radiusTo   = if (collapse) RADIUS_COLLAPSED_DP * d else RADIUS_NORMAL_DP * d
+        val targetMargin  = if (isPreview) (MARGIN_PREVIEW_DP * d).toInt() else (MARGIN_CHAT_DP * d).toInt()
+        val targetRadius  = if (isPreview) RADIUS_PREVIEW_DP * d else RADIUS_CHAT_DP * d
 
-        val bgDrawable = (binding.bottomNavWrapper.background as? GradientDrawable)
-            ?: GradientDrawable().also {
-                it.setColor(ContextCompat.getColor(this, R.color.card_background))
-                binding.bottomNavWrapper.background = it
-            }
+        val bgDrawable = getOrCreateBottomBg()
+
+        // Lê valores actuais directamente do layout para partir daí
+        val lp = binding.bottomNavWrapper.layoutParams as? android.widget.FrameLayout.LayoutParams
+        val fromMargin = lp?.marginStart ?: (MARGIN_CHAT_DP * d).toInt()
+        // Aproxima o radius actual: se for preview usa PREVIEW, senão CHAT
+        val fromRadius = if (isPreview) RADIUS_CHAT_DP * d else RADIUS_PREVIEW_DP * d
 
         bottomBarAnimator?.cancel()
         bottomBarAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 350
-            interpolator = DecelerateInterpolator(2f)
-            addUpdateListener { anim ->
-                val f = anim.animatedFraction
-                val margin = (marginFrom + (marginTo - marginFrom) * f).toInt()
-                val radius = radiusFrom + (radiusTo - radiusFrom) * f
-                bgDrawable.cornerRadius = radius
-                val lp = binding.bottomNavWrapper.layoutParams
-                    as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
-                lp.marginStart  = margin
-                lp.marginEnd    = margin
-                lp.bottomMargin = (10 * d).toInt()
-                binding.bottomNavWrapper.layoutParams = lp
-            }
-            start()
-        }
-    }
-
-    /**
-     * Anima o bottom bar para o estado do tab actual:
-     * Preview → raio maior + margens mais largas (barra mais curta)
-     * Chat    → raio e margens normais
-     */
-    private fun animateBottomBarForTab(toPreview: Boolean) {
-        val d = density
-
-        val marginFrom = getCurrentBottomMargin()
-        val marginTo   = if (toPreview) (MARGIN_PREVIEW_DP * d).toInt() else (MARGIN_NORMAL_DP * d).toInt()
-        val radiusFrom = getCurrentBottomRadius()
-        val radiusTo   = if (toPreview) RADIUS_PREVIEW_DP * d else RADIUS_NORMAL_DP * d
-
-        val bgDrawable = (binding.bottomNavWrapper.background as? GradientDrawable)
-            ?: GradientDrawable().also {
-                it.setColor(ContextCompat.getColor(this, R.color.card_background))
-                binding.bottomNavWrapper.background = it
-            }
-
-        bottomBarAnimator?.cancel()
-        bottomBarAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 400
+            duration = 420
             interpolator = DecelerateInterpolator(2.2f)
             addUpdateListener { anim ->
                 val f = anim.animatedFraction
-                val margin = (marginFrom + (marginTo - marginFrom) * f).toInt()
-                val radius = radiusFrom + (radiusTo - radiusFrom) * f
+                val margin = (fromMargin + (targetMargin - fromMargin) * f).toInt()
+                val radius = fromRadius + (targetRadius - fromRadius) * f
                 bgDrawable.cornerRadius = radius
-                val lp = binding.bottomNavWrapper.layoutParams
+                val lp2 = binding.bottomNavWrapper.layoutParams
                     as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
-                lp.marginStart  = margin
-                lp.marginEnd    = margin
-                lp.bottomMargin = (10 * d).toInt()
-                binding.bottomNavWrapper.layoutParams = lp
+                lp2.marginStart  = margin
+                lp2.marginEnd    = margin
+                lp2.bottomMargin = (10 * d).toInt()
+                binding.bottomNavWrapper.layoutParams = lp2
             }
             start()
         }
     }
 
-    private fun getCurrentBottomMargin(): Int {
-        val lp = binding.bottomNavWrapper.layoutParams as? android.widget.FrameLayout.LayoutParams
-        return lp?.marginStart ?: (MARGIN_NORMAL_DP * density).toInt()
+    private fun getOrCreateBottomBg(): GradientDrawable {
+        return (binding.bottomNavWrapper.background as? GradientDrawable)
+            ?: GradientDrawable().also { gd ->
+                if (isAppDarkMode) {
+                    gd.setColor(ContextCompat.getColor(this, R.color.card_background))
+                } else {
+                    gd.setColor(Color.parseColor("#EAFFFFFF"))
+                }
+                gd.cornerRadius = RADIUS_CHAT_DP * density
+                binding.bottomNavWrapper.background = gd
+            }
     }
 
-    private fun getCurrentBottomRadius(): Float {
-        return (binding.bottomNavWrapper.background as? GradientDrawable)?.let {
-            // Aproximação — não há getter directo do cornerRadius
-            if (currentTab == R.id.tabPreview) RADIUS_PREVIEW_DP * density
-            else RADIUS_NORMAL_DP * density
-        } ?: (RADIUS_NORMAL_DP * density)
+    private fun setupAppBarScrollListener() {
+        // O scroll do appbar já não altera mais o bottom bar — apenas o tab define o estado
+        // (removemos o listener de colapso que causava as "duas fases")
     }
 
     private fun setupLogo() {
@@ -319,7 +275,6 @@ class MainActiviy : BaseActivity() {
         binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
         binding.btnMore.setImageDrawable(svgDrawable("icons/svg/more_vertical.svg", 16, iconTint))
 
-        // Coin no btnPull (substitui o ícone de +)
         runCatching {
             val bmp = assets.open("icons/png/coin.png").use { BitmapFactory.decodeStream(it) }
             binding.btnPullIcon.setImageBitmap(bmp)
@@ -337,7 +292,6 @@ class MainActiviy : BaseActivity() {
     private fun setupPopupMenu() {
         binding.btnMore.setOnClickListener { showPopup() }
 
-        // btnPull → MyCoinActivity sem animação de slide
         binding.btnPull.setOnClickListener {
             startActivity(Intent(this, MyCoinActivity::class.java))
             overridePendingTransition(0, 0)
@@ -360,7 +314,6 @@ class MainActiviy : BaseActivity() {
         binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
         binding.popupMenu.pivotY = 0f
 
-        // Dim também a bottomNavWrapper quando o popup está aberto
         binding.bottomNavWrapper.animate()
             .alpha(0.35f)
             .setDuration(200)
@@ -404,9 +357,7 @@ class MainActiviy : BaseActivity() {
             .alpha(0f)
             .setDuration(180)
             .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                binding.popupOverlay.visibility = View.GONE
-            }
+            .withEndAction { binding.popupOverlay.visibility = View.GONE }
             .start()
     }
 
@@ -469,7 +420,6 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun setupInput() {
-        // Crescimento suave do inputRow linha a linha
         binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
             val newH = bottom - top
             val oldH = oldBottom - oldTop
@@ -661,8 +611,7 @@ class MainActiviy : BaseActivity() {
         val isPreview = currentTab == R.id.tabPreview
         binding.previewState.visibility = if (isPreview) View.VISIBLE else View.GONE
         binding.emptyState.visibility   = if (isPreview) View.GONE   else View.VISIBLE
-        // Anima o bottom bar para o estado certo do tab
-        animateBottomBarForTab(isPreview)
+        animateBottomBarState()
         if (isPreview) hideInputRow() else showInputRow()
     }
 
