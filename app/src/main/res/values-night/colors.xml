@@ -24,7 +24,6 @@
     <color name="drawer_text">#F2F2F2</color>
     
     <color name="surface">#1f1f1f</color>
-    <!-- card_background = tom dos cards, drawer, bottom bar — contrasta com #121212 -->
     <color name="card_background">#1f1f1f</color>
     
     <color name="apps_section_background">#121212</color>
@@ -56,4 +55,8 @@
     <color name="compound_pill_color">#1f1f1f</color>
     <color name="send_btn_color">#F2F2F2</color>
     <color name="send_icon_color">#121212</color>
+    
+    <!-- AppBar button circular bg: modo escuro — branco semitransparente -->
+    <color name="appbar_btn_bg_color">#28FFFFFF</color>
+    <color name="appbar_btn_border_color">#20FFFFFF</color>
 </resources>

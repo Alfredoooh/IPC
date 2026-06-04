@@ -5,17 +5,14 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/background"
-    android:fitsSystemWindows="false">
+    android:fitsSystemWindows="true">
 
-    <!-- Toolbar que absorve o padding da statusbar -->
     <RelativeLayout
         android:id="@+id/settingsToolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="?attr/actionBarSize"
+        android:layout_height="?attr/actionBarSize"
         android:paddingStart="4dp"
         android:paddingEnd="16dp"
-        android:paddingTop="0dp"
         android:background="@color/appbar_background">
 
         <ImageView

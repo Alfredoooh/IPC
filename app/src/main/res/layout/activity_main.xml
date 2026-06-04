@@ -102,7 +102,6 @@
             app:elevation="0dp"
             app:liftOnScroll="false">
 
-            <!-- AppBar fixo — sem scrollFlags para não deslizar nunca -->
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
@@ -117,7 +116,6 @@
                     android:layout_centerVertical="true"
                     android:layout_alignParentStart="true">
 
-                    <!-- Botão Menu com container circular iOS blur -->
                     <FrameLayout
                         android:layout_width="36dp"
                         android:layout_height="36dp"
@@ -144,7 +142,6 @@
                     android:layout_centerVertical="true"
                     android:layout_alignParentEnd="true">
 
-                    <!-- Botão Coin (substitui +) -->
                     <FrameLayout
                         android:id="@+id/btnPull"
                         android:layout_width="36dp"
@@ -164,7 +161,6 @@
 
                     </FrameLayout>
 
-                    <!-- Botão More com container circular iOS blur -->
                     <FrameLayout
                         android:layout_width="36dp"
                         android:layout_height="36dp"
@@ -214,7 +210,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
                 android:text="Resultado da Análise"
-                android:textSize="18sp"
+                android:textSize="26sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
                 android:gravity="center" />
@@ -225,7 +221,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="O output da sua consulta será apresentado aqui."
-                android:textSize="16sp"
+                android:textSize="17sp"
                 android:textColor="@color/text_hint"
                 android:gravity="center"
                 android:lineSpacingMultiplier="1.4" />
