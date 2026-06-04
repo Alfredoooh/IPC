@@ -403,6 +403,21 @@
 
         </FrameLayout>
 
+        <!--
+            Camada de blur: posicionada ABAIXO do bottomNavWrapper na z-order (declarada antes).
+            Recebe o RenderEffect de blur — borra o conteúdo por trás.
+            O bottomNavWrapper fica por cima, completamente nítido com os botões clicáveis.
+            As margens são sincronizadas com as do wrapper via código.
+        -->
+        <View
+            android:id="@+id/bottomBlurBg"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_marginBottom="6dp" />
+
         <!-- Bottom card -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
@@ -412,7 +427,7 @@
             android:orientation="vertical"
             android:layout_marginStart="10dp"
             android:layout_marginEnd="10dp"
-            android:layout_marginBottom="10dp"
+            android:layout_marginBottom="6dp"
             android:background="@drawable/bottom_card_bg"
             android:elevation="4dp">
 

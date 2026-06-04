@@ -24,10 +24,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
-import android.widget.ImageView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.ColorUtils
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -63,12 +61,18 @@ class MainActiviy : BaseActivity() {
     private val SWIPE_EDGE_WIDTH = 40f
     private val SWIPE_MIN_DIST = 30f
 
-    // Bottom bar: estado unificado
-    // margin e radius são calculados a partir de dois factores: tab (preview/chat) e collapsed (scroll)
-    private val MARGIN_CHAT_DP      = 10f
-    private val MARGIN_PREVIEW_DP   = 36f
-    private val RADIUS_CHAT_DP      = 20f
-    private val RADIUS_PREVIEW_DP   = 38f
+    // Bottom bar: constantes de estado
+    private val MARGIN_CHAT_DP    = 10f
+    private val MARGIN_PREVIEW_DP = 36f
+    private val RADIUS_CHAT_DP    = 20f
+    private val RADIUS_PREVIEW_DP = 38f
+    private val BOTTOM_MARGIN_DP  = 6f
+
+    // Fonte de verdade dos valores actuais do bottom bar.
+    // Actualizados frame a frame durante a animação para garantir
+    // uma única fase em qualquer direcção, sem saltos.
+    private var currentBarMarginPx: Int = -1
+    private var currentBarRadiusPx: Float = -1f
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -123,6 +127,13 @@ class MainActiviy : BaseActivity() {
                 .setInterpolator(DecelerateInterpolator(1.6f))
                 .start()
 
+            // Sincronizar blur bg com o mesmo translationY
+            binding.bottomBlurBg.animate()
+                .translationY(-extraShift.toFloat())
+                .setDuration(260)
+                .setInterpolator(DecelerateInterpolator(1.6f))
+                .start()
+
             binding.bottomNavWrapper.updatePadding(
                 bottom = if (extraShift == 0) navInsets.bottom else 0
             )
@@ -154,8 +165,11 @@ class MainActiviy : BaseActivity() {
             if (inputRowHeight == 0) inputRowHeight = binding.inputRow.height
         }
 
-        applyBlurToBottomBar()
-        setupAppBarScrollListener()
+        // Inicializar fonte de verdade com o estado inicial (tab Chat)
+        currentBarMarginPx = (MARGIN_CHAT_DP * density).toInt()
+        currentBarRadiusPx = RADIUS_CHAT_DP * density
+
+        setupBlurBehindBottomBar()
         setupLogo()
         setupGreeting()
         setupIcons()
@@ -168,58 +182,118 @@ class MainActiviy : BaseActivity() {
     }
 
     /**
-     * Aplica blur real ao bottom bar via RenderEffect (API 31+).
-     * Em APIs mais antigas fica o fundo branco semi-transparente do drawable que já dá
-     * o efeito visual de "ver ligeiramente o conteúdo por trás".
+     * Aplica blur APENAS ao [bottomBlurBg], que é uma View irmã do [bottomNavWrapper]
+     * posicionada logo abaixo na z-order (declarada antes no XML).
+     *
+     * O [bottomBlurBg] fica desfocado — borrando o conteúdo que aparece por trás.
+     * O [bottomNavWrapper] não recebe qualquer RenderEffect, ficando completamente
+     * nítido com todos os botões totalmente clicáveis.
+     *
+     * Em API < 31 o [bottomBlurBg] não tem fundo programático e a barra fica
+     * apenas com o drawable semi-transparente do [bottomNavWrapper].
      */
-    private fun applyBlurToBottomBar() {
+    private fun setupBlurBehindBottomBar() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            binding.bottomNavWrapper.setRenderEffect(
-                RenderEffect.createBlurEffect(18f, 18f, Shader.TileMode.CLAMP)
+            binding.bottomBlurBg.setRenderEffect(
+                RenderEffect.createBlurEffect(24f, 24f, Shader.TileMode.CLAMP)
             )
+        }
+        // Aplicar o mesmo fundo arredondado ao blur bg para que coincida visualmente
+        val blurBg = GradientDrawable().apply {
+            cornerRadius = currentBarRadiusPx
+            // Transparente — o blur captura o conteúdo por trás automaticamente
+            setColor(Color.TRANSPARENT)
+        }
+        binding.bottomBlurBg.background = blurBg
+
+        // Definir a altura inicial igual à do wrapper depois de layout
+        binding.bottomNavWrapper.post {
+            syncBlurBgSize()
+        }
+    }
+
+    /**
+     * Sincroniza o tamanho do [bottomBlurBg] com o do [bottomNavWrapper].
+     * Chamada após qualquer mudança de height do wrapper (ex: inputRow show/hide).
+     */
+    private fun syncBlurBgSize() {
+        val wh = binding.bottomNavWrapper.height
+        if (wh > 0 && binding.bottomBlurBg.layoutParams.height != wh) {
+            binding.bottomBlurBg.layoutParams = binding.bottomBlurBg.layoutParams.also {
+                it.height = wh
+            }
         }
     }
 
     // ─── Bottom bar: estado unificado ────────────────────────────────────────
 
     /**
-     * Única função que decide o aspecto do bottom bar.
-     * Chama-se tanto quando muda o tab como quando o scroll colapsa/expande.
-     * Tab Preview → raio e margens maiores (barra mais curta e mais redonda).
-     * Tab Chat    → raio e margens normais.
-     * O scroll collapsed apenas adiciona +8dp às margens laterais.
+     * Única função que decide o aspecto visual do bottom bar.
+     *
+     * Usa [currentBarMarginPx] e [currentBarRadiusPx] como fonte de verdade para
+     * os valores de partida — actualizados a cada frame durante a animação.
+     * Isto garante UMA ÚNICA fase de animação em qualquer direcção e em qualquer
+     * momento, eliminando completamente o efeito de "duas fases".
      */
     private fun animateBottomBarState() {
         val d = density
         val isPreview = currentTab == R.id.tabPreview
 
-        val targetMargin  = if (isPreview) (MARGIN_PREVIEW_DP * d).toInt() else (MARGIN_CHAT_DP * d).toInt()
-        val targetRadius  = if (isPreview) RADIUS_PREVIEW_DP * d else RADIUS_CHAT_DP * d
+        val targetMargin = if (isPreview) (MARGIN_PREVIEW_DP * d).toInt() else (MARGIN_CHAT_DP * d).toInt()
+        val targetRadius = if (isPreview) RADIUS_PREVIEW_DP * d else RADIUS_CHAT_DP * d
+        val bottomMargin = (BOTTOM_MARGIN_DP * d).toInt()
 
-        val bgDrawable = getOrCreateBottomBg()
+        // Nada a fazer se já estiver no estado alvo
+        if (currentBarMarginPx == targetMargin && currentBarRadiusPx == targetRadius) return
 
-        // Lê valores actuais directamente do layout para partir daí
-        val lp = binding.bottomNavWrapper.layoutParams as? android.widget.FrameLayout.LayoutParams
-        val fromMargin = lp?.marginStart ?: (MARGIN_CHAT_DP * d).toInt()
-        // Aproxima o radius actual: se for preview usa PREVIEW, senão CHAT
-        val fromRadius = if (isPreview) RADIUS_CHAT_DP * d else RADIUS_PREVIEW_DP * d
+        val wrapperBg = getOrCreateBottomBg()
+        val blurBg = binding.bottomBlurBg.background as? GradientDrawable
+
+        val fromMargin = currentBarMarginPx
+        val fromRadius = currentBarRadiusPx
 
         bottomBarAnimator?.cancel()
         bottomBarAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 420
-            interpolator = DecelerateInterpolator(2.2f)
+            duration = 380
+            interpolator = DecelerateInterpolator(2.0f)
             addUpdateListener { anim ->
                 val f = anim.animatedFraction
                 val margin = (fromMargin + (targetMargin - fromMargin) * f).toInt()
                 val radius = fromRadius + (targetRadius - fromRadius) * f
-                bgDrawable.cornerRadius = radius
-                val lp2 = binding.bottomNavWrapper.layoutParams
+
+                // Actualizar fonte de verdade a cada frame
+                currentBarMarginPx = margin
+                currentBarRadiusPx = radius
+
+                // Aplicar radius ao background do wrapper
+                wrapperBg.cornerRadius = radius
+
+                // Aplicar radius ao blur bg (coincide visualmente)
+                blurBg?.cornerRadius = radius
+
+                // Actualizar margens do wrapper
+                val wlp = binding.bottomNavWrapper.layoutParams
                     as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
-                lp2.marginStart  = margin
-                lp2.marginEnd    = margin
-                lp2.bottomMargin = (10 * d).toInt()
-                binding.bottomNavWrapper.layoutParams = lp2
+                wlp.marginStart  = margin
+                wlp.marginEnd    = margin
+                wlp.bottomMargin = bottomMargin
+                binding.bottomNavWrapper.layoutParams = wlp
+
+                // Actualizar margens do blur bg (idênticas ao wrapper)
+                val blp = binding.bottomBlurBg.layoutParams
+                    as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
+                blp.marginStart  = margin
+                blp.marginEnd    = margin
+                blp.bottomMargin = bottomMargin
+                binding.bottomBlurBg.layoutParams = blp
             }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    currentBarMarginPx = targetMargin
+                    currentBarRadiusPx = targetRadius
+                    syncBlurBgSize()
+                }
+            })
             start()
         }
     }
@@ -232,14 +306,9 @@ class MainActiviy : BaseActivity() {
                 } else {
                     gd.setColor(Color.parseColor("#EAFFFFFF"))
                 }
-                gd.cornerRadius = RADIUS_CHAT_DP * density
+                gd.cornerRadius = currentBarRadiusPx
                 binding.bottomNavWrapper.background = gd
             }
-    }
-
-    private fun setupAppBarScrollListener() {
-        // O scroll do appbar já não altera mais o bottom bar — apenas o tab define o estado
-        // (removemos o listener de colapso que causava as "duas fases")
     }
 
     private fun setupLogo() {
@@ -381,6 +450,7 @@ class MainActiviy : BaseActivity() {
                 binding.inputRow.layoutParams =
                     binding.inputRow.layoutParams.also { it.height = h }
                 binding.inputRow.alpha = h.toFloat() / targetH
+                syncBlurBgSize()
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
@@ -389,6 +459,7 @@ class MainActiviy : BaseActivity() {
                             it.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
                         }
                     binding.inputRow.alpha = 1f
+                    syncBlurBgSize()
                 }
             })
             start()
@@ -408,11 +479,13 @@ class MainActiviy : BaseActivity() {
                 binding.inputRow.layoutParams =
                     binding.inputRow.layoutParams.also { it.height = h }
                 binding.inputRow.alpha = h.toFloat() / fromH
+                syncBlurBgSize()
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     binding.inputRow.visibility = View.GONE
                     binding.inputRow.alpha = 1f
+                    syncBlurBgSize()
                 }
             })
             start()
@@ -435,11 +508,13 @@ class MainActiviy : BaseActivity() {
                         val h = anim.animatedValue as Int
                         rowLp.height = h
                         binding.inputRow.layoutParams = rowLp
+                        syncBlurBgSize()
                     }
                     addListener(object : AnimatorListenerAdapter() {
                         override fun onAnimationEnd(animation: Animator) {
                             rowLp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
                             binding.inputRow.layoutParams = rowLp
+                            syncBlurBgSize()
                         }
                     })
                     start()
