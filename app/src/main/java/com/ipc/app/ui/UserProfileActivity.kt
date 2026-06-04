@@ -2,8 +2,12 @@
 package com.ipc.app.ui
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
@@ -14,6 +18,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.caverock.androidsvg.SVG
 import com.ipc.app.R
 
 class UserProfileActivity : BaseActivity() {
@@ -32,15 +37,13 @@ class UserProfileActivity : BaseActivity() {
             )
         }
 
-        // AppBar
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val appBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(ContextCompat.getColor(context, R.color.appbar_background))
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(56)
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(56)
             )
             setPadding(dp(8), 0, dp(16), 0)
 
@@ -75,10 +78,9 @@ class UserProfileActivity : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
         })
 
-        // Avatar grande + dados
         val contentLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -86,25 +88,23 @@ class UserProfileActivity : BaseActivity() {
             setPadding(dp(32), dp(40), dp(32), dp(32))
         }
 
-        val name  = prefs.getString("auth_user_name", "Utilizador") ?: "Utilizador"
-        val email = prefs.getString("auth_user_email", "—") ?: "—"
+        val name    = prefs.getString("auth_user_name", "Utilizador") ?: "Utilizador"
+        val email   = prefs.getString("auth_user_email", "—") ?: "—"
+        val userId  = prefs.getString("auth_user_id", "—") ?: "—"
         val initial = name.firstOrNull()?.uppercase() ?: "U"
 
-        // Avatar circular grande
         val avatarContainer = FrameLayout(this).apply {
             val size = dp(96)
             layoutParams = LinearLayout.LayoutParams(size, size).also {
-                it.gravity = android.view.Gravity.CENTER_HORIZONTAL
+                it.gravity = Gravity.CENTER_HORIZONTAL
                 it.bottomMargin = dp(24)
             }
-            val bg = GradientDrawable().apply {
+            background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(ContextCompat.getColor(context, R.color.colorPrimary))
             }
-            background = bg
         }
-
-        val avatarText = TextView(this).apply {
+        avatarContainer.addView(TextView(this).apply {
             text = initial
             textSize = 38f
             setTypeface(typeface, Typeface.BOLD)
@@ -113,47 +113,39 @@ class UserProfileActivity : BaseActivity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             ).also { it.gravity = Gravity.CENTER }
-        }
-        avatarContainer.addView(avatarText)
+        })
         contentLayout.addView(avatarContainer)
 
-        // Nome
         contentLayout.addView(TextView(this).apply {
             text = name
             textSize = 22f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(context, R.color.text_primary))
-            gravity = android.view.Gravity.CENTER
+            gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.bottomMargin = dp(6) }
         })
 
-        // Email
         contentLayout.addView(TextView(this).apply {
             text = email
             textSize = 15f
             setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
-            gravity = android.view.Gravity.CENTER
+            gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.bottomMargin = dp(40) }
         })
 
-        // Linha separadora
         contentLayout.addView(View(this).apply {
             setBackgroundColor(ContextCompat.getColor(context, R.color.divider))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 1
-            ).also {
-                it.bottomMargin = dp(24)
-            }
+            ).also { it.bottomMargin = dp(24) }
         })
 
-        // Info row: ID
-        val userId = prefs.getString("auth_user_id", "—") ?: "—"
         contentLayout.addView(buildInfoRow("ID da conta", userId))
         contentLayout.addView(buildInfoRow("Email", email))
         contentLayout.addView(buildInfoRow("Nome", name))
@@ -179,7 +171,6 @@ class UserProfileActivity : BaseActivity() {
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).also { it.bottomMargin = dp(2) }
             })
-
             addView(TextView(context).apply {
                 text = value
                 textSize = 15f
@@ -189,6 +180,21 @@ class UserProfileActivity : BaseActivity() {
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
             })
+        }
+    }
+
+    fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
+        val px  = (sizeDp * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+        val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+        runCatching {
+            SVG.getFromAsset(assets, path).apply {
+                documentWidth  = px.toFloat()
+                documentHeight = px.toFloat()
+                renderToCanvas(Canvas(bmp))
+            }
+        }
+        return BitmapDrawable(resources, bmp).also {
+            it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
         }
     }
 

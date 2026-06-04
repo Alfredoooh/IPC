@@ -2,22 +2,23 @@
 package com.ipc.app.ui
 
 import android.content.Context
-import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -26,6 +27,7 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.caverock.androidsvg.SVG
 import com.ipc.app.R
 import com.ipc.app.data.ChatMessage
 import com.ipc.app.data.NvidiaApiService
@@ -45,7 +47,6 @@ class ChatActivity : BaseActivity() {
     private lateinit var adapter: ChatAdapter
     private lateinit var inputField: EditText
     private lateinit var btnSend: FrameLayout
-    private lateinit var btnBack: ImageView
     private lateinit var progressSend: ProgressBar
 
     data class DisplayMessage(
@@ -66,21 +67,15 @@ class ChatActivity : BaseActivity() {
             setBackgroundColor(ContextCompat.getColor(context, R.color.background))
         }
 
-        // AppBar
         val appBar = buildAppBar()
         root.addView(appBar)
 
-        // Divider
         root.addView(View(this).apply {
             setBackgroundColor(ContextCompat.getColor(context, R.color.divider))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 1
-            )
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
         })
 
-        // RecyclerView
         recycler = RecyclerView(this).apply {
-            id = R.id.chatRecyclerView
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
             )
@@ -88,16 +83,13 @@ class ChatActivity : BaseActivity() {
             mgr.stackFromEnd = true
             layoutManager = mgr
             overScrollMode = View.OVER_SCROLL_NEVER
-            setPadding(
-                dp(16), dp(12), dp(16), dp(8)
-            )
+            setPadding(dp(16), dp(12), dp(16), dp(8))
             clipToPadding = false
         }
         adapter = ChatAdapter(displayMessages)
         recycler.adapter = adapter
         root.addView(recycler)
 
-        // Input bar
         val inputBar = buildInputBar()
         root.addView(inputBar)
 
@@ -110,27 +102,33 @@ class ChatActivity : BaseActivity() {
             v.updatePadding(top = status.top, bottom = if (ime.bottom > 0) ime.bottom else nav.bottom)
             insets
         }
+
+        // Mensagem inicial se vier da MainActivity
+        val initialMsg = intent.getStringExtra("initial_message")
+        if (!initialMsg.isNullOrEmpty()) {
+            inputField.setText(initialMsg)
+            sendMessage()
+        }
     }
 
     private fun buildAppBar(): LinearLayout {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(ContextCompat.getColor(context, R.color.appbar_background))
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(56)
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(56)
             )
             setPadding(dp(8), 0, dp(16), 0)
 
-            btnBack = ImageView(context).apply {
+            val btnBack = ImageView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).also {
                     it.marginEnd = dp(8)
                 }
                 setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 18, iconTint))
                 background = ContextCompat.getDrawable(context, R.drawable.appbar_btn_bg)
-                padding(dp(10))
+                setPadding(dp(10), dp(10), dp(10), dp(10))
                 setOnClickListener { onBackPressed() }
             }
             addView(btnBack)
@@ -153,7 +151,7 @@ class ChatActivity : BaseActivity() {
     private fun buildInputBar(): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(ContextCompat.getColor(context, R.color.background))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -161,14 +159,13 @@ class ChatActivity : BaseActivity() {
             )
             setPadding(dp(12), dp(8), dp(12), dp(12))
 
-            // Input pill
             val pillBg = GradientDrawable().apply {
                 cornerRadius = dp(28).toFloat()
                 setColor(ContextCompat.getColor(context, R.color.input_background))
             }
             val pillContainer = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
                 background = pillBg
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
                     it.marginEnd = dp(8)
@@ -186,16 +183,15 @@ class ChatActivity : BaseActivity() {
                 setTextColor(ContextCompat.getColor(context, R.color.text_primary))
                 setHintTextColor(ContextCompat.getColor(context, R.color.text_hint))
                 background = null
-                inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                        android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
-                        android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                inputType = InputType.TYPE_CLASS_TEXT or
+                        InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                        InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
                 minLines = 1
                 maxLines = 5
             }
             pillContainer.addView(inputField)
             addView(pillContainer)
 
-            // Botão enviar
             val sendBg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(ContextCompat.getColor(context, R.color.colorPrimary))
@@ -209,7 +205,7 @@ class ChatActivity : BaseActivity() {
 
             progressSend = ProgressBar(context).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(20), dp(20)).also {
-                    it.gravity = android.view.Gravity.CENTER
+                    it.gravity = Gravity.CENTER
                 }
                 indeterminateTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
                 visibility = View.GONE
@@ -218,7 +214,7 @@ class ChatActivity : BaseActivity() {
 
             val sendIcon = ImageView(context).apply {
                 layoutParams = FrameLayout.LayoutParams(dp(16), dp(16)).also {
-                    it.gravity = android.view.Gravity.CENTER
+                    it.gravity = Gravity.CENTER
                 }
                 setImageDrawable(svgDrawable("icons/svg/add.svg", 16, Color.WHITE))
             }
@@ -239,7 +235,6 @@ class ChatActivity : BaseActivity() {
         adapter.notifyItemInserted(displayMessages.lastIndex)
         recycler.smoothScrollToPosition(displayMessages.lastIndex)
 
-        // Placeholder para resposta AI (streaming)
         val aiMsg = DisplayMessage("assistant", "", isStreaming = true)
         displayMessages.add(aiMsg)
         val aiIndex = displayMessages.lastIndex
@@ -276,8 +271,6 @@ class ChatActivity : BaseActivity() {
             }
         }
     }
-
-    // ── Adapter ──────────────────────────────────────────────────────────────
 
     inner class ChatAdapter(
         private val msgs: List<DisplayMessage>
@@ -316,7 +309,7 @@ class ChatActivity : BaseActivity() {
                 lp.topMargin = dp(6)
                 lp.bottomMargin = dp(6)
                 lp.marginStart = dp(48)
-                lp.marginEnd = dp(0)
+                lp.marginEnd = 0
             } else {
                 holder.tv.setTextColor(ContextCompat.getColor(holder.tv.context, R.color.text_primary))
                 val bg = GradientDrawable().apply {
@@ -327,7 +320,7 @@ class ChatActivity : BaseActivity() {
                 lp.gravity = Gravity.START
                 lp.topMargin = dp(6)
                 lp.bottomMargin = dp(6)
-                lp.marginStart = dp(0)
+                lp.marginStart = 0
                 lp.marginEnd = dp(48)
             }
             holder.tv.layoutParams = lp
@@ -336,11 +329,22 @@ class ChatActivity : BaseActivity() {
         override fun getItemCount() = msgs.size
     }
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
-    private fun View.padding(p: Int) {
-        setPadding(p, p, p, p)
+    fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
+        val px  = (sizeDp * resources.displayMetrics.density).toInt().coerceAtLeast(1)
+        val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+        runCatching {
+            SVG.getFromAsset(assets, path).apply {
+                documentWidth  = px.toFloat()
+                documentHeight = px.toFloat()
+                renderToCanvas(Canvas(bmp))
+            }
+        }
+        return BitmapDrawable(resources, bmp).also {
+            it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
+        }
     }
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
