@@ -26,6 +26,7 @@
             android:paddingBottom="8dp">
 
             <TextView
+                android:id="@+id/drawerAppName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="IPC"
@@ -101,12 +102,12 @@
             app:elevation="0dp"
             app:liftOnScroll="false">
 
+            <!-- AppBar fixo — sem scrollFlags para não deslizar nunca -->
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
                 android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                app:layout_scrollFlags="scroll|enterAlways|snap">
+                android:paddingEnd="8dp">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -116,14 +117,22 @@
                     android:layout_centerVertical="true"
                     android:layout_alignParentStart="true">
 
-                    <ImageView
-                        android:id="@+id/btnMenu"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:padding="11dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
+                    <!-- Botão Menu com container circular iOS blur -->
+                    <FrameLayout
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/appbar_btn_bg"
                         android:clickable="true"
-                        android:focusable="true" />
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/btnMenu"
+                            android:layout_width="17dp"
+                            android:layout_height="17dp"
+                            android:layout_gravity="center"
+                            android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    </FrameLayout>
 
                 </LinearLayout>
 
@@ -135,31 +144,42 @@
                     android:layout_centerVertical="true"
                     android:layout_alignParentEnd="true">
 
+                    <!-- Botão Coin (substitui +) -->
                     <FrameLayout
                         android:id="@+id/btnPull"
-                        android:layout_width="34dp"
-                        android:layout_height="34dp"
-                        android:layout_marginEnd="4dp"
-                        android:background="@drawable/add_circle_bg"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/appbar_btn_bg"
                         android:clickable="true"
                         android:focusable="true">
 
                         <ImageView
                             android:id="@+id/btnPullIcon"
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:layout_gravity="center" />
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_gravity="center"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true" />
 
                     </FrameLayout>
 
-                    <ImageView
-                        android:id="@+id/btnMore"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:padding="11dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
+                    <!-- Botão More com container circular iOS blur -->
+                    <FrameLayout
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/appbar_btn_bg"
                         android:clickable="true"
-                        android:focusable="true" />
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/btnMore"
+                            android:layout_width="17dp"
+                            android:layout_height="17dp"
+                            android:layout_gravity="center"
+                            android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    </FrameLayout>
 
                 </LinearLayout>
 
@@ -205,7 +225,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="O output da sua consulta será apresentado aqui."
-                android:textSize="14sp"
+                android:textSize="16sp"
                 android:textColor="@color/text_hint"
                 android:gravity="center"
                 android:lineSpacingMultiplier="1.4" />
@@ -284,42 +304,6 @@
                 android:orientation="vertical"
                 android:background="@drawable/popup_menu_bg"
                 android:elevation="16dp">
-
-                <LinearLayout
-                    android:id="@+id/popupItemCoin"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="My Coin"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <ImageView
-                        android:id="@+id/popupCoinIcon"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:scaleType="fitCenter"
-                        android:adjustViewBounds="true" />
-
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
-                    android:background="@color/divider" />
 
                 <LinearLayout
                     android:id="@+id/popupItemImport"

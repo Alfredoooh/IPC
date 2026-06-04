@@ -115,6 +115,21 @@ class MainActiviy : BaseActivity() {
                 .setInterpolator(DecelerateInterpolator(1.6f))
                 .start()
 
+            // Sobe o emptyState (saudação) quando o teclado abre para que fique sempre visível
+            if (extraShift > 0) {
+                binding.emptyState.animate()
+                    .translationY(-(extraShift * 0.35f))
+                    .setDuration(260)
+                    .setInterpolator(DecelerateInterpolator(1.6f))
+                    .start()
+            } else {
+                binding.emptyState.animate()
+                    .translationY(0f)
+                    .setDuration(260)
+                    .setInterpolator(DecelerateInterpolator(1.6f))
+                    .start()
+            }
+
             binding.bottomNavWrapper.updatePadding(
                 bottom = if (extraShift == 0) navInsets.bottom else 0
             )
@@ -194,9 +209,9 @@ class MainActiviy : BaseActivity() {
     private fun setupGreeting() {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val greeting = when {
-            hour < 12 -> "Bom dia 👋"
-            hour < 18 -> "Boa tarde 👋"
-            else      -> "Boa noite 👋"
+            hour < 12 -> "Bom dia"
+            hour < 18 -> "Boa tarde"
+            else      -> "Boa noite"
         }
         binding.emptyGreeting.text = greeting
 
@@ -206,6 +221,7 @@ class MainActiviy : BaseActivity() {
             binding.emptySubtitle.typeface = tf
             binding.previewTitle.typeface = Typeface.create(tf, Typeface.BOLD)
             binding.previewSubtitle.typeface = tf
+            binding.drawerAppName.typeface = Typeface.create(tf, Typeface.BOLD)
         }
     }
 
@@ -215,16 +231,16 @@ class MainActiviy : BaseActivity() {
 
         binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
         binding.btnMore.setImageDrawable(svgDrawable("icons/svg/more_vertical.svg", 16, iconTint))
-        binding.btnPullIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 16, iconTint))
+
+        // Coin no btnPull (substitui o ícone de +)
+        runCatching {
+            val bmp = assets.open("icons/png/coin.png").use { BitmapFactory.decodeStream(it) }
+            binding.btnPullIcon.setImageBitmap(bmp)
+            binding.btnPullIcon.clearColorFilter()
+        }
 
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-
-        // Coin no popup
-        runCatching {
-            val bmp = assets.open("icons/png/coin.png").use { BitmapFactory.decodeStream(it) }
-            binding.popupCoinIcon.setImageBitmap(bmp)
-        }
 
         binding.popupImportIcon.setImageDrawable(svgDrawable("icons/svg/download.svg", 18, iconTint))
         binding.popupCameraIcon.setImageDrawable(svgDrawable("icons/svg/preview.svg", 18, iconTint))
@@ -233,14 +249,13 @@ class MainActiviy : BaseActivity() {
 
     private fun setupPopupMenu() {
         binding.btnMore.setOnClickListener { showPopup() }
-        binding.btnPull.setOnClickListener { showPopup() }
+        // btnPull agora vai directo para MyCoinActivity
+        binding.btnPull.setOnClickListener {
+            startActivity(Intent(this, MyCoinActivity::class.java))
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
 
         binding.popupOverlay.setOnClickListener { hidePopup() }
-
-        binding.popupItemCoin.setOnClickListener {
-            hidePopup()
-            startActivity(Intent(this, MyCoinActivity::class.java))
-        }
 
         binding.popupItemImport.setOnClickListener { hidePopup() }
         binding.popupItemCamera.setOnClickListener { hidePopup() }
@@ -257,6 +272,13 @@ class MainActiviy : BaseActivity() {
         binding.popupMenu.alpha = 0f
         binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
         binding.popupMenu.pivotY = 0f
+
+        // Dim também a bottomNavWrapper quando o popup está aberto
+        binding.bottomNavWrapper.animate()
+            .alpha(0.35f)
+            .setDuration(200)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
 
         binding.popupOverlay.animate()
             .alpha(1f)
@@ -276,6 +298,13 @@ class MainActiviy : BaseActivity() {
     private fun hidePopup() {
         if (!popupVisible) return
         popupVisible = false
+
+        // Restaura a bottomNavWrapper
+        binding.bottomNavWrapper.animate()
+            .alpha(1f)
+            .setDuration(180)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
 
         binding.popupMenu.animate()
             .scaleX(0.85f)

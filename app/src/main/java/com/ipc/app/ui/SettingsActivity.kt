@@ -27,6 +27,7 @@ class SettingsActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
+        // Aplica padding da statusbar à toolbar — o conteúdo nunca fica atrás da barra
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.settingsToolbar)) { v, insets ->
             val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             v.updatePadding(top = statusBars.top)
@@ -135,4 +136,4 @@ class SettingsActivity : BaseActivity() {
             it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
         }
     }
-} 
+}
