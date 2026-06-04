@@ -31,10 +31,4 @@
         <item name="windowSplashScreenIconBackgroundColor">@color/splash_background_light</item>
         <item name="postSplashScreenTheme">@style/Theme.IPC</item>
     </style>
-
-    <style name="IpcAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="colorSurface">@color/dialog_background</item>
-        <item name="colorOnSurface">@color/text_primary</item>
-        <item name="colorPrimary">@color/colorPrimary</item>
-    </style>
 </resources>

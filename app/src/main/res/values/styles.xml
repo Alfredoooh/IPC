@@ -2,7 +2,7 @@
 <resources>
 
     <style name="IpcAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="colorSurface">#FFFFFF</item>
+        <item name="colorSurface">@color/dialog_background</item>
         <item name="colorOnSurface">@color/text_primary</item>
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="android:windowMinWidthMajor">80%</item>
@@ -17,7 +17,7 @@
     </style>
 
     <style name="FloatingBottomSheetStyle" parent="Widget.Material3.BottomSheet.Modal">
-        <item name="backgroundTint">#FFFFFF</item>
+        <item name="backgroundTint">@color/dialog_background</item>
         <item name="shapeAppearance">@style/FloatingBottomSheetShape</item>
         <item name="android:layout_marginStart">16dp</item>
         <item name="android:layout_marginEnd">16dp</item>
