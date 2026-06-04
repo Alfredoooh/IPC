@@ -1,3 +1,4 @@
+// MainActiviy.kt
 package com.ipc.app
 
 import android.animation.Animator
@@ -22,6 +23,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import androidx.appcompat.app.AppCompatDelegate
@@ -61,18 +63,19 @@ class MainActiviy : BaseActivity() {
     private val SWIPE_EDGE_WIDTH = 40f
     private val SWIPE_MIN_DIST = 30f
 
-    // Bottom bar: constantes de estado
     private val MARGIN_CHAT_DP    = 10f
     private val MARGIN_PREVIEW_DP = 36f
     private val RADIUS_CHAT_DP    = 20f
     private val RADIUS_PREVIEW_DP = 38f
-    private val BOTTOM_MARGIN_DP  = 6f
+    private val BOTTOM_MARGIN_DP  = 12f  // subiu 2x relativamente ao fundo
 
-    // Fonte de verdade dos valores actuais do bottom bar.
-    // Actualizados frame a frame durante a animação para garantir
-    // uma única fase em qualquer direcção, sem saltos.
+    // Fonte de verdade dos valores actuais do bottom bar
     private var currentBarMarginPx: Int = -1
     private var currentBarRadiusPx: Float = -1f
+
+    // Altura actual do inputRow que a animação conhece — usada para interceptar
+    // mudanças de height antes que o layout as aplique instantaneamente
+    private var lastKnownInputRowHeight = 0
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -127,7 +130,6 @@ class MainActiviy : BaseActivity() {
                 .setInterpolator(DecelerateInterpolator(1.6f))
                 .start()
 
-            // Sincronizar blur bg com o mesmo translationY
             binding.bottomBlurBg.animate()
                 .translationY(-extraShift.toFloat())
                 .setDuration(260)
@@ -162,10 +164,12 @@ class MainActiviy : BaseActivity() {
         }
 
         binding.inputRow.post {
-            if (inputRowHeight == 0) inputRowHeight = binding.inputRow.height
+            if (inputRowHeight == 0) {
+                inputRowHeight = binding.inputRow.height
+                lastKnownInputRowHeight = inputRowHeight
+            }
         }
 
-        // Inicializar fonte de verdade com o estado inicial (tab Chat)
         currentBarMarginPx = (MARGIN_CHAT_DP * density).toInt()
         currentBarRadiusPx = RADIUS_CHAT_DP * density
 
@@ -181,41 +185,21 @@ class MainActiviy : BaseActivity() {
         setupPopupMenu()
     }
 
-    /**
-     * Aplica blur APENAS ao [bottomBlurBg], que é uma View irmã do [bottomNavWrapper]
-     * posicionada logo abaixo na z-order (declarada antes no XML).
-     *
-     * O [bottomBlurBg] fica desfocado — borrando o conteúdo que aparece por trás.
-     * O [bottomNavWrapper] não recebe qualquer RenderEffect, ficando completamente
-     * nítido com todos os botões totalmente clicáveis.
-     *
-     * Em API < 31 o [bottomBlurBg] não tem fundo programático e a barra fica
-     * apenas com o drawable semi-transparente do [bottomNavWrapper].
-     */
     private fun setupBlurBehindBottomBar() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             binding.bottomBlurBg.setRenderEffect(
                 RenderEffect.createBlurEffect(24f, 24f, Shader.TileMode.CLAMP)
             )
         }
-        // Aplicar o mesmo fundo arredondado ao blur bg para que coincida visualmente
         val blurBg = GradientDrawable().apply {
             cornerRadius = currentBarRadiusPx
-            // Transparente — o blur captura o conteúdo por trás automaticamente
             setColor(Color.TRANSPARENT)
         }
         binding.bottomBlurBg.background = blurBg
 
-        // Definir a altura inicial igual à do wrapper depois de layout
-        binding.bottomNavWrapper.post {
-            syncBlurBgSize()
-        }
+        binding.bottomNavWrapper.post { syncBlurBgSize() }
     }
 
-    /**
-     * Sincroniza o tamanho do [bottomBlurBg] com o do [bottomNavWrapper].
-     * Chamada após qualquer mudança de height do wrapper (ex: inputRow show/hide).
-     */
     private fun syncBlurBgSize() {
         val wh = binding.bottomNavWrapper.height
         if (wh > 0 && binding.bottomBlurBg.layoutParams.height != wh) {
@@ -225,16 +209,8 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Bottom bar: estado unificado ────────────────────────────────────────
+    // ─── Bottom bar ──────────────────────────────────────────────────────────
 
-    /**
-     * Única função que decide o aspecto visual do bottom bar.
-     *
-     * Usa [currentBarMarginPx] e [currentBarRadiusPx] como fonte de verdade para
-     * os valores de partida — actualizados a cada frame durante a animação.
-     * Isto garante UMA ÚNICA fase de animação em qualquer direcção e em qualquer
-     * momento, eliminando completamente o efeito de "duas fases".
-     */
     private fun animateBottomBarState() {
         val d = density
         val isPreview = currentTab == R.id.tabPreview
@@ -243,7 +219,6 @@ class MainActiviy : BaseActivity() {
         val targetRadius = if (isPreview) RADIUS_PREVIEW_DP * d else RADIUS_CHAT_DP * d
         val bottomMargin = (BOTTOM_MARGIN_DP * d).toInt()
 
-        // Nada a fazer se já estiver no estado alvo
         if (currentBarMarginPx == targetMargin && currentBarRadiusPx == targetRadius) return
 
         val wrapperBg = getOrCreateBottomBg()
@@ -261,17 +236,12 @@ class MainActiviy : BaseActivity() {
                 val margin = (fromMargin + (targetMargin - fromMargin) * f).toInt()
                 val radius = fromRadius + (targetRadius - fromRadius) * f
 
-                // Actualizar fonte de verdade a cada frame
                 currentBarMarginPx = margin
                 currentBarRadiusPx = radius
 
-                // Aplicar radius ao background do wrapper
                 wrapperBg.cornerRadius = radius
-
-                // Aplicar radius ao blur bg (coincide visualmente)
                 blurBg?.cornerRadius = radius
 
-                // Actualizar margens do wrapper
                 val wlp = binding.bottomNavWrapper.layoutParams
                     as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
                 wlp.marginStart  = margin
@@ -279,7 +249,6 @@ class MainActiviy : BaseActivity() {
                 wlp.bottomMargin = bottomMargin
                 binding.bottomNavWrapper.layoutParams = wlp
 
-                // Actualizar margens do blur bg (idênticas ao wrapper)
                 val blp = binding.bottomBlurBg.layoutParams
                     as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
                 blp.marginStart  = margin
@@ -363,7 +332,8 @@ class MainActiviy : BaseActivity() {
 
         binding.btnPull.setOnClickListener {
             startActivity(Intent(this, MyCoinActivity::class.java))
-            overridePendingTransition(0, 0)
+            // Slide da direita para a esquerda — igual ao Settings
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
 
         binding.popupOverlay.setOnClickListener { hidePopup() }
@@ -456,9 +426,10 @@ class MainActiviy : BaseActivity() {
                 override fun onAnimationEnd(animation: Animator) {
                     binding.inputRow.layoutParams =
                         binding.inputRow.layoutParams.also {
-                            it.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                            it.height = ViewGroup.LayoutParams.WRAP_CONTENT
                         }
                     binding.inputRow.alpha = 1f
+                    lastKnownInputRowHeight = binding.inputRow.height
                     syncBlurBgSize()
                 }
             })
@@ -493,32 +464,53 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun setupInput() {
-        binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+        // Intercepta ANTES do layout expandir: fixa a altura actual no inputRow
+        // para que a animação parta desse valor, sem deixar o layout fazer o salto sozinho.
+        binding.inputMessage.addOnLayoutChangeListener { v, _, top, _, bottom, _, oldTop, _, oldBottom ->
             val newH = bottom - top
             val oldH = oldBottom - oldTop
-            if (newH != oldH && newH > 0 && oldH > 0 && inputRowVisible) {
-                val rowLp = binding.inputRow.layoutParams
-                val currentH = binding.inputRow.height
-                if (currentH == newH) return@addOnLayoutChangeListener
-                inputHeightAnimator?.cancel()
-                inputHeightAnimator = ValueAnimator.ofInt(currentH, newH).apply {
-                    duration = 180
-                    interpolator = DecelerateInterpolator(1.4f)
-                    addUpdateListener { anim ->
-                        val h = anim.animatedValue as Int
-                        rowLp.height = h
-                        binding.inputRow.layoutParams = rowLp
+            if (newH == oldH || newH <= 0 || oldH <= 0) return@addOnLayoutChangeListener
+            if (!inputRowVisible) return@addOnLayoutChangeListener
+
+            // Altura actual do inputRow (pode estar em WRAP_CONTENT ou valor fixo da animação anterior)
+            val rowCurrentH = binding.inputRow.height
+            if (rowCurrentH <= 0) return@addOnLayoutChangeListener
+
+            // Delta de altura do texto — aplica ao inputRow
+            val delta = newH - oldH
+            val fromH = rowCurrentH
+            val toH   = (rowCurrentH + delta).coerceAtLeast(1)
+
+            if (fromH == toH) return@addOnLayoutChangeListener
+
+            // Fixar imediatamente para impedir o layout de saltar sozinho
+            binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = fromH }
+            lastKnownInputRowHeight = fromH
+
+            inputHeightAnimator?.cancel()
+            inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
+                duration = 200
+                interpolator = DecelerateInterpolator(1.6f)
+                addUpdateListener { anim ->
+                    val h = anim.animatedValue as Int
+                    binding.inputRow.layoutParams =
+                        binding.inputRow.layoutParams.also { it.height = h }
+                    lastKnownInputRowHeight = h
+                    syncBlurBgSize()
+                }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        // Só volta para WRAP_CONTENT no fim, garantindo que
+                        // o layout não salta durante a animação
+                        binding.inputRow.layoutParams =
+                            binding.inputRow.layoutParams.also {
+                                it.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                            }
+                        lastKnownInputRowHeight = binding.inputRow.height
                         syncBlurBgSize()
                     }
-                    addListener(object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator) {
-                            rowLp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-                            binding.inputRow.layoutParams = rowLp
-                            syncBlurBgSize()
-                        }
-                    })
-                    start()
-                }
+                })
+                start()
             }
         }
 
@@ -633,6 +625,7 @@ class MainActiviy : BaseActivity() {
             closeDrawer()
             binding.root.postDelayed({
                 startActivity(Intent(this, SettingsActivity::class.java))
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }, 250)
         }
     }
