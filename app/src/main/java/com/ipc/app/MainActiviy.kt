@@ -164,22 +164,18 @@ class MainActiviy : BaseActivity() {
             )
 
             if (imeNowOpen && !keyboardOpen) {
-                // Teclado abriu — shift emptyState para cima uma vez
                 keyboardOpen = true
                 keyboardShift = -(extraShift * 0.55f)
                 binding.emptyState.animate()
                     .translationY(keyboardShift)
                     .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
             } else if (!imeNowOpen && keyboardOpen) {
-                // Teclado fechou — volta ao lugar
                 keyboardOpen = false
                 keyboardShift = 0f
                 binding.emptyState.animate()
                     .translationY(0f)
                     .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
             }
-            // Enquanto teclado está aberto e já foi feito o shift inicial,
-            // não faz nada — evita o bug de descer ao escrever
             insets
         }
 
@@ -314,7 +310,7 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun parseMarkdown(text: String): Spanned {
-        var html = text
+        val html = text
             .replace(Regex("\\*\\*(.+?)\\*\\*"), "<b>$1</b>")
             .replace(Regex("__(.+?)__"), "<b>$1</b>")
             .replace(Regex("(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)"), "<i>$1</i>")
@@ -660,24 +656,24 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun setupDrawer() {
-    binding.btnMenu.setOnClickListener { if (drawerOpen) closeDrawer() else openDrawer() }
-    binding.drawerScrim.setOnClickListener { closeDrawer() }
-    binding.drawerItemSettings.setOnClickListener {
-        closeDrawer()
-        binding.root.postDelayed({ startActivity(Intent(this, SettingsActivity::class.java)) }, 250)
+        binding.btnMenu.setOnClickListener { if (drawerOpen) closeDrawer() else openDrawer() }
+        binding.drawerScrim.setOnClickListener { closeDrawer() }
+        binding.drawerItemSettings.setOnClickListener {
+            closeDrawer()
+            binding.root.postDelayed({ startActivity(Intent(this, SettingsActivity::class.java)) }, 250)
+        }
+        binding.drawerNewChat.setOnClickListener {
+            closeDrawer()
+            binding.root.postDelayed({
+                chatHistory.clear()
+                displayMessages.clear()
+                chatAdapter.notifyDataSetChanged()
+                binding.chatRecyclerView.visibility = View.GONE
+                binding.emptyState.visibility = View.VISIBLE
+            }, 250)
+        }
+        // drawerItemLogout removido — logout foi movido para SettingsActivity
     }
-    binding.drawerNewChat.setOnClickListener {
-        closeDrawer()
-        binding.root.postDelayed({
-            chatHistory.clear()
-            displayMessages.clear()
-            chatAdapter.notifyDataSetChanged()
-            binding.chatRecyclerView.visibility = View.GONE
-            binding.emptyState.visibility = View.VISIBLE
-        }, 250)
-    }
-    // drawerItemLogout removido — logout foi movido para SettingsActivity
-}
 
     private fun showLogoutDialog() {
         val dialogView = LinearLayout(this).apply {
