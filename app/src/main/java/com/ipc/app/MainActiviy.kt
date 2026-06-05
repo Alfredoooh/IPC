@@ -660,27 +660,24 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun setupDrawer() {
-        binding.btnMenu.setOnClickListener { if (drawerOpen) closeDrawer() else openDrawer() }
-        binding.drawerScrim.setOnClickListener { closeDrawer() }
-        binding.drawerItemSettings.setOnClickListener {
-            closeDrawer()
-            binding.root.postDelayed({ startActivity(Intent(this, SettingsActivity::class.java)) }, 250)
-        }
-        binding.drawerNewChat.setOnClickListener {
-            closeDrawer()
-            binding.root.postDelayed({
-                chatHistory.clear()
-                displayMessages.clear()
-                chatAdapter.notifyDataSetChanged()
-                binding.chatRecyclerView.visibility = View.GONE
-                binding.emptyState.visibility = View.VISIBLE
-            }, 250)
-        }
-        binding.drawerItemLogout.setOnClickListener {
-            closeDrawer()
-            binding.root.postDelayed({ showLogoutDialog() }, 300)
-        }
+    binding.btnMenu.setOnClickListener { if (drawerOpen) closeDrawer() else openDrawer() }
+    binding.drawerScrim.setOnClickListener { closeDrawer() }
+    binding.drawerItemSettings.setOnClickListener {
+        closeDrawer()
+        binding.root.postDelayed({ startActivity(Intent(this, SettingsActivity::class.java)) }, 250)
     }
+    binding.drawerNewChat.setOnClickListener {
+        closeDrawer()
+        binding.root.postDelayed({
+            chatHistory.clear()
+            displayMessages.clear()
+            chatAdapter.notifyDataSetChanged()
+            binding.chatRecyclerView.visibility = View.GONE
+            binding.emptyState.visibility = View.VISIBLE
+        }, 250)
+    }
+    // drawerItemLogout removido — logout foi movido para SettingsActivity
+}
 
     private fun showLogoutDialog() {
         val dialogView = LinearLayout(this).apply {

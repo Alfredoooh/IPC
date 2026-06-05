@@ -55,26 +55,18 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun setupAvatar() {
-        val name  = prefs.getString("auth_user_name", "U") ?: "U"
-        val email = prefs.getString("auth_user_email", "—") ?: "—"
+        val name    = prefs.getString("auth_user_name", "U") ?: "U"
         val initial = name.firstOrNull()?.uppercase() ?: "U"
 
-        val avatarContainer = findViewById<FrameLayout>(R.id.avatarContainer)
-        val bg = GradientDrawable().apply {
+        val avatarBtn = findViewById<FrameLayout>(R.id.settingsAvatarBtn)
+        avatarBtn.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(ContextCompat.getColor(this@SettingsActivity, R.color.colorPrimary))
         }
-        avatarContainer.background = bg
 
-        findViewById<TextView>(R.id.avatarInitial).text = initial
-        findViewById<TextView>(R.id.settingsUserName).text = name
-        findViewById<TextView>(R.id.settingsUserEmail).text = email
+        findViewById<TextView>(R.id.settingsAvatarInitial).text = initial
 
-        val iconSec = ContextCompat.getColor(this, R.color.icon_tint_secondary)
-        findViewById<ImageView>(R.id.chevronProfile)
-            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-
-        avatarContainer.setOnClickListener {
+        avatarBtn.setOnClickListener {
             startActivity(Intent(this, UserProfileActivity::class.java))
         }
     }
