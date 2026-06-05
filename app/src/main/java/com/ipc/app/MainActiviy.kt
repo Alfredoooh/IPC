@@ -20,25 +20,42 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
+import android.text.Html
+import android.text.Spanned
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.caverock.androidsvg.SVG
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.ipc.app.data.ChatMessage
+import com.ipc.app.data.NvidiaApiService
+import com.ipc.app.data.StreamChunk
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
 import com.ipc.app.ui.LoginActivity
 import com.ipc.app.ui.SettingsActivity
+import com.ipc.app.ui.UserProfileActivity
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
 
@@ -46,6 +63,7 @@ class MainActiviy : BaseActivity() {
 
     lateinit var binding: ActivityMainBinding
 
+    // ── Drawer / UI state ──────────────────────────────────────────────────
     private var drawerOpen = false
     private var popupVisible = false
     private var drawerAnimator: ValueAnimator? = null
@@ -58,7 +76,6 @@ class MainActiviy : BaseActivity() {
     private var inputRowHeight = 0
     private var currentTab = R.id.tabChat
     private var keyboardOpen = false
-
     private var emptyStateKeyboardShift = 0f
 
     private var swipeStartX = 0f
@@ -75,25 +92,35 @@ class MainActiviy : BaseActivity() {
 
     private var currentBarMarginPx: Int = -1
     private var currentBarRadiusPx: Float = -1f
-
     private var frozenInputRowHeight: Int = 0
     private var inputRowHeightFrozen = false
     private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
+
+    // ── Chat state ─────────────────────────────────────────────────────────
+    private val chatHistory = mutableListOf<ChatMessage>()
+    private val displayMessages = mutableListOf<DisplayMessage>()
+    private var streamJob: Job? = null
+    private lateinit var chatAdapter: ChatAdapter
+    private var streamingProgressBar: ProgressBar? = null
+
+    data class DisplayMessage(
+        val role: String,
+        var content: String,
+        var isStreaming: Boolean = false
+    )
 
     private val prefs by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
-
     private val inactiveIconColor: Int
         get() = Color.parseColor("#888888")
-
     private val drawerWidth: Int
         get() = (resources.displayMetrics.widthPixels * 0.75f).toInt()
-
     private val density: Float
         get() = resources.displayMetrics.density
 
+    // ── attachBaseContext ──────────────────────────────────────────────────
     override fun attachBaseContext(newBase: Context) {
         val p = newBase.getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE)
         when (p.getString("theme", "light")) {
@@ -111,6 +138,7 @@ class MainActiviy : BaseActivity() {
         super.attachBaseContext(base)
     }
 
+    // ── onCreate ──────────────────────────────────────────────────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -131,16 +159,10 @@ class MainActiviy : BaseActivity() {
 
             binding.bottomNavWrapper.animate()
                 .translationY(-extraShift.toFloat())
-                .setDuration(260)
-                .setInterpolator(DecelerateInterpolator(1.6f))
-                .start()
-
+                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
             binding.bottomBlurBg.animate()
                 .translationY(-extraShift.toFloat())
-                .setDuration(260)
-                .setInterpolator(DecelerateInterpolator(1.6f))
-                .start()
-
+                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
             binding.bottomNavWrapper.updatePadding(
                 bottom = if (extraShift == 0) navInsets.bottom else 0
             )
@@ -148,28 +170,20 @@ class MainActiviy : BaseActivity() {
             if (imeNowOpen && !keyboardOpen) {
                 keyboardOpen = true
                 emptyStateKeyboardShift = -(extraShift * 0.55f)
-                binding.emptyState.animate()
-                    .translationY(emptyStateKeyboardShift)
-                    .setDuration(260)
-                    .setInterpolator(DecelerateInterpolator(1.6f))
-                    .start()
+                binding.emptyState.animate().translationY(emptyStateKeyboardShift)
+                    .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
             } else if (!imeNowOpen && keyboardOpen) {
                 keyboardOpen = false
                 emptyStateKeyboardShift = 0f
-                binding.emptyState.animate()
-                    .translationY(0f)
-                    .setDuration(300)
-                    .setInterpolator(DecelerateInterpolator(1.6f))
-                    .start()
+                binding.emptyState.animate().translationY(0f)
+                    .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
             }
-
             insets
         }
 
         binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
             it.width = drawerWidth
         }
-
         binding.inputRow.post {
             if (inputRowHeight == 0) {
                 inputRowHeight = binding.inputRow.height
@@ -190,8 +204,162 @@ class MainActiviy : BaseActivity() {
         setupPreviewImage()
         setupInput()
         setupPopupMenu()
+        setupChatRecycler()
+        setupAvatarBtn()
     }
 
+    // ── Chat RecyclerView ─────────────────────────────────────────────────
+    private fun setupChatRecycler() {
+        chatAdapter = ChatAdapter(displayMessages)
+        val llm = LinearLayoutManager(this)
+        llm.stackFromEnd = true
+        binding.chatRecyclerView.layoutManager = llm
+        binding.chatRecyclerView.adapter = chatAdapter
+        binding.chatRecyclerView.overScrollMode = View.OVER_SCROLL_NEVER
+    }
+
+    private fun sendChatMessage(text: String) {
+        if (text.isBlank() || streamJob?.isActive == true) return
+
+        // Mostrar recycler, esconder empty state
+        binding.emptyState.visibility = View.GONE
+        binding.chatRecyclerView.visibility = View.VISIBLE
+
+        chatHistory.add(ChatMessage("user", text))
+        displayMessages.add(DisplayMessage("user", text))
+        chatAdapter.notifyItemInserted(displayMessages.lastIndex)
+        binding.chatRecyclerView.smoothScrollToPosition(displayMessages.lastIndex)
+
+        val aiMsg = DisplayMessage("assistant", "", isStreaming = true)
+        displayMessages.add(aiMsg)
+        val aiIndex = displayMessages.lastIndex
+        chatAdapter.notifyItemInserted(aiIndex)
+        binding.chatRecyclerView.smoothScrollToPosition(aiIndex)
+
+        val lang = prefs.getString("language", "pt") ?: "pt"
+        val sysPrompt = NvidiaApiService.buildSystemPrompt(lang)
+
+        streamJob = lifecycleScope.launch {
+            NvidiaApiService.streamChat(chatHistory, sysPrompt).collectLatest { chunk ->
+                when (chunk) {
+                    is StreamChunk.Token -> {
+                        aiMsg.content += chunk.text
+                        chatAdapter.notifyItemChanged(aiIndex)
+                        binding.chatRecyclerView.scrollToPosition(aiIndex)
+                    }
+                    is StreamChunk.Done -> {
+                        aiMsg.isStreaming = false
+                        aiMsg.content = chunk.fullText
+                        chatHistory.add(ChatMessage("assistant", chunk.fullText))
+                        chatAdapter.notifyItemChanged(aiIndex)
+                    }
+                    is StreamChunk.Error -> {
+                        aiMsg.isStreaming = false
+                        aiMsg.content = "⚠️ ${chunk.message}"
+                        chatAdapter.notifyItemChanged(aiIndex)
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Chat Adapter ──────────────────────────────────────────────────────
+    inner class ChatAdapter(
+        private val msgs: List<DisplayMessage>
+    ) : RecyclerView.Adapter<ChatAdapter.VH>() {
+
+        inner class VH(val wrapper: FrameLayout, val tv: TextView) : RecyclerView.ViewHolder(wrapper)
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val tv = TextView(parent.context).apply {
+                textSize = 15f
+                setLineSpacing(0f, 1.5f)
+                maxWidth = (parent.width * 0.84f).toInt()
+                setPadding(dp(14), dp(10), dp(14), dp(10))
+            }
+            val wrapper = FrameLayout(parent.context).apply {
+                layoutParams = RecyclerView.LayoutParams(
+                    RecyclerView.LayoutParams.MATCH_PARENT,
+                    RecyclerView.LayoutParams.WRAP_CONTENT
+                ).also {
+                    it.topMargin = dp(4)
+                    it.bottomMargin = dp(4)
+                }
+            }
+            wrapper.addView(tv)
+            return VH(wrapper, tv)
+        }
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val msg = msgs[position]
+            val tvLp = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+
+            if (msg.role == "user") {
+                // Utilizador: bolha com cor primária
+                holder.tv.setTextColor(Color.WHITE)
+                holder.tv.background = GradientDrawable().apply {
+                    cornerRadius = dp(20).toFloat()
+                    setColor(ContextCompat.getColor(holder.tv.context, R.color.colorPrimary))
+                }
+                tvLp.gravity = Gravity.END
+                tvLp.marginStart = dp(56)
+                tvLp.marginEnd = 0
+                holder.tv.text = msg.content
+            } else {
+                // IA: sem container, texto formatado com markdown simples
+                holder.tv.setTextColor(ContextCompat.getColor(holder.tv.context, R.color.text_primary))
+                holder.tv.background = null
+                holder.tv.setPadding(dp(4), dp(6), dp(4), dp(6))
+                tvLp.gravity = Gravity.START
+                tvLp.marginStart = 0
+                tvLp.marginEnd = dp(32)
+
+                val content = if (msg.isStreaming && msg.content.isEmpty()) "…"
+                              else msg.content
+                holder.tv.text = parseMarkdown(content)
+            }
+            holder.tv.layoutParams = tvLp
+        }
+
+        override fun getItemCount() = msgs.size
+    }
+
+    // ── Markdown parser simples ───────────────────────────────────────────
+    private fun parseMarkdown(text: String): Spanned {
+        var html = text
+            // Bold **text** ou __text__
+            .replace(Regex("\\*\\*(.+?)\\*\\*"), "<b>$1</b>")
+            .replace(Regex("__(.+?)__"), "<b>$1</b>")
+            // Italic *text* ou _text_
+            .replace(Regex("(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)"), "<i>$1</i>")
+            .replace(Regex("(?<!_)_(?!_)(.+?)(?<!_)_(?!_)"), "<i>$1</i>")
+            // Code `code`
+            .replace(Regex("`(.+?)`"), "<tt>$1</tt>")
+            // Títulos ## e #
+            .replace(Regex("^#{1,2}\\s+(.+)$", RegexOption.MULTILINE), "<b><big>$1</big></b>")
+            .replace(Regex("^#{3,}\\s+(.+)$", RegexOption.MULTILINE), "<b>$1</b>")
+            // Listas - item
+            .replace(Regex("^[-•]\\s+(.+)$", RegexOption.MULTILINE), "• $1")
+            // Newlines
+            .replace("\n", "<br>")
+
+        return Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
+    }
+
+    // ── Avatar btn no appBar ──────────────────────────────────────────────
+    private fun setupAvatarBtn() {
+        val name = prefs.getString("auth_user_name", "U") ?: "U"
+        val initial = name.firstOrNull()?.uppercase() ?: "U"
+        binding.btnUserAvatarInitial.text = initial
+        binding.btnUserAvatar.setOnClickListener {
+            startActivity(Intent(this, UserProfileActivity::class.java))
+        }
+    }
+
+    // ── Blur bottom bar ───────────────────────────────────────────────────
     private fun setupBlurBehindBottomBar() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             binding.bottomBlurBg.setRenderEffect(
@@ -218,52 +386,37 @@ class MainActiviy : BaseActivity() {
     private fun animateBottomBarState() {
         val d = density
         val isPreview = currentTab == R.id.tabPreview
-
         val targetMargin = if (isPreview) (MARGIN_PREVIEW_DP * d).toInt() else (MARGIN_CHAT_DP * d).toInt()
         val targetRadius = if (isPreview) RADIUS_PREVIEW_DP * d else RADIUS_CHAT_DP * d
         val bottomMargin = (BOTTOM_MARGIN_DP * d).toInt()
-
         if (currentBarMarginPx == targetMargin && currentBarRadiusPx == targetRadius) return
 
         val wrapperBg = getOrCreateBottomBg()
         val blurBg = binding.bottomBlurBg.background as? GradientDrawable
-
         val fromMargin = currentBarMarginPx
         val fromRadius = currentBarRadiusPx
 
         bottomBarAnimator?.cancel()
         bottomBarAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 380
-            interpolator = DecelerateInterpolator(2.0f)
+            duration = 380; interpolator = DecelerateInterpolator(2.0f)
             addUpdateListener { anim ->
                 val f = anim.animatedFraction
                 val margin = (fromMargin + (targetMargin - fromMargin) * f).toInt()
                 val radius = fromRadius + (targetRadius - fromRadius) * f
-
-                currentBarMarginPx = margin
-                currentBarRadiusPx = radius
-
-                wrapperBg.cornerRadius = radius
-                blurBg?.cornerRadius = radius
-
-                val wlp = binding.bottomNavWrapper.layoutParams
-                    as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
-                wlp.marginStart  = margin
-                wlp.marginEnd    = margin
-                wlp.bottomMargin = bottomMargin
-                binding.bottomNavWrapper.layoutParams = wlp
-
-                val blp = binding.bottomBlurBg.layoutParams
-                    as? android.widget.FrameLayout.LayoutParams ?: return@addUpdateListener
-                blp.marginStart  = margin
-                blp.marginEnd    = margin
-                blp.bottomMargin = bottomMargin
-                binding.bottomBlurBg.layoutParams = blp
+                currentBarMarginPx = margin; currentBarRadiusPx = radius
+                wrapperBg.cornerRadius = radius; blurBg?.cornerRadius = radius
+                (binding.bottomNavWrapper.layoutParams as? android.widget.FrameLayout.LayoutParams)?.let {
+                    it.marginStart = margin; it.marginEnd = margin; it.bottomMargin = bottomMargin
+                    binding.bottomNavWrapper.layoutParams = it
+                }
+                (binding.bottomBlurBg.layoutParams as? android.widget.FrameLayout.LayoutParams)?.let {
+                    it.marginStart = margin; it.marginEnd = margin; it.bottomMargin = bottomMargin
+                    binding.bottomBlurBg.layoutParams = it
+                }
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
-                    currentBarMarginPx = targetMargin
-                    currentBarRadiusPx = targetRadius
+                    currentBarMarginPx = targetMargin; currentBarRadiusPx = targetRadius
                     syncBlurBgSize()
                 }
             })
@@ -274,71 +427,53 @@ class MainActiviy : BaseActivity() {
     private fun getOrCreateBottomBg(): GradientDrawable {
         return (binding.bottomNavWrapper.background as? GradientDrawable)
             ?: GradientDrawable().also { gd ->
-                if (isAppDarkMode) {
-                    gd.setColor(ContextCompat.getColor(this, R.color.card_background))
-                } else {
-                    gd.setColor(Color.parseColor("#EAFFFFFF"))
-                }
+                gd.setColor(if (isAppDarkMode)
+                    ContextCompat.getColor(this, R.color.card_background)
+                else Color.parseColor("#EAFFFFFF"))
                 gd.cornerRadius = currentBarRadiusPx
                 binding.bottomNavWrapper.background = gd
             }
     }
 
+    // ── Input ─────────────────────────────────────────────────────────────
     private fun setupInput() {
         binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
-            val newMsgH = bottom - top
-            val oldMsgH = oldBottom - oldTop
-            if (newMsgH == oldMsgH || newMsgH <= 0 || oldMsgH <= 0) return@addOnLayoutChangeListener
-            if (!inputRowVisible) return@addOnLayoutChangeListener
-
-            val delta = newMsgH - oldMsgH
+            val newH = bottom - top; val oldH = oldBottom - oldTop
+            if (newH == oldH || newH <= 0 || oldH <= 0 || !inputRowVisible) return@addOnLayoutChangeListener
+            val delta = newH - oldH
             val fromH = if (inputRowHeightFrozen) frozenInputRowHeight else binding.inputRow.height
             if (fromH <= 0) return@addOnLayoutChangeListener
             val toH = (fromH + delta).coerceAtLeast(1)
             if (fromH == toH) return@addOnLayoutChangeListener
-
             preDrawListener?.let { binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(it) }
-
             preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
                     binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(this)
                     preDrawListener = null
-
-                    inputRowHeightFrozen = true
-                    frozenInputRowHeight = fromH
-                    binding.inputRow.layoutParams =
-                        binding.inputRow.layoutParams.also { it.height = fromH }
-
+                    inputRowHeightFrozen = true; frozenInputRowHeight = fromH
+                    binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = fromH }
                     inputHeightAnimator?.cancel()
                     inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
-                        duration = 180
-                        interpolator = DecelerateInterpolator(1.5f)
+                        duration = 180; interpolator = DecelerateInterpolator(1.5f)
                         addUpdateListener { anim ->
                             val h = anim.animatedValue as Int
                             frozenInputRowHeight = h
-                            binding.inputRow.layoutParams =
-                                binding.inputRow.layoutParams.also { it.height = h }
+                            binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
                             syncBlurBgSize()
-                            if (keyboardOpen) {
-                                binding.emptyState.translationY = emptyStateKeyboardShift
-                            }
+                            if (keyboardOpen) binding.emptyState.translationY = emptyStateKeyboardShift
                         }
                         addListener(object : AnimatorListenerAdapter() {
                             override fun onAnimationEnd(animation: Animator) {
                                 inputRowHeightFrozen = false
-                                binding.inputRow.layoutParams =
-                                    binding.inputRow.layoutParams.also {
-                                        it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                                    }
-                                syncBlurBgSize()
-                                if (keyboardOpen) {
-                                    binding.emptyState.translationY = emptyStateKeyboardShift
+                                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also {
+                                    it.height = ViewGroup.LayoutParams.WRAP_CONTENT
                                 }
+                                syncBlurBgSize()
+                                if (keyboardOpen) binding.emptyState.translationY = emptyStateKeyboardShift
                             }
                         })
                         start()
                     }
-
                     return false
                 }
             }
@@ -355,14 +490,11 @@ class MainActiviy : BaseActivity() {
             }
         })
 
-        // Send → vai para ChatActivity com o texto
         binding.btnSend.setOnClickListener {
             val text = binding.inputMessage.text.toString().trim()
             if (text.isNotEmpty()) {
                 binding.inputMessage.text?.clear()
-                val intent = Intent(this, com.ipc.app.ui.ChatActivity::class.java)
-                intent.putExtra("initial_message", text)
-                startActivity(intent)
+                sendChatMessage(text)
             }
         }
     }
@@ -380,21 +512,18 @@ class MainActiviy : BaseActivity() {
         binding.inputRow.visibility = View.VISIBLE
         inputRowAnimator?.cancel()
         inputRowAnimator = ValueAnimator.ofInt(0, targetH).apply {
-            duration = 280
-            interpolator = DecelerateInterpolator(1.5f)
+            duration = 280; interpolator = DecelerateInterpolator(1.5f)
             addUpdateListener { anim ->
                 val h = anim.animatedValue as Int
-                binding.inputRow.layoutParams =
-                    binding.inputRow.layoutParams.also { it.height = h }
+                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
                 binding.inputRow.alpha = h.toFloat() / targetH
                 syncBlurBgSize()
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
-                    binding.inputRow.layoutParams =
-                        binding.inputRow.layoutParams.also {
-                            it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                        }
+                    binding.inputRow.layoutParams = binding.inputRow.layoutParams.also {
+                        it.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                    }
                     binding.inputRow.alpha = 1f
                     frozenInputRowHeight = binding.inputRow.height
                     syncBlurBgSize()
@@ -410,12 +539,10 @@ class MainActiviy : BaseActivity() {
         val fromH = if (inputRowHeight > 0) inputRowHeight else binding.inputRow.height
         inputRowAnimator?.cancel()
         inputRowAnimator = ValueAnimator.ofInt(fromH, 0).apply {
-            duration = 240
-            interpolator = DecelerateInterpolator(1.5f)
+            duration = 240; interpolator = DecelerateInterpolator(1.5f)
             addUpdateListener { anim ->
                 val h = anim.animatedValue as Int
-                binding.inputRow.layoutParams =
-                    binding.inputRow.layoutParams.also { it.height = h }
+                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
                 binding.inputRow.alpha = h.toFloat() / fromH
                 syncBlurBgSize()
             }
@@ -431,12 +558,10 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun showSendBtn() {
-        sendBtnVisible = true
-        binding.btnSend.visibility = View.VISIBLE
+        sendBtnVisible = true; binding.btnSend.visibility = View.VISIBLE
         sendBtnAnimator?.cancel()
         sendBtnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 180
-            interpolator = DecelerateInterpolator()
+            duration = 180; interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val v = anim.animatedValue as Float
                 binding.btnSend.alpha = v
@@ -448,11 +573,9 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun hideSendBtn() {
-        sendBtnVisible = false
-        sendBtnAnimator?.cancel()
+        sendBtnVisible = false; sendBtnAnimator?.cancel()
         sendBtnAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = 150
-            interpolator = DecelerateInterpolator()
+            duration = 150; interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val v = anim.animatedValue as Float
                 binding.btnSend.alpha = v
@@ -460,14 +583,13 @@ class MainActiviy : BaseActivity() {
                 binding.btnSend.scaleY = 0.7f + (v * 0.3f)
             }
             addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    binding.btnSend.visibility = View.GONE
-                }
+                override fun onAnimationEnd(animation: Animator) { binding.btnSend.visibility = View.GONE }
             })
             start()
         }
     }
 
+    // ── Logo / Greeting / Icons ───────────────────────────────────────────
     private fun setupLogo() {
         runCatching {
             val bmp = assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
@@ -477,13 +599,9 @@ class MainActiviy : BaseActivity() {
 
     private fun setupGreeting() {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val greeting = when {
-            hour < 12 -> "Bom dia"
-            hour < 18 -> "Boa tarde"
-            else      -> "Boa noite"
+        binding.emptyGreeting.text = when {
+            hour < 12 -> "Bom dia"; hour < 18 -> "Boa tarde"; else -> "Boa noite"
         }
-        binding.emptyGreeting.text = greeting
-
         runCatching {
             val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
             binding.emptyGreeting.typeface = Typeface.create(tf, Typeface.BOLD)
@@ -497,21 +615,18 @@ class MainActiviy : BaseActivity() {
     private fun setupIcons() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
-
         binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
         binding.btnMore.setImageDrawable(svgDrawable("icons/svg/more_vertical.svg", 16, iconTint))
-
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-        binding.drawerIconLogout.setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 14, Color.parseColor("#FF3B30")))
         binding.drawerNewChatIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 14, iconTint))
         binding.drawerNewChatChevron.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-
         binding.popupImportIcon.setImageDrawable(svgDrawable("icons/svg/download.svg", 18, iconTint))
         binding.popupCameraIcon.setImageDrawable(svgDrawable("icons/svg/preview.svg", 18, iconTint))
         binding.popupUrlIcon.setImageDrawable(svgDrawable("icons/svg/external.svg", 18, iconTint))
     }
 
+    // ── Popup menu ────────────────────────────────────────────────────────
     private fun setupPopupMenu() {
         binding.btnMore.setOnClickListener { showPopup() }
         binding.popupOverlay.setOnClickListener { hidePopup() }
@@ -521,186 +636,96 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun showPopup() {
-        if (popupVisible) return
-        popupVisible = true
-        binding.popupOverlay.visibility = View.VISIBLE
-        binding.popupOverlay.alpha = 0f
-
+        if (popupVisible) return; popupVisible = true
+        binding.popupOverlay.visibility = View.VISIBLE; binding.popupOverlay.alpha = 0f
         binding.popupMenu.post {
-            binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
-            binding.popupMenu.pivotY = 0f
-            binding.popupMenu.scaleX = 0.85f
-            binding.popupMenu.scaleY = 0.85f
-            binding.popupMenu.alpha = 0f
-
-            binding.bottomNavWrapper.animate()
-                .alpha(0.35f)
-                .setDuration(200)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-
-            binding.popupOverlay.animate()
-                .alpha(1f)
-                .setDuration(200)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-
-            binding.popupMenu.animate()
-                .scaleX(1f)
-                .scaleY(1f)
-                .alpha(1f)
-                .setDuration(300)
-                .setInterpolator(OvershootInterpolator(1.2f))
-                .start()
+            binding.popupMenu.pivotX = binding.popupMenu.width.toFloat(); binding.popupMenu.pivotY = 0f
+            binding.popupMenu.scaleX = 0.85f; binding.popupMenu.scaleY = 0.85f; binding.popupMenu.alpha = 0f
+            binding.bottomNavWrapper.animate().alpha(0.35f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
+            binding.popupOverlay.animate().alpha(1f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
+            binding.popupMenu.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(300).setInterpolator(OvershootInterpolator(1.2f)).start()
         }
     }
 
     private fun hidePopup() {
-        if (!popupVisible) return
-        popupVisible = false
-
-        binding.bottomNavWrapper.animate()
-            .alpha(1f)
-            .setDuration(180)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
-
-        binding.popupMenu.animate()
-            .scaleX(0.85f)
-            .scaleY(0.85f)
-            .alpha(0f)
-            .setDuration(180)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
-
-        binding.popupOverlay.animate()
-            .alpha(0f)
-            .setDuration(180)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction { binding.popupOverlay.visibility = View.GONE }
-            .start()
+        if (!popupVisible) return; popupVisible = false
+        binding.bottomNavWrapper.animate().alpha(1f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
+        binding.popupMenu.animate().scaleX(0.85f).scaleY(0.85f).alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
+        binding.popupOverlay.animate().alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator())
+            .withEndAction { binding.popupOverlay.visibility = View.GONE }.start()
     }
 
+    // ── Swipe drawer ──────────────────────────────────────────────────────
     private fun setupSwipeDrawer() {
-        val edgePx    = SWIPE_EDGE_WIDTH * density
-        val minDistPx = SWIPE_MIN_DIST * density
-
+        val edgePx = SWIPE_EDGE_WIDTH * density; val minDistPx = SWIPE_MIN_DIST * density
         binding.coordinatorLayout.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    swipeStartX = event.rawX
-                    swipeStartY = event.rawY
-                    isSwipingDrawer = !drawerOpen && swipeStartX < edgePx
-                    false
+                    swipeStartX = event.rawX; swipeStartY = event.rawY
+                    isSwipingDrawer = !drawerOpen && swipeStartX < edgePx; false
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (isSwipingDrawer) {
-                        val dx = event.rawX - swipeStartX
-                        val dy = event.rawY - swipeStartY
+                        val dx = event.rawX - swipeStartX; val dy = event.rawY - swipeStartY
                         if (kotlin.math.abs(dx) > kotlin.math.abs(dy) && dx > 0) {
-                            binding.coordinatorLayout.translationX =
-                                dx.coerceAtMost(drawerWidth.toFloat())
-                            binding.drawerScrim.visibility = View.VISIBLE
-                            true
+                            binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
+                            binding.drawerScrim.visibility = View.VISIBLE; true
                         } else false
                     } else if (drawerOpen) {
                         val dx = event.rawX - swipeStartX
-                        if (dx < 0) {
-                            binding.coordinatorLayout.translationX =
-                                (drawerWidth + dx).coerceAtLeast(0f)
-                            true
-                        } else false
+                        if (dx < 0) { binding.coordinatorLayout.translationX = (drawerWidth + dx).coerceAtLeast(0f); true } else false
                     } else false
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val dx = event.rawX - swipeStartX
                     if (isSwipingDrawer) {
                         isSwipingDrawer = false
-                        if (dx > minDistPx) {
-                            drawerOpen = true
-                            animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat())
-                        } else {
-                            animateDrawer(binding.coordinatorLayout.translationX, 0f) {
-                                binding.drawerScrim.visibility = View.GONE
-                            }
-                        }
+                        if (dx > minDistPx) { drawerOpen = true; animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat()) }
+                        else animateDrawer(binding.coordinatorLayout.translationX, 0f) { binding.drawerScrim.visibility = View.GONE }
                         true
-                    } else if (drawerOpen && dx < -minDistPx) {
-                        closeDrawer(); true
-                    } else false
+                    } else if (drawerOpen && dx < -minDistPx) { closeDrawer(); true } else false
                 }
                 else -> false
             }
         }
     }
 
+    // ── Drawer ────────────────────────────────────────────────────────────
     private fun setupDrawer() {
-        binding.btnMenu.setOnClickListener {
-            if (drawerOpen) closeDrawer() else openDrawer()
-        }
+        binding.btnMenu.setOnClickListener { if (drawerOpen) closeDrawer() else openDrawer() }
         binding.drawerScrim.setOnClickListener { closeDrawer() }
-
         binding.drawerItemSettings.setOnClickListener {
             closeDrawer()
-            binding.root.postDelayed({
-                startActivity(Intent(this, SettingsActivity::class.java))
-            }, 250)
+            binding.root.postDelayed({ startActivity(Intent(this, SettingsActivity::class.java)) }, 250)
         }
-
         binding.drawerNewChat.setOnClickListener {
             closeDrawer()
+            // Nova conversa: limpar histórico
             binding.root.postDelayed({
-                startActivity(Intent(this, com.ipc.app.ui.ChatActivity::class.java))
+                chatHistory.clear()
+                displayMessages.clear()
+                chatAdapter.notifyDataSetChanged()
+                binding.chatRecyclerView.visibility = View.GONE
+                binding.emptyState.visibility = View.VISIBLE
             }, 250)
         }
-
-        binding.drawerItemLogout.setOnClickListener {
-            closeDrawer()
-            binding.root.postDelayed({ showLogoutDialog() }, 300)
-        }
-    }
-
-    private fun showLogoutDialog() {
-        MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
-            .setTitle("Terminar sessão")
-            .setMessage("Tens a certeza que queres sair?")
-            .setPositiveButton("Sair") { _, _ -> doLogout() }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
-
-    private fun doLogout() {
-        prefs.edit()
-            .remove("auth_token")
-            .remove("auth_user_id")
-            .remove("auth_user_name")
-            .remove("auth_user_email")
-            .apply()
-        val intent = Intent(this, LoginActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
     }
 
     private fun openDrawer() {
-        if (drawerOpen) return
-        drawerOpen = true
+        if (drawerOpen) return; drawerOpen = true
         binding.drawerScrim.visibility = View.VISIBLE
         animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat())
     }
 
     private fun closeDrawer() {
-        if (!drawerOpen) return
-        drawerOpen = false
-        animateDrawer(binding.coordinatorLayout.translationX, 0f) {
-            binding.drawerScrim.visibility = View.GONE
-        }
+        if (!drawerOpen) return; drawerOpen = false
+        animateDrawer(binding.coordinatorLayout.translationX, 0f) { binding.drawerScrim.visibility = View.GONE }
     }
 
     private fun animateDrawer(from: Float, to: Float, onEnd: (() -> Unit)? = null) {
         drawerAnimator?.cancel()
         drawerAnimator = ValueAnimator.ofFloat(from, to).apply {
-            duration = 300
-            interpolator = DecelerateInterpolator(1.8f)
+            duration = 300; interpolator = DecelerateInterpolator(1.8f)
             addUpdateListener { anim ->
                 val v = anim.animatedValue as Float
                 binding.coordinatorLayout.translationX = v
@@ -713,6 +738,7 @@ class MainActiviy : BaseActivity() {
         }
     }
 
+    // ── Bottom tabs ───────────────────────────────────────────────────────
     private fun setupBottomTabs() {
         refreshTabIcons()
         binding.tabChat.setOnClickListener    { selectTab(R.id.tabChat) }
@@ -720,16 +746,25 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun selectTab(tabId: Int) {
-        if (currentTab == tabId) return
-        currentTab = tabId
-        refreshTabIcons()
-        updateContentForTab()
+        if (currentTab == tabId) return; currentTab = tabId
+        refreshTabIcons(); updateContentForTab()
     }
 
     private fun updateContentForTab() {
         val isPreview = currentTab == R.id.tabPreview
         binding.previewState.visibility = if (isPreview) View.VISIBLE else View.GONE
-        binding.emptyState.visibility   = if (isPreview) View.GONE   else View.VISIBLE
+        if (!isPreview) {
+            if (displayMessages.isEmpty()) {
+                binding.emptyState.visibility = View.VISIBLE
+                binding.chatRecyclerView.visibility = View.GONE
+            } else {
+                binding.emptyState.visibility = View.GONE
+                binding.chatRecyclerView.visibility = View.VISIBLE
+            }
+        } else {
+            binding.emptyState.visibility = View.GONE
+            binding.chatRecyclerView.visibility = View.GONE
+        }
         animateBottomBarState()
         if (isPreview) hideInputRow() else showInputRow()
     }
@@ -743,22 +778,15 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun refreshTabIcons() {
-        val active   = activeIconColor
-        val inactive = inactiveIconColor
-
+        val active = activeIconColor; val inactive = inactiveIconColor
         binding.tabChatIcon.setImageDrawable(
-            if (currentTab == R.id.tabChat)
-                svgDrawable("icons/svg/chat_filled.svg", 22, active)
-            else
-                svgDrawable("icons/svg/chat.svg", 22, inactive)
+            if (currentTab == R.id.tabChat) svgDrawable("icons/svg/chat_filled.svg", 22, active)
+            else svgDrawable("icons/svg/chat.svg", 22, inactive)
         )
         binding.tabChatLabel.setTextColor(if (currentTab == R.id.tabChat) active else inactive)
-
         binding.tabPreviewIcon.setImageDrawable(
-            if (currentTab == R.id.tabPreview)
-                svgDrawable("icons/svg/preview_filled.svg", 22, active)
-            else
-                svgDrawable("icons/svg/preview.svg", 22, inactive)
+            if (currentTab == R.id.tabPreview) svgDrawable("icons/svg/preview_filled.svg", 22, active)
+            else svgDrawable("icons/svg/preview.svg", 22, inactive)
         )
         binding.tabPreviewLabel.setTextColor(if (currentTab == R.id.tabPreview) active else inactive)
     }
@@ -766,6 +794,9 @@ class MainActiviy : BaseActivity() {
     override fun onResume() {
         super.onResume()
         refreshTabIcons()
+        // Atualizar avatar caso o nome tenha mudado
+        val name = prefs.getString("auth_user_name", "U") ?: "U"
+        binding.btnUserAvatarInitial.text = name.firstOrNull()?.uppercase() ?: "U"
     }
 
     @Deprecated("Deprecated in Java")
@@ -775,18 +806,17 @@ class MainActiviy : BaseActivity() {
         super.onBackPressed()
     }
 
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
         val px  = (sizeDp * resources.displayMetrics.density).toInt().coerceAtLeast(1)
         val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
         runCatching {
             SVG.getFromAsset(assets, path).apply {
-                documentWidth  = px.toFloat()
-                documentHeight = px.toFloat()
+                documentWidth = px.toFloat(); documentHeight = px.toFloat()
                 renderToCanvas(Canvas(bmp))
             }
         }
-        return BitmapDrawable(resources, bmp).also {
-            it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
-        }
+        return BitmapDrawable(resources, bmp).also { it.setColorFilter(tint, PorterDuff.Mode.SRC_IN) }
     }
 }

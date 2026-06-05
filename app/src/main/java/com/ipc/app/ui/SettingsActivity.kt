@@ -13,6 +13,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
@@ -21,6 +22,8 @@ import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.ipc.app.R
 
 class SettingsActivity : BaseActivity() {
@@ -31,7 +34,7 @@ class SettingsActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
         applyTimesNewRomanTitle()
-        setupAvatar()
+        setupAvatarAppBar()
         setupIcons()
         setupActions()
     }
@@ -42,36 +45,24 @@ class SettingsActivity : BaseActivity() {
             val toolbar = findViewById<ViewGroup>(R.id.settingsToolbar)
             for (i in 0 until toolbar.childCount) {
                 val child = toolbar.getChildAt(i)
-                if (child is TextView) {
-                    child.typeface = Typeface.create(tf, Typeface.BOLD)
-                    break
-                }
+                if (child is TextView) { child.typeface = Typeface.create(tf, Typeface.BOLD); break }
             }
         }
     }
 
-    private fun setupAvatar() {
-        val name  = prefs.getString("auth_user_name", "U") ?: "U"
-        val email = prefs.getString("auth_user_email", "—") ?: "—"
+    private fun setupAvatarAppBar() {
+        val name    = prefs.getString("auth_user_name", "U") ?: "U"
         val initial = name.firstOrNull()?.uppercase() ?: "U"
 
-        // Avatar circular
-        val avatarContainer = findViewById<FrameLayout>(R.id.avatarContainer)
-        val bg = GradientDrawable().apply {
+        val avatarBtn = findViewById<FrameLayout>(R.id.settingsAvatarBtn)
+        val avatarBg  = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(ContextCompat.getColor(this@SettingsActivity, R.color.colorPrimary))
         }
-        avatarContainer.background = bg
+        avatarBtn.background = avatarBg
+        findViewById<TextView>(R.id.settingsAvatarInitial).text = initial
 
-        findViewById<TextView>(R.id.avatarInitial).text = initial
-        findViewById<TextView>(R.id.settingsUserName).text = name
-        findViewById<TextView>(R.id.settingsUserEmail).text = email
-
-        val iconSec = ContextCompat.getColor(this, R.color.icon_tint_secondary)
-        findViewById<ImageView>(R.id.chevronProfile)
-            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-
-        avatarContainer.setOnClickListener {
+        avatarBtn.setOnClickListener {
             startActivity(Intent(this, UserProfileActivity::class.java))
         }
     }
@@ -90,9 +81,8 @@ class SettingsActivity : BaseActivity() {
             .setImageDrawable(svgDrawable("icons/svg/privacy.svg", 14, iconTint))
         findViewById<ImageView>(R.id.iconNotifications)
             .setImageDrawable(svgDrawable("icons/svg/notifications.svg", 14, iconTint))
-        // Ícone logout vermelho
         findViewById<ImageView>(R.id.iconLogout)
-            .setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 14, Color.parseColor("#FF3B30")))
+            .setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 16, Color.parseColor("#FF3B30")))
 
         listOf(R.id.chevronTheme, R.id.chevronLanguage, R.id.chevronPrivacy).forEach {
             findViewById<ImageView>(it)
@@ -102,7 +92,6 @@ class SettingsActivity : BaseActivity() {
         val currentTheme = prefs.getString("theme", "light")
         findViewById<TextView>(R.id.labelTheme).text =
             if (currentTheme == "dark") "Escuro" else "Claro"
-
         val currentLang = prefs.getString("language", "pt")
         findViewById<TextView>(R.id.labelLanguage).text =
             when (currentLang) { "en" -> "English"; else -> "Português" }
@@ -115,18 +104,83 @@ class SettingsActivity : BaseActivity() {
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { onBackPressed() }
         findViewById<View>(R.id.itemTheme).setOnClickListener { showThemeDialog() }
         findViewById<View>(R.id.itemLanguage).setOnClickListener { showLanguageDialog() }
-
         val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
-        switchNotif.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean("notifications", isChecked).apply()
+        switchNotif.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("notifications", checked).apply()
         }
         findViewById<View>(R.id.itemNotifications).setOnClickListener { switchNotif.toggle() }
-        findViewById<View>(R.id.itemPrivacy).setOnClickListener { }
-
-        // Logout
+        findViewById<View>(R.id.itemPrivacy).setOnClickListener { showRecoverPasswordDialog() }
         findViewById<View>(R.id.itemLogout).setOnClickListener { showLogoutDialog() }
     }
 
+    // ── Recuperar password ────────────────────────────────────────────────
+    private fun showRecoverPasswordDialog() {
+        val email = prefs.getString("auth_user_email", "") ?: ""
+
+        val dialogView = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(24), dp(16), dp(24), dp(8))
+        }
+
+        val infoText = TextView(this).apply {
+            text = "Introduz o teu email para receber as instruções de recuperação."
+            textSize = 14f
+            setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = dp(16) }
+        }
+        dialogView.addView(infoText)
+
+        val emailInput = TextInputLayout(this, null,
+            com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox
+        ).apply {
+            hint = "Email"
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val emailField = TextInputEditText(emailInput.context).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            setText(email)
+        }
+        emailInput.addView(emailField)
+        dialogView.addView(emailInput)
+
+        MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
+            .setTitle("Recuperar password")
+            .setView(dialogView)
+            .setPositiveButton("Enviar") { dialog, _ ->
+                val inputEmail = emailField.text.toString().trim()
+                if (inputEmail.isEmpty()) {
+                    emailInput.error = "Introduz o teu email"
+                    return@setPositiveButton
+                }
+                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(inputEmail).matches()) {
+                    emailInput.error = "Email inválido"
+                    return@setPositiveButton
+                }
+                dialog.dismiss()
+                doSendPasswordReset(inputEmail)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun doSendPasswordReset(email: String) {
+        // Mock local — quando a API real estiver pronta, enviar POST /auth/forgot-password
+        // Por agora mostra confirmação
+        MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
+            .setTitle("Email enviado")
+            .setMessage("Se a conta '$email' existir, receberás um email com as instruções para redefinir a tua password.")
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    // ── Logout ────────────────────────────────────────────────────────────
     private fun showLogoutDialog() {
         MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
             .setTitle("Terminar sessão")
@@ -148,57 +202,44 @@ class SettingsActivity : BaseActivity() {
         startActivity(intent)
     }
 
+    // ── Dialogs ───────────────────────────────────────────────────────────
     private fun showThemeDialog() {
         val currentTheme = prefs.getString("theme", "light")
-        val options = arrayOf("Claro", "Escuro")
-        val selected = if (currentTheme == "dark") 1 else 0
-
         MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
             .setTitle("Tema")
-            .setSingleChoiceItems(options, selected) { dialog, which ->
+            .setSingleChoiceItems(arrayOf("Claro", "Escuro"), if (currentTheme == "dark") 1 else 0) { dialog, which ->
                 prefs.edit().putString("theme", if (which == 1) "dark" else "light").apply()
                 AppCompatDelegate.setDefaultNightMode(
-                    if (which == 1) AppCompatDelegate.MODE_NIGHT_YES
-                    else AppCompatDelegate.MODE_NIGHT_NO
+                    if (which == 1) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
                 )
-                dialog.dismiss()
-                recreate()
-            }
-            .show()
+                dialog.dismiss(); recreate()
+            }.show()
     }
 
     private fun showLanguageDialog() {
         val currentLang = prefs.getString("language", "pt")
-        val options = arrayOf("Português", "English")
-        val selected = if (currentLang == "en") 1 else 0
-
         MaterialAlertDialogBuilder(this, R.style.IpcAlertDialog)
             .setTitle("Idioma")
-            .setSingleChoiceItems(options, selected) { dialog, which ->
+            .setSingleChoiceItems(arrayOf("Português", "English"), if (currentLang == "en") 1 else 0) { dialog, which ->
                 prefs.edit().putString("language", if (which == 1) "en" else "pt").apply()
-                dialog.dismiss()
-                recreate()
-            }
-            .show()
+                dialog.dismiss(); recreate()
+            }.show()
     }
 
     @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        super.onBackPressed()
-    }
+    override fun onBackPressed() { super.onBackPressed() }
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
         val px  = (sizeDp * resources.displayMetrics.density).toInt().coerceAtLeast(1)
         val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
         runCatching {
             SVG.getFromAsset(assets, path).apply {
-                documentWidth  = px.toFloat()
-                documentHeight = px.toFloat()
+                documentWidth = px.toFloat(); documentHeight = px.toFloat()
                 renderToCanvas(Canvas(bmp))
             }
         }
-        return BitmapDrawable(resources, bmp).also {
-            it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
-        }
+        return BitmapDrawable(resources, bmp).also { it.setColorFilter(tint, PorterDuff.Mode.SRC_IN) }
     }
 }

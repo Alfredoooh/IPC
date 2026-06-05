@@ -17,7 +17,6 @@
         android:background="@color/drawer_background"
         android:fitsSystemWindows="true">
 
-        <!-- Header drawer -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -46,7 +45,7 @@
             android:layout_marginBottom="4dp"
             android:background="@color/divider" />
 
-        <!-- Secção Conversas -->
+        <!-- Label Conversas -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -58,13 +57,12 @@
             android:paddingTop="12dp"
             android:paddingBottom="6dp" />
 
-        <!-- Lista de conversas recentes (ScrollView para futuras entradas) -->
+        <!-- Lista conversas -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:overScrollMode="never"
-            android:fillViewport="false">
+            android:overScrollMode="never">
 
             <LinearLayout
                 android:id="@+id/drawerConversationsList"
@@ -73,7 +71,6 @@
                 android:orientation="vertical"
                 android:paddingBottom="8dp">
 
-                <!-- Item conversa nova (placeholder fixo sempre visível) -->
                 <LinearLayout
                     android:id="@+id/drawerNewChat"
                     android:layout_width="match_parent"
@@ -126,7 +123,7 @@
             android:layout_marginEnd="24dp"
             android:background="@color/divider" />
 
-        <!-- Rodapé drawer: Definições + Logout -->
+        <!-- Definições (sem logout aqui) -->
         <LinearLayout
             android:id="@+id/drawerItemSettings"
             android:layout_width="match_parent"
@@ -166,42 +163,6 @@
 
         </LinearLayout>
 
-        <!-- Logout drawer -->
-        <LinearLayout
-            android:id="@+id/drawerItemLogout"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:background="?attr/selectableItemBackground">
-
-            <FrameLayout
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:background="@drawable/logout_icon_bg"
-                android:layout_marginEnd="16dp">
-
-                <ImageView
-                    android:id="@+id/drawerIconLogout"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_gravity="center" />
-
-            </FrameLayout>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/drawer_logout"
-                android:textSize="15sp"
-                android:textColor="#FF3B30" />
-
-        </LinearLayout>
-
-        <!-- Espaço para nav bar do sistema -->
         <View
             android:id="@+id/drawerNavSpacer"
             android:layout_width="match_parent"
@@ -233,7 +194,7 @@
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp">
 
-                <!-- Botão menu esquerda -->
+                <!-- Menu esquerda -->
                 <FrameLayout
                     android:layout_width="36dp"
                     android:layout_height="36dp"
@@ -252,28 +213,74 @@
 
                 </FrameLayout>
 
-                <!-- Botões direita: só mais (sem coin) -->
-                <FrameLayout
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                <!-- Direita: avatar + more -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
                     android:layout_centerVertical="true"
-                    android:layout_alignParentEnd="true"
-                    android:background="@drawable/appbar_btn_bg"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_alignParentEnd="true">
 
-                    <ImageView
-                        android:id="@+id/btnMore"
-                        android:layout_width="17dp"
-                        android:layout_height="17dp"
-                        android:layout_gravity="center"
-                        android:background="?attr/selectableItemBackgroundBorderless" />
+                    <!-- Avatar circular botão utilizador -->
+                    <FrameLayout
+                        android:id="@+id/btnUserAvatar"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/avatar_circle_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:elevation="2dp">
 
-                </FrameLayout>
+                        <TextView
+                            android:id="@+id/btnUserAvatarInitial"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="U"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="#FFFFFF" />
+
+                    </FrameLayout>
+
+                    <!-- More -->
+                    <FrameLayout
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/appbar_btn_bg"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/btnMore"
+                            android:layout_width="17dp"
+                            android:layout_height="17dp"
+                            android:layout_gravity="center"
+                            android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    </FrameLayout>
+
+                </LinearLayout>
 
             </RelativeLayout>
 
         </com.google.android.material.appbar.AppBarLayout>
+
+        <!-- Chat RecyclerView (visível quando há mensagens) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/chatRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="160dp"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            android:visibility="gone"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
         <!-- Preview tab -->
         <LinearLayout
@@ -328,7 +335,7 @@
             android:orientation="vertical"
             android:gravity="center_horizontal"
             android:paddingTop="100dp"
-            android:paddingBottom="140dp"
+            android:paddingBottom="160dp"
             android:paddingStart="32dp"
             android:paddingEnd="32dp"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
@@ -361,20 +368,6 @@
                 android:gravity="center" />
 
         </LinearLayout>
-
-        <!-- Chat messages list (visível quando há mensagens) -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/chatRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="140dp"
-            android:clipToPadding="false"
-            android:overScrollMode="never"
-            android:visibility="gone"
-            app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
         <!-- Scrim -->
         <View
@@ -430,8 +423,7 @@
                     <ImageView
                         android:id="@+id/popupImportIcon"
                         android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:layout_gravity="center_vertical" />
+                        android:layout_height="18dp" />
 
                 </LinearLayout>
 
@@ -465,8 +457,7 @@
                     <ImageView
                         android:id="@+id/popupCameraIcon"
                         android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:layout_gravity="center_vertical" />
+                        android:layout_height="18dp" />
 
                 </LinearLayout>
 
@@ -500,8 +491,7 @@
                     <ImageView
                         android:id="@+id/popupUrlIcon"
                         android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:layout_gravity="center_vertical" />
+                        android:layout_height="18dp" />
 
                 </LinearLayout>
 
