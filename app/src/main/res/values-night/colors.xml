@@ -65,4 +65,6 @@
     
     <!-- AppBar button: escuro -->
     <color name="appbar_btn_bg_color">#18FFFFFF</color>
+    <color name="appbar_solid">#FF121212</color>
+    <color name="bottom_bar_solid">#FF1f1f1f</color>
 </resources>

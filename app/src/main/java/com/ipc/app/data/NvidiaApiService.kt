@@ -20,10 +20,7 @@ import java.io.BufferedReader
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-data class ChatMessage(
-    val role: String,
-    val content: String
-)
+data class ChatMessage(val role: String, val content: String)
 
 sealed class StreamChunk {
     data class Token(val text: String) : StreamChunk()
@@ -37,49 +34,9 @@ object NvidiaApiService {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
-
-    suspend fun chat(
-        messages: List<ChatMessage>,
-        token: String = "",
-        language: String = "pt"
-    ): Result<String> = withContext(Dispatchers.IO) {
-        runCatching {
-            val messagesArray = JSONArray().apply {
-                messages.forEach { msg ->
-                    put(JSONObject().apply {
-                        put("role", msg.role)
-                        put("content", msg.content)
-                    })
-                }
-            }
-
-            val body = JSONObject().apply {
-                put("messages", messagesArray)
-                put("stream", false)
-                put("language", language)
-            }.toString().toRequestBody("application/json".toMediaType())
-
-            val request = Request.Builder()
-                .url("$BASE_URL/ai/chat")
-                .addHeader("Authorization", "Bearer $token")
-                .addHeader("Content-Type", "application/json")
-                .post(body)
-                .build()
-
-            val response = client.newCall(request).execute()
-            val responseBody = response.body!!.string()
-
-            if (!response.isSuccessful) {
-                throw IOException("Erro ${response.code}: $responseBody")
-            }
-
-            val json = JSONObject(responseBody)
-            json.getString("content")
-        }
-    }
 
     fun streamChat(
         messages: List<ChatMessage>,
@@ -129,27 +86,35 @@ object NvidiaApiService {
                     var line: String?
                     while (reader.readLine().also { line = it } != null) {
                         val l = line!!.trim()
-                        if (l.startsWith("data: ")) {
-                            val data = l.removePrefix("data: ").trim()
-                            if (data == "[DONE]") {
+                        if (!l.startsWith("data: ")) continue
+                        val data = l.removePrefix("data: ").trim()
+                        if (data == "[DONE]") {
+                            trySend(StreamChunk.Done(sb.toString()))
+                            break
+                        }
+                        try {
+                            val json   = JSONObject(data)
+                            val choice = json.getJSONArray("choices").getJSONObject(0)
+                            val delta  = choice.getJSONObject("delta")
+                            // DeepSeek V4 Pro: content pode ser null enquanto pensa (reasoning_content)
+                            // Só emitimos quando content não é null e não é vazio
+                            if (delta.has("content") && !delta.isNull("content")) {
+                                val tok = delta.getString("content")
+                                if (tok.isNotEmpty()) {
+                                    sb.append(tok)
+                                    trySend(StreamChunk.Token(tok))
+                                }
+                            }
+                            // finish_reason = stop sem [DONE] (alguns modelos)
+                            val finishReason = choice.optString("finish_reason", "")
+                            if (finishReason == "stop" && sb.isNotEmpty()) {
                                 trySend(StreamChunk.Done(sb.toString()))
                                 break
                             }
-                            try {
-                                val json = JSONObject(data)
-                                val delta = json.getJSONArray("choices")
-                                    .getJSONObject(0)
-                                    .getJSONObject("delta")
-                                if (delta.has("content")) {
-                                    val tok = delta.getString("content")
-                                    if (tok.isNotEmpty()) {
-                                        sb.append(tok)
-                                        trySend(StreamChunk.Token(tok))
-                                    }
-                                }
-                            } catch (_: Exception) {}
-                        }
+                        } catch (_: Exception) {}
                     }
+                    // Garantia: se chegou ao fim sem [DONE] e há conteúdo
+                    if (sb.isNotEmpty()) trySend(StreamChunk.Done(sb.toString()))
                 } catch (e: Exception) {
                     trySend(StreamChunk.Error("Erro ao ler stream: ${e.message}"))
                 } finally {
@@ -162,6 +127,39 @@ object NvidiaApiService {
         awaitClose { call.cancel() }
     }.flowOn(Dispatchers.IO)
 
+    suspend fun generateTitle(firstUserMessage: String, token: String, language: String = "pt"): String =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val prompt = if (language == "en")
+                    "Generate a short title (max 5 words) for a conversation that starts with: \"$firstUserMessage\". Reply with ONLY the title, no punctuation, no quotes."
+                else
+                    "Gera um título curto (máx 5 palavras) para uma conversa que começa com: \"$firstUserMessage\". Responde APENAS com o título, sem pontuação, sem aspas."
+
+                val messagesArray = JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
+                }
+
+                val body = JSONObject().apply {
+                    put("messages", messagesArray)
+                    put("stream", false)
+                    put("language", language)
+                }.toString().toRequestBody("application/json".toMediaType())
+
+                val request = Request.Builder()
+                    .url("$BASE_URL/ai/chat")
+                    .addHeader("Authorization", "Bearer $token")
+                    .post(body)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                val json = JSONObject(response.body!!.string())
+                json.optString("content", "Nova conversa").trim().take(40)
+            }.getOrDefault("Nova conversa")
+        }
+
     fun buildSystemPrompt(language: String = "pt"): String {
         val langInstruction = when (language) {
             "en" -> "Always respond in English."
@@ -171,6 +169,8 @@ object NvidiaApiService {
             És um assistente de IA integrado na app IPC. $langInstruction
             Sê conciso, útil e direto. Quando não souberes algo, diz-o claramente.
             Não uses formatação excessiva. Responde de forma natural e conversacional.
+            Quando o utilizador pedir uma tabela, formata em markdown com | separadores.
+            Quando o utilizador pedir /canvas, apresenta o conteúdo num bloco de código delimitado por ``` com o tipo canvas.
         """.trimIndent()
     }
 }

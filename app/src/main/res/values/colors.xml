@@ -73,4 +73,6 @@
     
     <!-- AppBar button: claro -->
     <color name="appbar_btn_bg_color">#0F000000</color>
+    <color name="appbar_solid">#FFFFFFFF</color>
+    <color name="bottom_bar_solid">#FFFFFFFF</color>
 </resources>

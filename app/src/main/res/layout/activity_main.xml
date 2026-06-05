@@ -45,7 +45,6 @@
             android:layout_marginBottom="4dp"
             android:background="@color/divider" />
 
-        <!-- Label Conversas -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -57,7 +56,6 @@
             android:paddingTop="12dp"
             android:paddingBottom="6dp" />
 
-        <!-- Lista conversas -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -69,50 +67,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingBottom="8dp">
-
-                <LinearLayout
-                    android:id="@+id/drawerNewChat"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/drawer_icon_bg"
-                        android:layout_marginEnd="16dp">
-
-                        <ImageView
-                            android:id="@+id/drawerNewChatIcon"
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:layout_gravity="center" />
-
-                    </FrameLayout>
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Nova conversa"
-                        android:textSize="15sp"
-                        android:textColor="@color/drawer_text" />
-
-                    <ImageView
-                        android:id="@+id/drawerNewChatChevron"
-                        android:layout_width="13dp"
-                        android:layout_height="13dp" />
-
-                </LinearLayout>
-
-            </LinearLayout>
+                android:paddingBottom="8dp" />
 
         </ScrollView>
 
@@ -123,7 +78,6 @@
             android:layout_marginEnd="24dp"
             android:background="@color/divider" />
 
-        <!-- Definições (sem logout aqui) -->
         <LinearLayout
             android:id="@+id/drawerItemSettings"
             android:layout_width="match_parent"
@@ -188,73 +142,35 @@
             app:elevation="0dp"
             app:liftOnScroll="false">
 
-            <RelativeLayout
+            <!-- Gradiente appbar: transparente em baixo, sólido em cima -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp">
+                android:layout_height="wrap_content">
 
-                <!-- Menu esquerda -->
-                <FrameLayout
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_centerVertical="true"
-                    android:layout_alignParentStart="true"
-                    android:background="@drawable/appbar_btn_bg"
-                    android:clickable="true"
-                    android:focusable="true">
+                <View
+                    android:id="@+id/appBarGradient"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/appbar_gradient" />
 
-                    <ImageView
-                        android:id="@+id/btnMenu"
-                        android:layout_width="17dp"
-                        android:layout_height="17dp"
-                        android:layout_gravity="center"
-                        android:background="?attr/selectableItemBackgroundBorderless" />
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="?attr/actionBarSize"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
 
-                </FrameLayout>
-
-                <!-- Direita: avatar + more -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_centerVertical="true"
-                    android:layout_alignParentEnd="true">
-
-                    <!-- Avatar circular botão utilizador -->
-                    <FrameLayout
-                        android:id="@+id/btnUserAvatar"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:layout_marginEnd="6dp"
-                        android:background="@drawable/avatar_circle_bg"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:elevation="2dp">
-
-                        <TextView
-                            android:id="@+id/btnUserAvatarInitial"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center"
-                            android:text="U"
-                            android:textSize="14sp"
-                            android:textStyle="bold"
-                            android:textColor="#FFFFFF" />
-
-                    </FrameLayout>
-
-                    <!-- More -->
+                    <!-- Menu esquerda -->
                     <FrameLayout
                         android:layout_width="36dp"
                         android:layout_height="36dp"
+                        android:layout_centerVertical="true"
+                        android:layout_alignParentStart="true"
                         android:background="@drawable/appbar_btn_bg"
                         android:clickable="true"
                         android:focusable="true">
 
                         <ImageView
-                            android:id="@+id/btnMore"
+                            android:id="@+id/btnMenu"
                             android:layout_width="17dp"
                             android:layout_height="17dp"
                             android:layout_gravity="center"
@@ -262,13 +178,59 @@
 
                     </FrameLayout>
 
-                </LinearLayout>
+                    <!-- Direita: nova conversa + more -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_centerVertical="true"
+                        android:layout_alignParentEnd="true">
 
-            </RelativeLayout>
+                        <!-- Botão nova conversa -->
+                        <FrameLayout
+                            android:id="@+id/btnNewChat"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:layout_marginEnd="6dp"
+                            android:background="@drawable/appbar_btn_bg"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/btnNewChatIcon"
+                                android:layout_width="17dp"
+                                android:layout_height="17dp"
+                                android:layout_gravity="center"
+                                android:background="?attr/selectableItemBackgroundBorderless" />
+
+                        </FrameLayout>
+
+                        <!-- More -->
+                        <FrameLayout
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:background="@drawable/appbar_btn_bg"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:id="@+id/btnMore"
+                                android:layout_width="17dp"
+                                android:layout_height="17dp"
+                                android:layout_gravity="center"
+                                android:background="?attr/selectableItemBackgroundBorderless" />
+
+                        </FrameLayout>
+
+                    </LinearLayout>
+
+                </RelativeLayout>
+
+            </FrameLayout>
 
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Chat RecyclerView (visível quando há mensagens) -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/chatRecyclerView"
             android:layout_width="match_parent"
@@ -282,7 +244,6 @@
             android:visibility="gone"
             app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-        <!-- Preview tab -->
         <LinearLayout
             android:id="@+id/previewState"
             android:layout_width="match_parent"
@@ -327,7 +288,6 @@
 
         </LinearLayout>
 
-        <!-- Empty state Chat -->
         <LinearLayout
             android:id="@+id/emptyState"
             android:layout_width="match_parent"
@@ -369,7 +329,6 @@
 
         </LinearLayout>
 
-        <!-- Scrim -->
         <View
             android:id="@+id/drawerScrim"
             android:layout_width="match_parent"
@@ -379,7 +338,6 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- iOS popup menu -->
         <FrameLayout
             android:id="@+id/popupOverlay"
             android:layout_width="match_parent"
@@ -508,7 +466,6 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="20dp" />
 
-        <!-- Bottom card -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
@@ -518,7 +475,6 @@
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="20dp"
-            android:background="@drawable/bottom_card_bg"
             android:elevation="4dp">
 
             <LinearLayout
