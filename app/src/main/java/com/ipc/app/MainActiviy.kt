@@ -24,6 +24,7 @@ import android.text.Html
 import android.text.Spanned
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -34,6 +35,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -44,7 +46,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.caverock.androidsvg.SVG
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.ipc.app.data.ChatMessage
 import com.ipc.app.data.NvidiaApiService
 import com.ipc.app.data.StreamChunk
@@ -63,7 +64,6 @@ class MainActiviy : BaseActivity() {
 
     lateinit var binding: ActivityMainBinding
 
-    // ── Drawer / UI state ──────────────────────────────────────────────────
     private var drawerOpen = false
     private var popupVisible = false
     private var drawerAnimator: ValueAnimator? = null
@@ -76,7 +76,7 @@ class MainActiviy : BaseActivity() {
     private var inputRowHeight = 0
     private var currentTab = R.id.tabChat
     private var keyboardOpen = false
-    private var emptyStateKeyboardShift = 0f
+    private var keyboardShift = 0f
 
     private var swipeStartX = 0f
     private var swipeStartY = 0f
@@ -96,12 +96,10 @@ class MainActiviy : BaseActivity() {
     private var inputRowHeightFrozen = false
     private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
 
-    // ── Chat state ─────────────────────────────────────────────────────────
     private val chatHistory = mutableListOf<ChatMessage>()
     private val displayMessages = mutableListOf<DisplayMessage>()
     private var streamJob: Job? = null
     private lateinit var chatAdapter: ChatAdapter
-    private var streamingProgressBar: ProgressBar? = null
 
     data class DisplayMessage(
         val role: String,
@@ -120,7 +118,6 @@ class MainActiviy : BaseActivity() {
     private val density: Float
         get() = resources.displayMetrics.density
 
-    // ── attachBaseContext ──────────────────────────────────────────────────
     override fun attachBaseContext(newBase: Context) {
         val p = newBase.getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE)
         when (p.getString("theme", "light")) {
@@ -138,7 +135,6 @@ class MainActiviy : BaseActivity() {
         super.attachBaseContext(base)
     }
 
-    // ── onCreate ──────────────────────────────────────────────────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -168,16 +164,22 @@ class MainActiviy : BaseActivity() {
             )
 
             if (imeNowOpen && !keyboardOpen) {
+                // Teclado abriu — shift emptyState para cima uma vez
                 keyboardOpen = true
-                emptyStateKeyboardShift = -(extraShift * 0.55f)
-                binding.emptyState.animate().translationY(emptyStateKeyboardShift)
+                keyboardShift = -(extraShift * 0.55f)
+                binding.emptyState.animate()
+                    .translationY(keyboardShift)
                     .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
             } else if (!imeNowOpen && keyboardOpen) {
+                // Teclado fechou — volta ao lugar
                 keyboardOpen = false
-                emptyStateKeyboardShift = 0f
-                binding.emptyState.animate().translationY(0f)
+                keyboardShift = 0f
+                binding.emptyState.animate()
+                    .translationY(0f)
                     .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
             }
+            // Enquanto teclado está aberto e já foi feito o shift inicial,
+            // não faz nada — evita o bug de descer ao escrever
             insets
         }
 
@@ -208,7 +210,6 @@ class MainActiviy : BaseActivity() {
         setupAvatarBtn()
     }
 
-    // ── Chat RecyclerView ─────────────────────────────────────────────────
     private fun setupChatRecycler() {
         chatAdapter = ChatAdapter(displayMessages)
         val llm = LinearLayoutManager(this)
@@ -221,7 +222,6 @@ class MainActiviy : BaseActivity() {
     private fun sendChatMessage(text: String) {
         if (text.isBlank() || streamJob?.isActive == true) return
 
-        // Mostrar recycler, esconder empty state
         binding.emptyState.visibility = View.GONE
         binding.chatRecyclerView.visibility = View.VISIBLE
 
@@ -230,40 +230,31 @@ class MainActiviy : BaseActivity() {
         chatAdapter.notifyItemInserted(displayMessages.lastIndex)
         binding.chatRecyclerView.smoothScrollToPosition(displayMessages.lastIndex)
 
-        val aiMsg = DisplayMessage("assistant", "", isStreaming = true)
+        val aiMsg = DisplayMessage("assistant", "…", isStreaming = true)
         displayMessages.add(aiMsg)
         val aiIndex = displayMessages.lastIndex
         chatAdapter.notifyItemInserted(aiIndex)
         binding.chatRecyclerView.smoothScrollToPosition(aiIndex)
 
         val lang = prefs.getString("language", "pt") ?: "pt"
-        val sysPrompt = NvidiaApiService.buildSystemPrompt(lang)
+        val authToken = prefs.getString("auth_token", "") ?: ""
 
         streamJob = lifecycleScope.launch {
-            NvidiaApiService.streamChat(chatHistory, sysPrompt).collectLatest { chunk ->
-                when (chunk) {
-                    is StreamChunk.Token -> {
-                        aiMsg.content += chunk.text
-                        chatAdapter.notifyItemChanged(aiIndex)
-                        binding.chatRecyclerView.scrollToPosition(aiIndex)
-                    }
-                    is StreamChunk.Done -> {
-                        aiMsg.isStreaming = false
-                        aiMsg.content = chunk.fullText
-                        chatHistory.add(ChatMessage("assistant", chunk.fullText))
-                        chatAdapter.notifyItemChanged(aiIndex)
-                    }
-                    is StreamChunk.Error -> {
-                        aiMsg.isStreaming = false
-                        aiMsg.content = "⚠️ ${chunk.message}"
-                        chatAdapter.notifyItemChanged(aiIndex)
-                    }
-                }
+            val result = NvidiaApiService.chat(chatHistory, authToken, lang)
+            result.onSuccess { content ->
+                aiMsg.isStreaming = false
+                aiMsg.content = content
+                chatHistory.add(ChatMessage("assistant", content))
+                chatAdapter.notifyItemChanged(aiIndex)
+                binding.chatRecyclerView.scrollToPosition(aiIndex)
+            }.onFailure { e ->
+                aiMsg.isStreaming = false
+                aiMsg.content = "⚠️ ${e.message}"
+                chatAdapter.notifyItemChanged(aiIndex)
             }
         }
     }
 
-    // ── Chat Adapter ──────────────────────────────────────────────────────
     inner class ChatAdapter(
         private val msgs: List<DisplayMessage>
     ) : RecyclerView.Adapter<ChatAdapter.VH>() {
@@ -296,9 +287,7 @@ class MainActiviy : BaseActivity() {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
-
             if (msg.role == "user") {
-                // Utilizador: bolha com cor primária
                 holder.tv.setTextColor(Color.WHITE)
                 holder.tv.background = GradientDrawable().apply {
                     cornerRadius = dp(20).toFloat()
@@ -309,16 +298,13 @@ class MainActiviy : BaseActivity() {
                 tvLp.marginEnd = 0
                 holder.tv.text = msg.content
             } else {
-                // IA: sem container, texto formatado com markdown simples
                 holder.tv.setTextColor(ContextCompat.getColor(holder.tv.context, R.color.text_primary))
                 holder.tv.background = null
                 holder.tv.setPadding(dp(4), dp(6), dp(4), dp(6))
                 tvLp.gravity = Gravity.START
                 tvLp.marginStart = 0
                 tvLp.marginEnd = dp(32)
-
-                val content = if (msg.isStreaming && msg.content.isEmpty()) "…"
-                              else msg.content
+                val content = if (msg.isStreaming && msg.content.isEmpty()) "…" else msg.content
                 holder.tv.text = parseMarkdown(content)
             }
             holder.tv.layoutParams = tvLp
@@ -327,39 +313,28 @@ class MainActiviy : BaseActivity() {
         override fun getItemCount() = msgs.size
     }
 
-    // ── Markdown parser simples ───────────────────────────────────────────
     private fun parseMarkdown(text: String): Spanned {
         var html = text
-            // Bold **text** ou __text__
             .replace(Regex("\\*\\*(.+?)\\*\\*"), "<b>$1</b>")
             .replace(Regex("__(.+?)__"), "<b>$1</b>")
-            // Italic *text* ou _text_
             .replace(Regex("(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)"), "<i>$1</i>")
             .replace(Regex("(?<!_)_(?!_)(.+?)(?<!_)_(?!_)"), "<i>$1</i>")
-            // Code `code`
             .replace(Regex("`(.+?)`"), "<tt>$1</tt>")
-            // Títulos ## e #
             .replace(Regex("^#{1,2}\\s+(.+)$", RegexOption.MULTILINE), "<b><big>$1</big></b>")
             .replace(Regex("^#{3,}\\s+(.+)$", RegexOption.MULTILINE), "<b>$1</b>")
-            // Listas - item
             .replace(Regex("^[-•]\\s+(.+)$", RegexOption.MULTILINE), "• $1")
-            // Newlines
             .replace("\n", "<br>")
-
         return Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
     }
 
-    // ── Avatar btn no appBar ──────────────────────────────────────────────
     private fun setupAvatarBtn() {
         val name = prefs.getString("auth_user_name", "U") ?: "U"
-        val initial = name.firstOrNull()?.uppercase() ?: "U"
-        binding.btnUserAvatarInitial.text = initial
+        binding.btnUserAvatarInitial.text = name.firstOrNull()?.uppercase() ?: "U"
         binding.btnUserAvatar.setOnClickListener {
             startActivity(Intent(this, UserProfileActivity::class.java))
         }
     }
 
-    // ── Blur bottom bar ───────────────────────────────────────────────────
     private fun setupBlurBehindBottomBar() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             binding.bottomBlurBg.setRenderEffect(
@@ -435,7 +410,6 @@ class MainActiviy : BaseActivity() {
             }
     }
 
-    // ── Input ─────────────────────────────────────────────────────────────
     private fun setupInput() {
         binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
             val newH = bottom - top; val oldH = oldBottom - oldTop
@@ -460,7 +434,6 @@ class MainActiviy : BaseActivity() {
                             frozenInputRowHeight = h
                             binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
                             syncBlurBgSize()
-                            if (keyboardOpen) binding.emptyState.translationY = emptyStateKeyboardShift
                         }
                         addListener(object : AnimatorListenerAdapter() {
                             override fun onAnimationEnd(animation: Animator) {
@@ -469,7 +442,6 @@ class MainActiviy : BaseActivity() {
                                     it.height = ViewGroup.LayoutParams.WRAP_CONTENT
                                 }
                                 syncBlurBgSize()
-                                if (keyboardOpen) binding.emptyState.translationY = emptyStateKeyboardShift
                             }
                         })
                         start()
@@ -589,7 +561,6 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ── Logo / Greeting / Icons ───────────────────────────────────────────
     private fun setupLogo() {
         runCatching {
             val bmp = assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
@@ -626,7 +597,6 @@ class MainActiviy : BaseActivity() {
         binding.popupUrlIcon.setImageDrawable(svgDrawable("icons/svg/external.svg", 18, iconTint))
     }
 
-    // ── Popup menu ────────────────────────────────────────────────────────
     private fun setupPopupMenu() {
         binding.btnMore.setOnClickListener { showPopup() }
         binding.popupOverlay.setOnClickListener { hidePopup() }
@@ -655,7 +625,6 @@ class MainActiviy : BaseActivity() {
             .withEndAction { binding.popupOverlay.visibility = View.GONE }.start()
     }
 
-    // ── Swipe drawer ──────────────────────────────────────────────────────
     private fun setupSwipeDrawer() {
         val edgePx = SWIPE_EDGE_WIDTH * density; val minDistPx = SWIPE_MIN_DIST * density
         binding.coordinatorLayout.setOnTouchListener { _, event ->
@@ -690,7 +659,6 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ── Drawer ────────────────────────────────────────────────────────────
     private fun setupDrawer() {
         binding.btnMenu.setOnClickListener { if (drawerOpen) closeDrawer() else openDrawer() }
         binding.drawerScrim.setOnClickListener { closeDrawer() }
@@ -700,7 +668,6 @@ class MainActiviy : BaseActivity() {
         }
         binding.drawerNewChat.setOnClickListener {
             closeDrawer()
-            // Nova conversa: limpar histórico
             binding.root.postDelayed({
                 chatHistory.clear()
                 displayMessages.clear()
@@ -709,6 +676,106 @@ class MainActiviy : BaseActivity() {
                 binding.emptyState.visibility = View.VISIBLE
             }, 250)
         }
+        binding.drawerItemLogout.setOnClickListener {
+            closeDrawer()
+            binding.root.postDelayed({ showLogoutDialog() }, 300)
+        }
+    }
+
+    private fun showLogoutDialog() {
+        val dialogView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(28), dp(24), dp(20))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(20).toFloat()
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
+            }
+        }
+
+        dialogView.addView(TextView(this).apply {
+            text = "Terminar sessão"
+            textSize = 17f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_primary))
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = dp(10) }
+        })
+
+        dialogView.addView(TextView(this).apply {
+            text = "Tens a certeza que queres sair?"
+            textSize = 14f
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.bottomMargin = dp(24) }
+        })
+
+        val btnRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val cancelBtn = TextView(this).apply {
+            text = "Cancelar"
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.card_background))
+            }
+            setPadding(0, dp(14), 0, dp(14))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
+                it.marginEnd = dp(8)
+            }
+        }
+
+        val logoutBtn = TextView(this).apply {
+            text = "Sair"
+            textSize = 15f
+            setTypeface(typeface, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(Color.parseColor("#FF3B30"))
+            }
+            setPadding(0, dp(14), 0, dp(14))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+
+        btnRow.addView(cancelBtn)
+        btnRow.addView(logoutBtn)
+        dialogView.addView(btnRow)
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        cancelBtn.setOnClickListener { dialog.dismiss() }
+        logoutBtn.setOnClickListener { dialog.dismiss(); doLogout() }
+        dialog.show()
+    }
+
+    private fun doLogout() {
+        prefs.edit()
+            .remove("auth_token")
+            .remove("auth_user_id")
+            .remove("auth_user_name")
+            .remove("auth_user_email")
+            .apply()
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
     }
 
     private fun openDrawer() {
@@ -738,7 +805,6 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ── Bottom tabs ───────────────────────────────────────────────────────
     private fun setupBottomTabs() {
         refreshTabIcons()
         binding.tabChat.setOnClickListener    { selectTab(R.id.tabChat) }
@@ -794,7 +860,6 @@ class MainActiviy : BaseActivity() {
     override fun onResume() {
         super.onResume()
         refreshTabIcons()
-        // Atualizar avatar caso o nome tenha mudado
         val name = prefs.getString("auth_user_name", "U") ?: "U"
         binding.btnUserAvatarInitial.text = name.firstOrNull()?.uppercase() ?: "U"
     }

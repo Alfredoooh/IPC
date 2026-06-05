@@ -16,7 +16,10 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RelativeLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
 import com.ipc.app.R
@@ -35,42 +38,59 @@ class UserProfileActivity : BaseActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+            fitsSystemWindows = true
         }
 
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
-        val appBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(ContextCompat.getColor(context, R.color.appbar_background))
+
+        // AppBar compacto igual ao Settings
+        val appBar = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(56)
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                resources.getDimensionPixelSize(androidx.appcompat.R.dimen.abc_action_bar_default_height_material)
             )
-            setPadding(dp(8), 0, dp(16), 0)
-
-            val btnBack = ImageView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).also {
-                    it.marginEnd = dp(8)
-                }
-                setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 18, iconTint))
-                background = ContextCompat.getDrawable(context, R.drawable.appbar_btn_bg)
-                setPadding(dp(10), dp(10), dp(10), dp(10))
-                setOnClickListener { onBackPressed() }
-            }
-            addView(btnBack)
-
-            val titleTv = TextView(context).apply {
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                text = getString(R.string.settings_profile)
-                textSize = 17f
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(ContextCompat.getColor(context, R.color.text_primary))
-                runCatching {
-                    val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
-                    typeface = Typeface.create(tf, Typeface.BOLD)
-                }
-            }
-            addView(titleTv)
+            setBackgroundColor(ContextCompat.getColor(context, R.color.appbar_background))
+            setPadding(dp(4), 0, dp(8), 0)
         }
+
+        val btnBack = ImageView(this).apply {
+            id = View.generateViewId()
+            val size = dp(40)
+            layoutParams = RelativeLayout.LayoutParams(size, size).also {
+                it.addRule(RelativeLayout.ALIGN_PARENT_START)
+                it.addRule(RelativeLayout.CENTER_VERTICAL)
+            }
+            setPadding(dp(11), dp(11), dp(11), dp(11))
+            background = null
+            setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 18, iconTint))
+            setBackgroundResource(android.R.attr.selectableItemBackgroundBorderless.let {
+                val a = obtainStyledAttributes(intArrayOf(it))
+                val res = a.getResourceId(0, 0)
+                a.recycle()
+                res
+            })
+            setOnClickListener { onBackPressed() }
+        }
+
+        val titleTv = TextView(this).apply {
+            text = getString(R.string.settings_profile)
+            textSize = 17f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(context, R.color.text_primary))
+            layoutParams = RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT
+            ).also {
+                it.addRule(RelativeLayout.CENTER_IN_PARENT)
+            }
+            runCatching {
+                val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
+                typeface = Typeface.create(tf, Typeface.BOLD)
+            }
+        }
+
+        appBar.addView(btnBack)
+        appBar.addView(titleTv)
         root.addView(appBar)
 
         root.addView(View(this).apply {
@@ -78,20 +98,27 @@ class UserProfileActivity : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
         })
 
-        val contentLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(dp(32), dp(40), dp(32), dp(32))
-        }
-
         val name    = prefs.getString("auth_user_name", "Utilizador") ?: "Utilizador"
         val email   = prefs.getString("auth_user_email", "—") ?: "—"
         val userId  = prefs.getString("auth_user_id", "—") ?: "—"
         val initial = name.firstOrNull()?.uppercase() ?: "U"
+
+        val scrollView = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+            )
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+
+        val contentLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setPadding(dp(32), dp(40), dp(32), dp(32))
+        }
 
         val avatarContainer = FrameLayout(this).apply {
             val size = dp(96)
@@ -150,7 +177,8 @@ class UserProfileActivity : BaseActivity() {
         contentLayout.addView(buildInfoRow("Email", email))
         contentLayout.addView(buildInfoRow("Nome", name))
 
-        root.addView(contentLayout)
+        scrollView.addView(contentLayout)
+        root.addView(scrollView)
         setContentView(root)
     }
 
