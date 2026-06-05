@@ -6,6 +6,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -39,6 +40,46 @@ object NvidiaApiService {
         .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
+
+    suspend fun chat(
+        messages: List<ChatMessage>,
+        token: String = "",
+        language: String = "pt"
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val messagesArray = JSONArray().apply {
+                messages.forEach { msg ->
+                    put(JSONObject().apply {
+                        put("role", msg.role)
+                        put("content", msg.content)
+                    })
+                }
+            }
+
+            val body = JSONObject().apply {
+                put("messages", messagesArray)
+                put("stream", false)
+                put("language", language)
+            }.toString().toRequestBody("application/json".toMediaType())
+
+            val request = Request.Builder()
+                .url("$BASE_URL/ai/chat")
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .post(body)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body!!.string()
+
+            if (!response.isSuccessful) {
+                throw IOException("Erro ${response.code}: $responseBody")
+            }
+
+            val json = JSONObject(responseBody)
+            json.getString("content")
+        }
+    }
 
     fun streamChat(
         messages: List<ChatMessage>,
