@@ -215,41 +215,52 @@ class MainActiviy : BaseActivity() {
         binding.chatRecyclerView.overScrollMode = View.OVER_SCROLL_NEVER
     }
 
-    private fun sendChatMessage(text: String) {
-        if (text.isBlank() || streamJob?.isActive == true) return
+   private fun sendChatMessage(text: String) {
+    if (text.isBlank() || streamJob?.isActive == true) return
 
-        binding.emptyState.visibility = View.GONE
-        binding.chatRecyclerView.visibility = View.VISIBLE
+    binding.emptyState.visibility = View.GONE
+    binding.chatRecyclerView.visibility = View.VISIBLE
 
-        chatHistory.add(ChatMessage("user", text))
-        displayMessages.add(DisplayMessage("user", text))
-        chatAdapter.notifyItemInserted(displayMessages.lastIndex)
-        binding.chatRecyclerView.smoothScrollToPosition(displayMessages.lastIndex)
+    chatHistory.add(ChatMessage("user", text))
+    displayMessages.add(DisplayMessage("user", text))
+    chatAdapter.notifyItemInserted(displayMessages.lastIndex)
+    binding.chatRecyclerView.smoothScrollToPosition(displayMessages.lastIndex)
 
-        val aiMsg = DisplayMessage("assistant", "…", isStreaming = true)
-        displayMessages.add(aiMsg)
-        val aiIndex = displayMessages.lastIndex
-        chatAdapter.notifyItemInserted(aiIndex)
-        binding.chatRecyclerView.smoothScrollToPosition(aiIndex)
+    val aiMsg = DisplayMessage("assistant", "", isStreaming = true)
+    displayMessages.add(aiMsg)
+    val aiIndex = displayMessages.lastIndex
+    chatAdapter.notifyItemInserted(aiIndex)
+    binding.chatRecyclerView.smoothScrollToPosition(aiIndex)
 
-        val lang = prefs.getString("language", "pt") ?: "pt"
-        val authToken = prefs.getString("auth_token", "") ?: ""
+    val lang = prefs.getString("language", "pt") ?: "pt"
+    val authToken = prefs.getString("auth_token", "") ?: ""
+    val systemPrompt = NvidiaApiService.buildSystemPrompt(lang)
 
-        streamJob = lifecycleScope.launch {
-            val result = NvidiaApiService.chat(chatHistory, authToken, lang)
-            result.onSuccess { content ->
-                aiMsg.isStreaming = false
-                aiMsg.content = content
-                chatHistory.add(ChatMessage("assistant", content))
-                chatAdapter.notifyItemChanged(aiIndex)
-                binding.chatRecyclerView.scrollToPosition(aiIndex)
-            }.onFailure { e ->
-                aiMsg.isStreaming = false
-                aiMsg.content = "⚠️ ${e.message}"
-                chatAdapter.notifyItemChanged(aiIndex)
+    streamJob = lifecycleScope.launch {
+        NvidiaApiService.streamChat(chatHistory, systemPrompt, authToken)
+            .collect { chunk ->
+                when (chunk) {
+                    is StreamChunk.Token -> {
+                        aiMsg.content += chunk.text
+                        chatAdapter.notifyItemChanged(aiIndex)
+                        binding.chatRecyclerView.scrollToPosition(aiIndex)
+                    }
+                    is StreamChunk.Done -> {
+                        aiMsg.isStreaming = false
+                        if (aiMsg.content.isBlank()) aiMsg.content = chunk.fullText
+                        chatHistory.add(ChatMessage("assistant", aiMsg.content))
+                        chatAdapter.notifyItemChanged(aiIndex)
+                        binding.chatRecyclerView.scrollToPosition(aiIndex)
+                    }
+                    is StreamChunk.Error -> {
+                        aiMsg.isStreaming = false
+                        aiMsg.content = "⚠️ ${chunk.message}"
+                        chatAdapter.notifyItemChanged(aiIndex)
+                    }
+                }
             }
-        }
     }
+}
 
     inner class ChatAdapter(
         private val msgs: List<DisplayMessage>
