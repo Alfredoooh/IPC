@@ -1,4 +1,3 @@
-// MainActiviy.kt
 package com.ipc.app
 
 import android.animation.Animator
@@ -15,7 +14,6 @@ import android.graphics.PorterDuff
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.Html
@@ -32,18 +30,20 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.caverock.androidsvg.SVG
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.ipc.app.data.ChatMessage
 import com.ipc.app.data.NvidiaApiService
 import com.ipc.app.data.StreamChunk
@@ -95,7 +95,9 @@ class MainActiviy : BaseActivity() {
     private var inputRowHeightFrozen = false
     private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
 
-    // Conversa atual
+    private var thinkMode = false
+    private var thinkingContent = ""
+
     private var currentConversationId: String = UUID.randomUUID().toString()
     private var currentConversationTitle: String = "Nova conversa"
     private var titleGenerated = false
@@ -108,15 +110,9 @@ class MainActiviy : BaseActivity() {
     data class DisplayMessage(
         val role: String,
         var content: String,
-        var isStreaming: Boolean = false
-    )
-
-    data class Conversation(
-        val id: String,
-        val title: String,
-        val messages: List<ChatMessage>,
-        val displayMessages: List<DisplayMessage>,
-        val timestamp: Long
+        var isStreaming: Boolean = false,
+        var isThinking: Boolean = false,
+        var thinkingContent: String = ""
     )
 
     private val prefs by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
@@ -168,14 +164,12 @@ class MainActiviy : BaseActivity() {
             binding.bottomNavWrapper.animate()
                 .translationY(-extraShift.toFloat())
                 .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-
             binding.bottomNavWrapper.updatePadding(
                 bottom = if (extraShift == 0) navInsets.bottom else 0
             )
 
             if (imeNowOpen && !keyboardOpen) {
                 keyboardOpen = true
-                // Chat RecyclerView sobe junto com o teclado
                 binding.chatRecyclerView.animate()
                     .translationY(-extraShift.toFloat())
                     .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
@@ -253,9 +247,7 @@ class MainActiviy : BaseActivity() {
                 }
             })
         }
-        val key = "conv_${currentConversationId}"
-        prefs.edit().putString(key, convJson.toString()).apply()
-
+        prefs.edit().putString("conv_${currentConversationId}", convJson.toString()).apply()
         val idsJson = prefs.getString("conv_ids", "[]")
         val ids = JSONArray(idsJson)
         var found = false
@@ -269,23 +261,19 @@ class MainActiviy : BaseActivity() {
     private fun loadConversation(id: String) {
         val convJson = prefs.getString("conv_$id", null) ?: return
         val obj = JSONObject(convJson)
-        currentConversationId = obj.getString("id")
+        currentConversationId    = obj.getString("id")
         currentConversationTitle = obj.getString("title")
         titleGenerated = true
-
         chatHistory.clear()
         displayMessages.clear()
-
         val msgs = obj.getJSONArray("messages")
         for (i in 0 until msgs.length()) {
             val m = msgs.getJSONObject(i)
-            val role = m.getString("role")
-            val content = m.getString("content")
-            chatHistory.add(ChatMessage(role, content))
-            displayMessages.add(DisplayMessage(role, content))
+            chatHistory.add(ChatMessage(m.getString("role"), m.getString("content")))
+            displayMessages.add(DisplayMessage(m.getString("role"), m.getString("content")))
         }
         chatAdapter.notifyDataSetChanged()
-        binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
+        if (displayMessages.isNotEmpty()) binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
         binding.chatRecyclerView.visibility = View.VISIBLE
         binding.emptyState.visibility = View.GONE
     }
@@ -306,49 +294,41 @@ class MainActiviy : BaseActivity() {
     private fun refreshDrawerConversations() {
         val container = binding.drawerConversationsList
         container.removeAllViews()
-
         val conversations = getAllConversations()
         conversations.forEach { (id, title, _) ->
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(24), 0, dp(24), 0)
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(52)
                 )
-                setBackgroundResource(android.R.attr.selectableItemBackground.let {
-                    val a = obtainStyledAttributes(intArrayOf(it))
-                    val res = a.getResourceId(0, 0); a.recycle(); res
-                })
+                val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+                background = a.getDrawable(0); a.recycle()
                 isClickable = true; isFocusable = true
             }
 
-            val iconView = ImageView(this).apply {
-                val size = dp(14)
-                layoutParams = FrameLayout.LayoutParams(size, size).also {
-                    (it as? FrameLayout.LayoutParams)?.gravity = Gravity.CENTER
-                }
-                setImageDrawable(svgDrawable("icons/svg/chat.svg", 14,
-                    ContextCompat.getColor(this@MainActiviy, R.color.icon_tint)))
-            }
             val iconFrame = FrameLayout(this).apply {
                 val size = dp(32)
                 layoutParams = LinearLayout.LayoutParams(size, size).also { it.marginEnd = dp(16) }
                 background = ContextCompat.getDrawable(this@MainActiviy, R.drawable.drawer_icon_bg)
-                addView(iconView)
             }
+            iconFrame.addView(ImageView(this).apply {
+                val size = dp(14)
+                layoutParams = FrameLayout.LayoutParams(size, size, Gravity.CENTER)
+                setImageDrawable(svgDrawable("icons/svg/chat.svg", 14,
+                    ContextCompat.getColor(this@MainActiviy, R.color.icon_tint)))
+            })
 
-            val titleTv = TextView(this).apply {
+            item.addView(iconFrame)
+            item.addView(TextView(this).apply {
                 text = title
                 textSize = 14f
                 setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.drawer_text))
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
-            }
-
-            item.addView(iconFrame)
-            item.addView(titleTv)
+            })
             item.setOnClickListener {
                 closeDrawer()
                 binding.root.postDelayed({ loadConversation(id) }, 250)
@@ -359,7 +339,7 @@ class MainActiviy : BaseActivity() {
 
     private fun startNewConversation() {
         saveCurrentConversation()
-        currentConversationId = UUID.randomUUID().toString()
+        currentConversationId    = UUID.randomUUID().toString()
         currentConversationTitle = "Nova conversa"
         titleGenerated = false
         chatHistory.clear()
@@ -387,28 +367,42 @@ class MainActiviy : BaseActivity() {
         chatAdapter.notifyItemInserted(aiIndex)
         binding.chatRecyclerView.smoothScrollToPosition(aiIndex)
 
-        val lang = prefs.getString("language", "pt") ?: "pt"
-        val authToken = prefs.getString("auth_token", "") ?: ""
+        val lang       = prefs.getString("language", "pt") ?: "pt"
+        val authToken  = prefs.getString("auth_token", "") ?: ""
         val systemPrompt = NvidiaApiService.buildSystemPrompt(lang)
+        val isThinking = thinkMode
+        thinkingContent = ""
 
         streamJob = lifecycleScope.launch {
-            NvidiaApiService.streamChat(chatHistory, systemPrompt, authToken)
+            NvidiaApiService.streamChat(chatHistory, systemPrompt, authToken, isThinking)
                 .collect { chunk ->
                     when (chunk) {
+                        is StreamChunk.ThinkToken -> {
+                            thinkingContent += chunk.text
+                            if (aiMsg.content.isEmpty()) {
+                                aiMsg.isThinking = true
+                                aiMsg.content = "…"
+                            }
+                            chatAdapter.notifyItemChanged(aiIndex)
+                        }
                         is StreamChunk.Token -> {
+                            if (aiMsg.isThinking) {
+                                aiMsg.isThinking = false
+                                aiMsg.content = ""
+                            }
                             aiMsg.content += chunk.text
                             chatAdapter.notifyItemChanged(aiIndex)
                             binding.chatRecyclerView.scrollToPosition(aiIndex)
                         }
                         is StreamChunk.Done -> {
                             aiMsg.isStreaming = false
+                            aiMsg.isThinking  = false
                             if (aiMsg.content.isBlank()) aiMsg.content = chunk.fullText
+                            aiMsg.thinkingContent = thinkingContent
                             chatHistory.add(ChatMessage("assistant", aiMsg.content))
                             chatAdapter.notifyItemChanged(aiIndex)
                             binding.chatRecyclerView.scrollToPosition(aiIndex)
                             saveCurrentConversation()
-
-                            // Gerar título automaticamente na primeira resposta
                             if (!titleGenerated && chatHistory.size >= 2) {
                                 titleGenerated = true
                                 launch {
@@ -421,6 +415,7 @@ class MainActiviy : BaseActivity() {
                         }
                         is StreamChunk.Error -> {
                             aiMsg.isStreaming = false
+                            aiMsg.isThinking  = false
                             aiMsg.content = "⚠️ ${chunk.message}"
                             chatAdapter.notifyItemChanged(aiIndex)
                         }
@@ -433,62 +428,112 @@ class MainActiviy : BaseActivity() {
         private val msgs: List<DisplayMessage>
     ) : RecyclerView.Adapter<ChatAdapter.VH>() {
 
-        inner class VH(val wrapper: FrameLayout, val tv: TextView) : RecyclerView.ViewHolder(wrapper)
+        inner class VH(val wrapper: FrameLayout) : RecyclerView.ViewHolder(wrapper)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val tv = TextView(parent.context).apply {
-                textSize = 15f
-                setLineSpacing(0f, 1.5f)
-                maxWidth = (parent.width * 0.84f).toInt()
-                setPadding(dp(14), dp(10), dp(14), dp(10))
-            }
             val wrapper = FrameLayout(parent.context).apply {
                 layoutParams = RecyclerView.LayoutParams(
                     RecyclerView.LayoutParams.MATCH_PARENT,
                     RecyclerView.LayoutParams.WRAP_CONTENT
-                ).also {
-                    it.topMargin = dp(4)
-                    it.bottomMargin = dp(4)
-                }
+                ).also { it.topMargin = dp(6); it.bottomMargin = dp(6) }
             }
-            wrapper.addView(tv)
-            return VH(wrapper, tv)
+            return VH(wrapper)
         }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val msg = msgs[position]
-            val tvLp = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
+            holder.wrapper.removeAllViews()
+
             if (msg.role == "user") {
-                holder.tv.setTextColor(Color.WHITE)
-                holder.tv.background = GradientDrawable().apply {
-                    cornerRadius = dp(20).toFloat()
-                    setColor(ContextCompat.getColor(holder.tv.context, R.color.colorPrimary))
+                val tv = TextView(holder.wrapper.context).apply {
+                    textSize = 15f
+                    setLineSpacing(0f, 1.4f)
+                    setTextColor(Color.WHITE)
+                    setPadding(dp(16), dp(11), dp(16), dp(11))
+                    background = GradientDrawable().apply {
+                        cornerRadius = dp(18).toFloat()
+                        setColor(ContextCompat.getColor(context, R.color.colorPrimary))
+                    }
+                    text = msg.content
+                    maxWidth = (resources.displayMetrics.widthPixels * 0.78f).toInt()
                 }
-                tvLp.gravity = Gravity.END
-                tvLp.marginStart = dp(56)
-                tvLp.marginEnd = 0
-                holder.tv.text = msg.content
+                holder.wrapper.addView(tv, FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                ).also {
+                    it.gravity = Gravity.END
+                    it.marginStart = dp(64)
+                })
+
             } else {
-                holder.tv.setTextColor(ContextCompat.getColor(holder.tv.context, R.color.text_primary))
-                holder.tv.background = null
-                holder.tv.setPadding(dp(4), dp(6), dp(4), dp(6))
-                tvLp.gravity = Gravity.START
-                tvLp.marginStart = 0
-                tvLp.marginEnd = dp(32)
-                val content = if (msg.isStreaming && msg.content.isEmpty()) "…" else msg.content
-                holder.tv.text = parseMarkdown(content)
+                val col = LinearLayout(holder.wrapper.context).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
+
+                // Botão think
+                if (msg.thinkingContent.isNotEmpty() || (msg.isThinking && msg.isStreaming)) {
+                    val thinkBtn = LinearLayout(holder.wrapper.context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(dp(10), dp(7), dp(14), dp(7))
+                        background = GradientDrawable().apply {
+                            cornerRadius = dp(10).toFloat()
+                            setColor(ContextCompat.getColor(context, R.color.card_background))
+                        }
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).also { it.bottomMargin = dp(8) }
+                        isClickable = true; isFocusable = true
+                    }
+
+                    thinkBtn.addView(View(holder.wrapper.context).apply {
+                        background = GradientDrawable().apply {
+                            shape = GradientDrawable.OVAL
+                            setColor(Color.parseColor("#FF3B30"))
+                        }
+                        layoutParams = LinearLayout.LayoutParams(dp(7), dp(7)).also {
+                            it.marginEnd = dp(7)
+                        }
+                    })
+
+                    thinkBtn.addView(TextView(holder.wrapper.context).apply {
+                        text = if (msg.isThinking && msg.isStreaming) "A pensar…" else "Ver pensamento"
+                        textSize = 12.5f
+                        setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+                    })
+
+                    if (msg.thinkingContent.isNotEmpty()) {
+                        thinkBtn.setOnClickListener { showThinkModal(msg.thinkingContent) }
+                    }
+                    col.addView(thinkBtn)
+                }
+
+                val tv = TextView(holder.wrapper.context).apply {
+                    textSize = 15f
+                    setLineSpacing(0f, 1.5f)
+                    setTextColor(ContextCompat.getColor(context, R.color.text_primary))
+                    setPadding(dp(2), dp(4), dp(8), dp(4))
+                    val content = when {
+                        msg.isThinking && msg.isStreaming -> "…"
+                        msg.content.isBlank() && msg.isStreaming -> "…"
+                        else -> msg.content
+                    }
+                    text = parseMarkdown(content)
+                }
+                col.addView(tv)
+
+                holder.wrapper.addView(col, FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                ).also { it.marginEnd = dp(16) })
             }
-            holder.tv.layoutParams = tvLp
         }
 
         override fun getItemCount() = msgs.size
     }
 
     private fun parseMarkdown(text: String): Spanned {
-        // Remove blocos de raciocínio <think>...</think> do DeepSeek
         val cleaned = text.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
         val html = cleaned
             .replace(Regex("\\*\\*(.+?)\\*\\*"), "<b>$1</b>")
@@ -498,10 +543,90 @@ class MainActiviy : BaseActivity() {
             .replace(Regex("^#{1,2}\\s+(.+)$", RegexOption.MULTILINE), "<b><big>$1</big></b>")
             .replace(Regex("^#{3,}\\s+(.+)$", RegexOption.MULTILINE), "<b>$1</b>")
             .replace(Regex("^[-•]\\s+(.+)$", RegexOption.MULTILINE), "• $1")
-            .replace(Regex("^\\|(.+)\\|$", RegexOption.MULTILINE), "$1")
-            .replace(Regex("^[|:\\-]+$", RegexOption.MULTILINE), "")
+            .replace(Regex("^\\|.+\\|$", RegexOption.MULTILINE), "")
+            .replace(Regex("^[|:\\- ]+$", RegexOption.MULTILINE), "")
             .replace("\n", "<br>")
         return Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
+    }
+
+    private fun showThinkModal(content: String) {
+        val dialog = BottomSheetDialog(this)
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        card.addView(View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(3).toFloat()
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
+                it.gravity = Gravity.CENTER_HORIZONTAL
+                it.topMargin = dp(10); it.bottomMargin = dp(4)
+            }
+        })
+
+        card.addView(TextView(this).apply {
+            text = "Processo de pensamento"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_primary))
+            setPadding(dp(20), dp(8), dp(20), dp(12))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        })
+
+        card.addView(View(this).apply {
+            setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
+        })
+
+        val scroll = ScrollView(this).apply {
+            overScrollMode = View.OVER_SCROLL_NEVER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+            )
+        }
+        scroll.addView(TextView(this).apply {
+            text = content
+            textSize = 13f
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
+            setLineSpacing(0f, 1.5f)
+            setPadding(dp(20), dp(16), dp(20), dp(24))
+        })
+        card.addView(scroll)
+        root.addView(card)
+        dialog.setContentView(root)
+
+        dialog.setOnShowListener {
+            val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bs?.let {
+                it.setBackgroundColor(Color.TRANSPARENT)
+                val screenH = resources.displayMetrics.heightPixels
+                it.layoutParams.height = (screenH * 0.75f).toInt()
+                it.requestLayout()
+                val behavior = BottomSheetBehavior.from(it)
+                behavior.peekHeight = (screenH * 0.75f).toInt()
+                behavior.state = BottomSheetBehavior.STATE_EXPANDED
+            }
+        }
+
+        dialog.show()
     }
 
     private fun hideKeyboard() {
@@ -511,16 +636,10 @@ class MainActiviy : BaseActivity() {
         binding.inputMessage.clearFocus()
     }
 
-    private fun setupBlurBehindBottomBar() {
-        binding.bottomNavWrapper.post { syncBlurBgSize() }
-    }
-
     private fun syncBlurBgSize() {
         val wh = binding.bottomNavWrapper.height
         if (wh > 0 && binding.bottomBlurBg.layoutParams.height != wh) {
-            binding.bottomBlurBg.layoutParams = binding.bottomBlurBg.layoutParams.also {
-                it.height = wh
-            }
+            binding.bottomBlurBg.layoutParams = binding.bottomBlurBg.layoutParams.also { it.height = wh }
         }
     }
 
@@ -727,7 +846,7 @@ class MainActiviy : BaseActivity() {
             val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
             binding.emptyGreeting.typeface = Typeface.create(tf, Typeface.BOLD)
             binding.emptySubtitle.typeface = tf
-            binding.previewTitle.typeface = Typeface.create(tf, Typeface.BOLD)
+            binding.previewTitle.typeface  = Typeface.create(tf, Typeface.BOLD)
             binding.previewSubtitle.typeface = tf
             binding.drawerAppName.typeface = Typeface.create(tf, Typeface.BOLD)
         }
@@ -752,6 +871,11 @@ class MainActiviy : BaseActivity() {
         binding.popupItemImport.setOnClickListener { hidePopup() }
         binding.popupItemCamera.setOnClickListener { hidePopup() }
         binding.popupItemUrl.setOnClickListener { hidePopup() }
+        binding.popupItemThink.setOnClickListener {
+            thinkMode = !thinkMode
+            binding.thinkDot.visibility = if (thinkMode) View.VISIBLE else View.GONE
+            hidePopup()
+        }
     }
 
     private fun showPopup() {

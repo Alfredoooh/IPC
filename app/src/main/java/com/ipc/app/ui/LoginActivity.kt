@@ -1,4 +1,3 @@
-// LoginActivity.kt
 package com.ipc.app.ui
 
 import android.content.Context
@@ -72,8 +71,7 @@ class LoginActivity : BaseActivity() {
     private fun applyFonts() {
         runCatching {
             val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
-            findViewById<TextView>(R.id.loginTitle).typeface =
-                Typeface.create(tf, Typeface.BOLD)
+            findViewById<TextView>(R.id.loginTitle).typeface = Typeface.create(tf, Typeface.BOLD)
         }
     }
 
@@ -116,14 +114,10 @@ class LoginActivity : BaseActivity() {
             }
             doLogin(email, pass)
         }
-
         goRegister.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
-
-        forgotPassword.setOnClickListener {
-            // TODO: recuperação de password
-        }
+        forgotPassword.setOnClickListener {}
     }
 
     private fun doLogin(email: String, password: String) {
@@ -150,7 +144,7 @@ class LoginActivity : BaseActivity() {
 
     private fun setLoading(loading: Boolean) {
         isLoading = loading
-        loginBtnText.visibility = if (loading) View.INVISIBLE else View.VISIBLE
+        loginBtnText.visibility  = if (loading) View.INVISIBLE else View.VISIBLE
         loginProgress.visibility = if (loading) View.VISIBLE else View.GONE
         loginBtn.alpha = if (loading) 0.7f else 1f
     }
@@ -159,21 +153,15 @@ class LoginActivity : BaseActivity() {
         errorText.text = msg
         errorText.alpha = 0f
         errorText.visibility = View.VISIBLE
-        errorText.animate()
-            .alpha(1f)
-            .setDuration(220)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
+        errorText.animate().alpha(1f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
     }
 
-    private fun hideError() {
-        errorText.visibility = View.GONE
-    }
+    private fun hideError() { errorText.visibility = View.GONE }
 
     private fun goToMain() {
-        val intent = Intent(this, MainActiviy::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
+        startActivity(Intent(this, MainActiviy::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
     }
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
@@ -186,8 +174,6 @@ class LoginActivity : BaseActivity() {
                 renderToCanvas(Canvas(bmp))
             }
         }
-        return BitmapDrawable(resources, bmp).also {
-            it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
-        }
+        return BitmapDrawable(resources, bmp).also { it.setColorFilter(tint, PorterDuff.Mode.SRC_IN) }
     }
 }

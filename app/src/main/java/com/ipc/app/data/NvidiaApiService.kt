@@ -1,4 +1,3 @@
-// NvidiaApiService.kt
 package com.ipc.app.data
 
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +22,7 @@ import java.util.concurrent.TimeUnit
 data class ChatMessage(val role: String, val content: String)
 
 sealed class StreamChunk {
+    data class ThinkToken(val text: String) : StreamChunk()
     data class Token(val text: String) : StreamChunk()
     data class Done(val fullText: String) : StreamChunk()
     data class Error(val message: String) : StreamChunk()
@@ -41,7 +41,8 @@ object NvidiaApiService {
     fun streamChat(
         messages: List<ChatMessage>,
         systemPrompt: String = buildSystemPrompt(),
-        token: String = ""
+        token: String = "",
+        think: Boolean = false
     ): Flow<StreamChunk> = callbackFlow {
 
         val messagesArray = JSONArray().apply {
@@ -57,6 +58,7 @@ object NvidiaApiService {
             put("messages", messagesArray)
             put("stream", true)
             put("language", if (systemPrompt.contains("English")) "en" else "pt")
+            put("think", think)
         }.toString().toRequestBody("application/json".toMediaType())
 
         val request = Request.Builder()
@@ -96,8 +98,12 @@ object NvidiaApiService {
                             val json   = JSONObject(data)
                             val choice = json.getJSONArray("choices").getJSONObject(0)
                             val delta  = choice.getJSONObject("delta")
-                            // DeepSeek V4 Pro: content pode ser null enquanto pensa (reasoning_content)
-                            // Só emitimos quando content não é null e não é vazio
+
+                            if (delta.has("reasoning_content") && !delta.isNull("reasoning_content")) {
+                                val tok = delta.getString("reasoning_content")
+                                if (tok.isNotEmpty()) trySend(StreamChunk.ThinkToken(tok))
+                            }
+
                             if (delta.has("content") && !delta.isNull("content")) {
                                 val tok = delta.getString("content")
                                 if (tok.isNotEmpty()) {
@@ -105,7 +111,7 @@ object NvidiaApiService {
                                     trySend(StreamChunk.Token(tok))
                                 }
                             }
-                            // finish_reason = stop sem [DONE] (alguns modelos)
+
                             val finishReason = choice.optString("finish_reason", "")
                             if (finishReason == "stop" && sb.isNotEmpty()) {
                                 trySend(StreamChunk.Done(sb.toString()))
@@ -113,7 +119,6 @@ object NvidiaApiService {
                             }
                         } catch (_: Exception) {}
                     }
-                    // Garantia: se chegou ao fim sem [DONE] e há conteúdo
                     if (sb.isNotEmpty()) trySend(StreamChunk.Done(sb.toString()))
                 } catch (e: Exception) {
                     trySend(StreamChunk.Error("Erro ao ler stream: ${e.message}"))
@@ -136,16 +141,14 @@ object NvidiaApiService {
                     "Gera um título curto (máx 5 palavras) para uma conversa que começa com: \"$firstUserMessage\". Responde APENAS com o título, sem pontuação, sem aspas."
 
                 val messagesArray = JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("role", "user")
-                        put("content", prompt)
-                    })
+                    put(JSONObject().apply { put("role", "user"); put("content", prompt) })
                 }
 
                 val body = JSONObject().apply {
                     put("messages", messagesArray)
                     put("stream", false)
                     put("language", language)
+                    put("think", false)
                 }.toString().toRequestBody("application/json".toMediaType())
 
                 val request = Request.Builder()
@@ -170,7 +173,7 @@ object NvidiaApiService {
             Sê conciso, útil e direto. Quando não souberes algo, diz-o claramente.
             Não uses formatação excessiva. Responde de forma natural e conversacional.
             Quando o utilizador pedir uma tabela, formata em markdown com | separadores.
-            Quando o utilizador pedir /canvas, apresenta o conteúdo num bloco de código delimitado por ``` com o tipo canvas.
+            Quando o utilizador pedir código de programação /canvas, apresenta o conteúdo do código num bloco de código delimitado por ``` com o tipo canvas.
         """.trimIndent()
     }
 }

@@ -1,4 +1,3 @@
-// RegisterActivity.kt
 package com.ipc.app.ui
 
 import android.content.Context
@@ -50,18 +49,18 @@ class RegisterActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
 
-        nameField            = findViewById(R.id.registerName)
-        emailField           = findViewById(R.id.registerEmail)
-        passwordField        = findViewById(R.id.registerPassword)
-        passwordConfirmField = findViewById(R.id.registerPasswordConfirm)
-        passwordToggle       = findViewById(R.id.registerPasswordToggle)
-        passwordConfirmToggle= findViewById(R.id.registerPasswordConfirmToggle)
-        registerBtn          = findViewById(R.id.registerBtn)
-        registerBtnText      = findViewById(R.id.registerBtnText)
-        registerProgress     = findViewById(R.id.registerProgress)
-        errorText            = findViewById(R.id.registerError)
-        goLogin              = findViewById(R.id.registerGoLogin)
-        backBtn              = findViewById(R.id.registerBack)
+        nameField             = findViewById(R.id.registerName)
+        emailField            = findViewById(R.id.registerEmail)
+        passwordField         = findViewById(R.id.registerPassword)
+        passwordConfirmField  = findViewById(R.id.registerPasswordConfirm)
+        passwordToggle        = findViewById(R.id.registerPasswordToggle)
+        passwordConfirmToggle = findViewById(R.id.registerPasswordConfirmToggle)
+        registerBtn           = findViewById(R.id.registerBtn)
+        registerBtnText       = findViewById(R.id.registerBtnText)
+        registerProgress      = findViewById(R.id.registerProgress)
+        errorText             = findViewById(R.id.registerError)
+        goLogin               = findViewById(R.id.registerGoLogin)
+        backBtn               = findViewById(R.id.registerBack)
 
         applyFonts()
         setupToggles()
@@ -72,8 +71,7 @@ class RegisterActivity : BaseActivity() {
     private fun applyFonts() {
         runCatching {
             val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
-            findViewById<TextView>(R.id.registerTitle).typeface =
-                Typeface.create(tf, Typeface.BOLD)
+            findViewById<TextView>(R.id.registerTitle).typeface = Typeface.create(tf, Typeface.BOLD)
         }
     }
 
@@ -81,7 +79,6 @@ class RegisterActivity : BaseActivity() {
         val tint = ContextCompat.getColor(this, R.color.icon_tint_secondary)
         updateToggleIcon(passwordToggle, passwordVisible, tint)
         updateToggleIcon(passwordConfirmToggle, passwordConfirmVisible, tint)
-
         passwordToggle.setOnClickListener {
             passwordVisible = !passwordVisible
             setPasswordVisibility(passwordField, passwordVisible)
@@ -111,7 +108,7 @@ class RegisterActivity : BaseActivity() {
     private fun setupBackBtn() {
         val tint = ContextCompat.getColor(this, R.color.icon_tint)
         backBtn.setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 18, tint))
-        backBtn.setOnClickListener { onBackPressed() }
+        backBtn.setOnClickListener { finish() }
     }
 
     private fun setupActions() {
@@ -121,7 +118,6 @@ class RegisterActivity : BaseActivity() {
             val email    = emailField.text.toString().trim()
             val pass     = passwordField.text.toString()
             val passConf = passwordConfirmField.text.toString()
-
             when {
                 name.isEmpty() || email.isEmpty() || pass.isEmpty() || passConf.isEmpty() ->
                     showError("Preenche todos os campos.")
@@ -134,10 +130,7 @@ class RegisterActivity : BaseActivity() {
                 else -> doRegister(name, email, pass)
             }
         }
-
-        goLogin.setOnClickListener {
-            onBackPressed()
-        }
+        goLogin.setOnClickListener { finish() }
     }
 
     private fun doRegister(name: String, email: String, password: String) {
@@ -152,9 +145,9 @@ class RegisterActivity : BaseActivity() {
                         .putString("auth_user_name", result.data.name)
                         .putString("auth_user_email", result.data.email)
                         .apply()
-                    val intent = Intent(this@RegisterActivity, MainActiviy::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
+                    startActivity(Intent(this@RegisterActivity, MainActiviy::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    })
                 }
                 is AuthResult.Error -> {
                     setLoading(false)
@@ -175,21 +168,10 @@ class RegisterActivity : BaseActivity() {
         errorText.text = msg
         errorText.alpha = 0f
         errorText.visibility = View.VISIBLE
-        errorText.animate()
-            .alpha(1f)
-            .setDuration(220)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
+        errorText.animate().alpha(1f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
     }
 
-    private fun hideError() {
-        errorText.visibility = View.GONE
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        super.onBackPressed()
-    }
+    private fun hideError() { errorText.visibility = View.GONE }
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
         val px  = (sizeDp * resources.displayMetrics.density).toInt().coerceAtLeast(1)
@@ -201,8 +183,6 @@ class RegisterActivity : BaseActivity() {
                 renderToCanvas(Canvas(bmp))
             }
         }
-        return BitmapDrawable(resources, bmp).also {
-            it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
-        }
+        return BitmapDrawable(resources, bmp).also { it.setColorFilter(tint, PorterDuff.Mode.SRC_IN) }
     }
 }

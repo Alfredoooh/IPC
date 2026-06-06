@@ -1,4 +1,3 @@
-// SettingsActivity.kt
 package com.ipc.app.ui
 
 import android.content.Context
@@ -17,13 +16,12 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.ipc.app.R
 
@@ -46,27 +44,29 @@ class SettingsActivity : BaseActivity() {
             val toolbar = findViewById<ViewGroup>(R.id.settingsToolbar)
             for (i in 0 until toolbar.childCount) {
                 val child = toolbar.getChildAt(i)
-                if (child is TextView) {
-                    child.typeface = Typeface.create(tf, Typeface.BOLD)
-                    break
-                }
+                if (child is TextView) { child.typeface = Typeface.create(tf, Typeface.BOLD); break }
             }
         }
     }
 
     private fun setupAvatar() {
         val name    = prefs.getString("auth_user_name", "U") ?: "U"
+        val email   = prefs.getString("auth_user_email", "—") ?: "—"
         val initial = name.firstOrNull()?.uppercase() ?: "U"
 
-        val avatarBtn = findViewById<FrameLayout>(R.id.settingsAvatarBtn)
-        avatarBtn.background = GradientDrawable().apply {
+        val avatarContainer = findViewById<FrameLayout>(R.id.avatarContainer)
+        avatarContainer.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(ContextCompat.getColor(this@SettingsActivity, R.color.colorPrimary))
         }
+        findViewById<TextView>(R.id.avatarInitial).text = initial
+        findViewById<TextView>(R.id.settingsUserName).text = name
+        findViewById<TextView>(R.id.settingsUserEmail).text = email
 
-        findViewById<TextView>(R.id.settingsAvatarInitial).text = initial
-
-        avatarBtn.setOnClickListener {
+        val iconSec = ContextCompat.getColor(this, R.color.icon_tint_secondary)
+        findViewById<ImageView>(R.id.chevronProfile)
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
+        avatarContainer.setOnClickListener {
             startActivity(Intent(this, UserProfileActivity::class.java))
         }
     }
@@ -94,229 +94,186 @@ class SettingsActivity : BaseActivity() {
         }
 
         val currentTheme = prefs.getString("theme", "light")
-        findViewById<TextView>(R.id.labelTheme).text =
-            if (currentTheme == "dark") "Escuro" else "Claro"
+        findViewById<TextView>(R.id.labelTheme).text = if (currentTheme == "dark") "Escuro" else "Claro"
 
         val currentLang = prefs.getString("language", "pt")
-        findViewById<TextView>(R.id.labelLanguage).text =
-            when (currentLang) { "en" -> "English"; else -> "Português" }
+        findViewById<TextView>(R.id.labelLanguage).text = when (currentLang) { "en" -> "English"; else -> "Português" }
 
         val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
         switchNotif.isChecked = prefs.getBoolean("notifications", true)
     }
 
     private fun setupActions() {
-        findViewById<ImageView>(R.id.btnBack).setOnClickListener { onBackPressed() }
-        findViewById<View>(R.id.itemTheme).setOnClickListener { showThemeDialog() }
-        findViewById<View>(R.id.itemLanguage).setOnClickListener { showLanguageDialog() }
-
+        findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
+        findViewById<View>(R.id.itemTheme).setOnClickListener { showThemeSheet() }
+        findViewById<View>(R.id.itemLanguage).setOnClickListener { showLanguageSheet() }
         val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
         switchNotif.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("notifications", isChecked).apply()
         }
         findViewById<View>(R.id.itemNotifications).setOnClickListener { switchNotif.toggle() }
-        findViewById<View>(R.id.itemPrivacy).setOnClickListener { }
-        findViewById<View>(R.id.itemLogout).setOnClickListener { showLogoutDialog() }
+        findViewById<View>(R.id.itemPrivacy).setOnClickListener {}
+        findViewById<View>(R.id.itemLogout).setOnClickListener { showLogoutSheet() }
     }
 
-    private fun showCustomDialog(
-        title: String,
-        message: String? = null,
-        positiveLabel: String,
-        positiveColor: Int = ContextCompat.getColor(this, R.color.colorPrimary),
-        negativeLabel: String = "Cancelar",
-        customContent: View? = null,
-        onPositive: () -> Unit
-    ) {
-        val dialogView = LinearLayout(this).apply {
+    private fun showIosSheet(title: String, block: LinearLayout.() -> Unit) {
+        val dialog = BottomSheetDialog(this)
+
+        val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(28), dp(24), dp(20))
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadius = dp(20).toFloat()
+                cornerRadii = floatArrayOf(dp(20), dp(20), dp(20), dp(20), 0f, 0f, 0f, 0f)
                 setColor(ContextCompat.getColor(this@SettingsActivity, R.color.dialog_background))
             }
-        }
-
-        dialogView.addView(TextView(this).apply {
-            text = title
-            textSize = 17f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text_primary))
-            gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).also { it.bottomMargin = if (message != null || customContent != null) dp(10) else dp(24) }
+            )
+        }
+
+        // Handle
+        card.addView(View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(3)
+                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.divider))
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(36).toInt(), dp(4).toInt()).also {
+                it.gravity = Gravity.CENTER_HORIZONTAL
+                it.topMargin = dp(10).toInt()
+                it.bottomMargin = dp(4).toInt()
+            }
         })
 
-        message?.let {
-            dialogView.addView(TextView(this).apply {
-                text = it
-                textSize = 14f
-                setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text_secondary))
-                gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).also { lp -> lp.bottomMargin = dp(24) }
-            })
-        }
-
-        customContent?.let { dialogView.addView(it) }
-
-        val btnRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        // Título
+        card.addView(TextView(this).apply {
+            text = title
+            textSize = 13f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text_secondary))
+            gravity = Gravity.CENTER
+            setPadding(dp(20).toInt(), dp(8).toInt(), dp(20).toInt(), dp(4).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).also { it.topMargin = dp(16) }
+            )
+        })
+
+        card.addView(View(this).apply {
+            setBackgroundColor(ContextCompat.getColor(this@SettingsActivity, R.color.divider))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1
+            ).also { it.topMargin = dp(8).toInt() }
+        })
+
+        card.block()
+
+        // Espaço bottom para nav bar
+        card.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(24).toInt()
+            )
+        })
+
+        root.addView(card)
+        dialog.setContentView(root)
+
+        dialog.setOnShowListener {
+            val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bs?.setBackgroundColor(Color.TRANSPARENT)
         }
 
-        val cancelBtn = TextView(this).apply {
-            text = negativeLabel
-            textSize = 15f
-            gravity = Gravity.CENTER
-            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text_secondary))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(12).toFloat()
-                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.card_background))
-            }
-            setPadding(0, dp(14), 0, dp(14))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
-                it.marginEnd = dp(8)
-            }
-        }
-
-        val confirmBtn = TextView(this).apply {
-            text = positiveLabel
-            textSize = 15f
-            setTypeface(typeface, Typeface.BOLD)
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                cornerRadius = dp(12).toFloat()
-                setColor(positiveColor)
-            }
-            setPadding(0, dp(14), 0, dp(14))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-
-        btnRow.addView(cancelBtn)
-        btnRow.addView(confirmBtn)
-        dialogView.addView(btnRow)
-
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-
-        cancelBtn.setOnClickListener { dialog.dismiss() }
-        confirmBtn.setOnClickListener { dialog.dismiss(); onPositive() }
         dialog.show()
     }
 
-    private fun showLogoutDialog() {
-        showCustomDialog(
-            title = "Terminar sessão",
-            message = "Tens a certeza que queres sair?",
-            positiveLabel = "Sair",
-            positiveColor = Color.parseColor("#FF3B30"),
-            onPositive = { doLogout() }
-        )
-    }
-
-    private fun showThemeDialog() {
-        val currentTheme = prefs.getString("theme", "light")
-        val options = listOf("Claro" to "light", "Escuro" to "dark")
-        var selected = if (currentTheme == "dark") 1 else 0
-
-        val radioGroup = RadioGroup(this).apply {
-            orientation = RadioGroup.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+    private fun sheetRow(label: String, selected: Boolean, labelColor: Int? = null, onClick: () -> Unit): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = dp(52).toInt()
+            setPadding(dp(20).toInt(), dp(14).toInt(), dp(20).toInt(), dp(14).toInt())
+            isClickable = true; isFocusable = true
+            val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+            background = a.getDrawable(0); a.recycle()
         }
 
-        options.forEachIndexed { index, (label, _) ->
-            radioGroup.addView(RadioButton(this).apply {
-                text = label
-                textSize = 15f
-                setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text_primary))
-                isChecked = index == selected
-                id = index
-                setPadding(0, dp(8), 0, dp(8))
-                setOnCheckedChangeListener { _, isChecked -> if (isChecked) selected = index }
+        row.addView(TextView(this).apply {
+            text = label
+            textSize = 17f
+            setTextColor(labelColor ?: ContextCompat.getColor(this@SettingsActivity, R.color.text_primary))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+
+        if (selected) {
+            row.addView(ImageView(this).apply {
+                setImageDrawable(svgDrawable("icons/svg/ic_check.svg", 20,
+                    ContextCompat.getColor(this@SettingsActivity, R.color.colorPrimary)))
+                layoutParams = LinearLayout.LayoutParams(dp(20).toInt(), dp(20).toInt())
             })
         }
 
-        showCustomDialog(
-            title = "Tema",
-            customContent = radioGroup,
-            positiveLabel = "Aplicar",
-            onPositive = {
-                val theme = options[selected].second
-                prefs.edit().putString("theme", theme).apply()
-                AppCompatDelegate.setDefaultNightMode(
-                    if (theme == "dark") AppCompatDelegate.MODE_NIGHT_YES
-                    else AppCompatDelegate.MODE_NIGHT_NO
-                )
-                recreate()
-            }
-        )
+        row.setOnClickListener { onClick() }
+        return row
     }
 
-    private fun showLanguageDialog() {
-        val currentLang = prefs.getString("language", "pt")
-        val options = listOf("Português" to "pt", "English" to "en")
-        var selected = if (currentLang == "en") 1 else 0
-
-        val radioGroup = RadioGroup(this).apply {
-            orientation = RadioGroup.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+    private fun sheetDivider() = View(this).apply {
+        setBackgroundColor(ContextCompat.getColor(this@SettingsActivity, R.color.divider))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
+            it.marginStart = dp(20).toInt()
         }
+    }
 
-        options.forEachIndexed { index, (label, _) ->
-            radioGroup.addView(RadioButton(this).apply {
-                text = label
-                textSize = 15f
-                setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text_primary))
-                isChecked = index == selected
-                id = index
-                setPadding(0, dp(8), 0, dp(8))
-                setOnCheckedChangeListener { _, isChecked -> if (isChecked) selected = index }
+    private fun showThemeSheet() {
+        val current = prefs.getString("theme", "light")
+        showIosSheet("Tema") {
+            listOf("Claro" to "light", "Escuro" to "dark").forEach { (label, value) ->
+                addView(sheetRow(label, current == value) {
+                    prefs.edit().putString("theme", value).apply()
+                    AppCompatDelegate.setDefaultNightMode(
+                        if (value == "dark") AppCompatDelegate.MODE_NIGHT_YES
+                        else AppCompatDelegate.MODE_NIGHT_NO
+                    )
+                    recreate()
+                })
+                addView(sheetDivider())
+            }
+        }
+    }
+
+    private fun showLanguageSheet() {
+        val current = prefs.getString("language", "pt")
+        showIosSheet("Idioma") {
+            listOf("Português" to "pt", "English" to "en").forEach { (label, value) ->
+                addView(sheetRow(label, current == value) {
+                    prefs.edit().putString("language", value).apply()
+                    recreate()
+                })
+                addView(sheetDivider())
+            }
+        }
+    }
+
+    private fun showLogoutSheet() {
+        showIosSheet("Terminar sessão") {
+            addView(sheetRow("Sair", false, Color.parseColor("#FF3B30")) {
+                doLogout()
             })
         }
-
-        showCustomDialog(
-            title = "Idioma",
-            customContent = radioGroup,
-            positiveLabel = "Aplicar",
-            onPositive = {
-                prefs.edit().putString("language", options[selected].second).apply()
-                recreate()
-            }
-        )
     }
 
     private fun doLogout() {
         prefs.edit()
-            .remove("auth_token")
-            .remove("auth_user_id")
-            .remove("auth_user_name")
-            .remove("auth_user_email")
+            .remove("auth_token").remove("auth_user_id")
+            .remove("auth_user_name").remove("auth_user_email")
             .apply()
-        val intent = Intent(this, LoginActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        super.onBackPressed()
+        startActivity(Intent(this, LoginActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
     }
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
@@ -329,10 +286,9 @@ class SettingsActivity : BaseActivity() {
                 renderToCanvas(Canvas(bmp))
             }
         }
-        return BitmapDrawable(resources, bmp).also {
-            it.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
-        }
+        return BitmapDrawable(resources, bmp).also { it.setColorFilter(tint, PorterDuff.Mode.SRC_IN) }
     }
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int) = (v * resources.displayMetrics.density)
+    override fun finish() { super.finish() }
 }
