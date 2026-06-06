@@ -142,7 +142,6 @@
             app:elevation="0dp"
             app:liftOnScroll="false">
 
-            <!-- Gradiente appbar: transparente em baixo, sólido em cima -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
@@ -187,7 +186,6 @@
                         android:layout_centerVertical="true"
                         android:layout_alignParentEnd="true">
 
-                        <!-- Botão nova conversa -->
                         <FrameLayout
                             android:id="@+id/btnNewChat"
                             android:layout_width="36dp"
@@ -206,7 +204,7 @@
 
                         </FrameLayout>
 
-                        <!-- More -->
+                        <!-- More com thinkDot -->
                         <FrameLayout
                             android:layout_width="36dp"
                             android:layout_height="36dp"
@@ -220,6 +218,16 @@
                                 android:layout_height="17dp"
                                 android:layout_gravity="center"
                                 android:background="?attr/selectableItemBackgroundBorderless" />
+
+                            <View
+                                android:id="@+id/thinkDot"
+                                android:layout_width="7dp"
+                                android:layout_height="7dp"
+                                android:layout_gravity="top|end"
+                                android:layout_marginTop="4dp"
+                                android:layout_marginEnd="4dp"
+                                android:background="@drawable/think_dot"
+                                android:visibility="gone" />
 
                         </FrameLayout>
 
@@ -448,6 +456,40 @@
 
                     <ImageView
                         android:id="@+id/popupUrlIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0.5dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="@color/divider" />
+
+                <LinearLayout
+                    android:id="@+id/popupItemThink"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Think"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary" />
+
+                    <ImageView
+                        android:id="@+id/popupThinkIcon"
                         android:layout_width="18dp"
                         android:layout_height="18dp" />
 
