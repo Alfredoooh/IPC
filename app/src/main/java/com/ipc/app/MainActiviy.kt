@@ -161,80 +161,78 @@ class MainActiviy : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
-        super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+    installSplashScreen()
+    super.onCreate(savedInstanceState)
+    binding = ActivityMainBinding.inflate(layoutInflater)
+    setContentView(binding.root)
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
-            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-            v.updatePadding(top = statusBars.top)
-            insets
-        }
-
-        ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
-            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-            val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
-            val imeNowOpen = extraShift > 0
-
-            binding.bottomNavWrapper.animate()
-                .translationY(-extraShift.toFloat())
-                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-            binding.bottomNavWrapper.updatePadding(
-                bottom = if (extraShift == 0) navInsets.bottom else 0
-            )
-
-            // Fix ponto 5: não mover o chat se já tiver conteúdo visível
-            if (imeNowOpen && !keyboardOpen) {
-                keyboardOpen = true
-                if (displayMessages.isEmpty()) {
-                    binding.emptyState.animate()
-                        .translationY(-(extraShift * 0.45f))
-                        .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-                }
-                // RecyclerView: só scroll suave para o último item, sem translationY
-                if (displayMessages.isNotEmpty()) {
-                    binding.chatRecyclerView.post {
-                        binding.chatRecyclerView.smoothScrollToPosition(displayMessages.lastIndex)
-                    }
-                }
-            } else if (!imeNowOpen && keyboardOpen) {
-                keyboardOpen = false
-                binding.emptyState.animate()
-                    .translationY(0f)
-                    .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
-            }
-            insets
-        }
-
-        binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
-            it.width = drawerWidth
-        }
-        binding.inputRow.post {
-            if (inputRowHeight == 0) {
-                inputRowHeight = binding.inputRow.height
-                frozenInputRowHeight = inputRowHeight
-            }
-        }
-
-        currentBarMarginPx = (MARGIN_CHAT_DP * density).toInt()
-        currentBarRadiusPx = RADIUS_CHAT_DP * density
-
-        setupBottomBarSolid()
-        setupLogo()
-        setupGreeting()
-        setupIcons()
-        setupDrawer()
-        setupSwipeDrawer()
-        setupBottomTabs()
-        setupPreviewImage()
-        setupInput()
-        setupPopupMenu()
-        setupChatRecycler()
-        loadDrawerConversations()
-        refreshNewChatBtn()
+    ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
+        val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+        v.updatePadding(top = statusBars.top)
+        insets
     }
+
+    ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
+        val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+        val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+        val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
+        val imeNowOpen = extraShift > 0
+
+        binding.bottomNavWrapper.animate()
+            .translationY(-extraShift.toFloat())
+            .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+        binding.bottomNavWrapper.updatePadding(
+            bottom = if (extraShift == 0) navInsets.bottom else 0
+        )
+
+        if (imeNowOpen && !keyboardOpen) {
+            keyboardOpen = true
+            if (displayMessages.isEmpty()) {
+                binding.emptyState.animate()
+                    .translationY(-(extraShift * 0.45f))
+                    .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+            }
+            if (displayMessages.isNotEmpty()) {
+                binding.chatRecyclerView.post {
+                    binding.chatRecyclerView.smoothScrollToPosition(displayMessages.lastIndex)
+                }
+            }
+        } else if (!imeNowOpen && keyboardOpen) {
+            keyboardOpen = false
+            binding.emptyState.animate()
+                .translationY(0f)
+                .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
+        }
+        insets
+    }
+
+    binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
+        it.width = drawerWidth
+    }
+    binding.inputRow.post {
+        if (inputRowHeight == 0) {
+            inputRowHeight = binding.inputRow.height
+            frozenInputRowHeight = inputRowHeight
+        }
+    }
+
+    currentBarMarginPx = (MARGIN_CHAT_DP * density).toInt()
+    currentBarRadiusPx = RADIUS_CHAT_DP * density
+
+    setupBottomBarSolid()
+    setupLogo()
+    setupGreeting()
+    setupIcons()
+    setupDrawer()
+    setupSwipeDrawer()
+    setupBottomTabs()
+    setupPreviewImage()
+    setupInput()
+    setupPopupMenu()
+    setupChatRecycler()
+    loadDrawerConversations()
+    refreshNewChatBtn()
+}
 
     // ─── Nova conversa ────────────────────────────────────────────────────────
 

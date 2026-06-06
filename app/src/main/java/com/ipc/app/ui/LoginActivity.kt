@@ -16,7 +16,9 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.caverock.androidsvg.SVG
 import com.ipc.app.MainActiviy
@@ -43,6 +45,7 @@ class LoginActivity : BaseActivity() {
     private val prefs by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
         if (prefs.getString("auth_token", null) != null) {
@@ -159,9 +162,13 @@ class LoginActivity : BaseActivity() {
     private fun hideError() { errorText.visibility = View.GONE }
 
     private fun goToMain() {
-        startActivity(Intent(this, MainActiviy::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        })
+        val options = ActivityOptionsCompat.makeCustomAnimation(this, 0, 0)
+        startActivity(
+            Intent(this, MainActiviy::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            },
+            options.toBundle()
+        )
     }
 
     fun svgDrawable(path: String, sizeDp: Int, tint: Int): BitmapDrawable {
