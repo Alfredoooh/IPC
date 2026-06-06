@@ -54,11 +54,7 @@ class SettingsActivity : BaseActivity() {
         val email   = prefs.getString("auth_user_email", "—") ?: "—"
         val initial = name.firstOrNull()?.uppercase() ?: "U"
 
-        val avatarContainer = findViewById<FrameLayout>(R.id.avatarContainer)
-        avatarContainer.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(ContextCompat.getColor(this@SettingsActivity, R.color.colorPrimary))
-        }
+        val avatarContainer = findViewById<LinearLayout>(R.id.avatarContainer)
         findViewById<TextView>(R.id.avatarInitial).text = initial
         findViewById<TextView>(R.id.settingsUserName).text = name
         findViewById<TextView>(R.id.settingsUserEmail).text = email
@@ -136,7 +132,6 @@ class SettingsActivity : BaseActivity() {
             )
         }
 
-        // Handle
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -150,7 +145,6 @@ class SettingsActivity : BaseActivity() {
             }
         })
 
-        // Título
         card.addView(TextView(this).apply {
             text = title
             textSize = 13f
@@ -173,7 +167,6 @@ class SettingsActivity : BaseActivity() {
 
         card.block()
 
-        // Espaço bottom para nav bar
         card.addView(View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(24).toInt()
@@ -195,7 +188,7 @@ class SettingsActivity : BaseActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            minHeight = dp(52).toInt()
+            minimumHeight = dp(52).toInt()
             setPadding(dp(20).toInt(), dp(14).toInt(), dp(20).toInt(), dp(14).toInt())
             isClickable = true; isFocusable = true
             val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))

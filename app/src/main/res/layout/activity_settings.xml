@@ -7,7 +7,6 @@
     android:background="@color/background"
     android:fitsSystemWindows="true">
 
-    <!-- Toolbar com avatar no topo direito -->
     <RelativeLayout
         android:id="@+id/settingsToolbar"
         android:layout_width="match_parent"
@@ -36,7 +35,6 @@
             android:textStyle="bold"
             android:textColor="@color/text_primary" />
 
-        <!-- Avatar circular no appBar -->
         <FrameLayout
             android:id="@+id/settingsAvatarBtn"
             android:layout_width="36dp"
@@ -90,7 +88,7 @@
                 android:gravity="center_vertical"
                 android:paddingStart="24dp"
                 android:paddingEnd="24dp"
-                android:layout_marginBottom="20dp"
+                android:layout_marginBottom="8dp"
                 android:background="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true">
@@ -154,7 +152,6 @@
                 android:layout_marginBottom="20dp"
                 android:background="@color/divider" />
 
-            <!-- Aparência -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -182,11 +179,13 @@
                     android:layout_height="32dp"
                     android:background="@drawable/drawer_icon_bg"
                     android:layout_marginEnd="16dp">
+
                     <ImageView
                         android:id="@+id/iconTheme"
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:layout_gravity="center" />
+
                 </FrameLayout>
 
                 <TextView
@@ -229,11 +228,13 @@
                     android:layout_height="32dp"
                     android:background="@drawable/drawer_icon_bg"
                     android:layout_marginEnd="16dp">
+
                     <ImageView
                         android:id="@+id/iconLanguage"
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:layout_gravity="center" />
+
                 </FrameLayout>
 
                 <TextView
@@ -268,7 +269,6 @@
                 android:layout_marginBottom="20dp"
                 android:background="@color/divider" />
 
-            <!-- Privacidade -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -296,11 +296,13 @@
                     android:layout_height="32dp"
                     android:background="@drawable/drawer_icon_bg"
                     android:layout_marginEnd="16dp">
+
                     <ImageView
                         android:id="@+id/iconPrivacy"
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:layout_gravity="center" />
+
                 </FrameLayout>
 
                 <TextView
@@ -335,11 +337,13 @@
                     android:layout_height="32dp"
                     android:background="@drawable/drawer_icon_bg"
                     android:layout_marginEnd="16dp">
+
                     <ImageView
                         android:id="@+id/iconNotifications"
                         android:layout_width="14dp"
                         android:layout_height="14dp"
                         android:layout_gravity="center" />
+
                 </FrameLayout>
 
                 <TextView
@@ -361,7 +365,6 @@
 
     </ScrollView>
 
-    <!-- Logout -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -405,4 +408,4 @@
 
     </LinearLayout>
 
-</LinearLayout>l
+</LinearLayout>
