@@ -13,4 +13,7 @@
     <string name="preview_subtitle">O output da tua consulta será apresentado aqui. Inicia uma conversa no separador Chat para ver os resultados.</string>
     <string name="settings_profile">O meu perfil</string>
     <string name="settings_logout">Terminar sessão</string>
+    <string name="extras_flash">Flash</string>
+    <string name="extras_think_more">Think More</string>
+    <string name="extras_sheets">Sheets</string>
 </resources>

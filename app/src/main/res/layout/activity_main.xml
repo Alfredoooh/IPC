@@ -158,7 +158,6 @@
                     android:paddingStart="8dp"
                     android:paddingEnd="8dp">
 
-                    <!-- Menu esquerda -->
                     <FrameLayout
                         android:layout_width="36dp"
                         android:layout_height="36dp"
@@ -177,7 +176,6 @@
 
                     </FrameLayout>
 
-                    <!-- Direita: nova conversa + more -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -186,6 +184,7 @@
                         android:layout_centerVertical="true"
                         android:layout_alignParentEnd="true">
 
+                        <!-- Nova conversa — alpha controlado por código -->
                         <FrameLayout
                             android:id="@+id/btnNewChat"
                             android:layout_width="36dp"
@@ -204,7 +203,6 @@
 
                         </FrameLayout>
 
-                        <!-- More com thinkDot -->
                         <FrameLayout
                             android:layout_width="36dp"
                             android:layout_height="36dp"
@@ -218,16 +216,6 @@
                                 android:layout_height="17dp"
                                 android:layout_gravity="center"
                                 android:background="?attr/selectableItemBackgroundBorderless" />
-
-                            <View
-                                android:id="@+id/thinkDot"
-                                android:layout_width="7dp"
-                                android:layout_height="7dp"
-                                android:layout_gravity="top|end"
-                                android:layout_marginTop="4dp"
-                                android:layout_marginEnd="4dp"
-                                android:background="@drawable/think_dot"
-                                android:visibility="gone" />
 
                         </FrameLayout>
 
@@ -346,6 +334,7 @@
             android:clickable="true"
             android:focusable="true" />
 
+        <!-- POPUP OVERLAY — branco puro, sem divisões -->
         <FrameLayout
             android:id="@+id/popupOverlay"
             android:layout_width="match_parent"
@@ -357,49 +346,18 @@
 
             <LinearLayout
                 android:id="@+id/popupMenu"
-                android:layout_width="220dp"
+                android:layout_width="210dp"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|end"
                 android:layout_marginTop="56dp"
                 android:layout_marginEnd="8dp"
                 android:orientation="vertical"
                 android:background="@drawable/popup_menu_bg"
-                android:elevation="16dp">
+                android:elevation="20dp"
+                android:clickable="true"
+                android:focusable="true">
 
-                <LinearLayout
-                    android:id="@+id/popupItemImport"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Importar Ficheiro"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <ImageView
-                        android:id="@+id/popupImportIcon"
-                        android:layout_width="18dp"
-                        android:layout_height="18dp" />
-
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
-                    android:background="@color/divider" />
-
+                <!-- Câmara -->
                 <LinearLayout
                     android:id="@+id/popupItemCamera"
                     android:layout_width="match_parent"
@@ -412,6 +370,12 @@
                     android:clickable="true"
                     android:focusable="true">
 
+                    <ImageView
+                        android:id="@+id/popupCameraIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="14dp" />
+
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -420,20 +384,38 @@
                         android:textSize="15sp"
                         android:textColor="@color/text_primary" />
 
+                </LinearLayout>
+
+                <!-- Importar Ficheiro -->
+                <LinearLayout
+                    android:id="@+id/popupItemImport"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true">
+
                     <ImageView
-                        android:id="@+id/popupCameraIcon"
-                        android:layout_width="18dp"
-                        android:layout_height="18dp" />
+                        android:id="@+id/popupImportIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="14dp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Importar Ficheiro"
+                        android:textSize="15sp"
+                        android:textColor="@color/text_primary" />
 
                 </LinearLayout>
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
-                    android:background="@color/divider" />
-
+                <!-- URL - sem funcionalidade, visualmente presente -->
                 <LinearLayout
                     android:id="@+id/popupItemUrl"
                     android:layout_width="match_parent"
@@ -444,7 +426,14 @@
                     android:paddingEnd="16dp"
                     android:background="?attr/selectableItemBackground"
                     android:clickable="true"
-                    android:focusable="true">
+                    android:focusable="true"
+                    android:alpha="0.4">
+
+                    <ImageView
+                        android:id="@+id/popupUrlIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="14dp" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -454,22 +443,11 @@
                         android:textSize="15sp"
                         android:textColor="@color/text_primary" />
 
-                    <ImageView
-                        android:id="@+id/popupUrlIcon"
-                        android:layout_width="18dp"
-                        android:layout_height="18dp" />
-
                 </LinearLayout>
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
-                    android:background="@color/divider" />
-
+                <!-- Extras -->
                 <LinearLayout
-                    android:id="@+id/popupItemThink"
+                    android:id="@+id/popupItemExtras"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
                     android:orientation="horizontal"
@@ -480,18 +458,19 @@
                     android:clickable="true"
                     android:focusable="true">
 
+                    <ImageView
+                        android:id="@+id/popupExtrasIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="14dp" />
+
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Think"
+                        android:text="Extras"
                         android:textSize="15sp"
                         android:textColor="@color/text_primary" />
-
-                    <ImageView
-                        android:id="@+id/popupThinkIcon"
-                        android:layout_width="18dp"
-                        android:layout_height="18dp" />
 
                 </LinearLayout>
 

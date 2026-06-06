@@ -81,8 +81,6 @@ class SettingsActivity : BaseActivity() {
             .setImageDrawable(svgDrawable("icons/svg/privacy.svg", 14, iconTint))
         findViewById<ImageView>(R.id.iconNotifications)
             .setImageDrawable(svgDrawable("icons/svg/notifications.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconLogout)
-            .setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 14, Color.parseColor("#FF3B30")))
 
         listOf(R.id.chevronTheme, R.id.chevronLanguage, R.id.chevronPrivacy).forEach {
             findViewById<ImageView>(it)
@@ -124,7 +122,7 @@ class SettingsActivity : BaseActivity() {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 cornerRadii = floatArrayOf(dp(20), dp(20), dp(20), dp(20), 0f, 0f, 0f, 0f)
-                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.dialog_background))
+                setColor(Color.WHITE) // branco puro sempre
             }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -132,39 +130,35 @@ class SettingsActivity : BaseActivity() {
             )
         }
 
+        // Handle pill
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(3)
-                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.divider))
+                setColor(Color.parseColor("#E0E0E0"))
             }
             layoutParams = LinearLayout.LayoutParams(dp(36).toInt(), dp(4).toInt()).also {
                 it.gravity = Gravity.CENTER_HORIZONTAL
-                it.topMargin = dp(10).toInt()
+                it.topMargin = dp(12).toInt()
                 it.bottomMargin = dp(4).toInt()
             }
         })
 
+        // Título sólido, sem linha abaixo
         card.addView(TextView(this).apply {
             text = title
             textSize = 13f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text_secondary))
+            setTextColor(Color.parseColor("#8E8E93")) // cinza sólido
             gravity = Gravity.CENTER
-            setPadding(dp(20).toInt(), dp(8).toInt(), dp(20).toInt(), dp(4).toInt())
+            setPadding(dp(20).toInt(), dp(8).toInt(), dp(20).toInt(), dp(12).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         })
 
-        card.addView(View(this).apply {
-            setBackgroundColor(ContextCompat.getColor(this@SettingsActivity, R.color.divider))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 1
-            ).also { it.topMargin = dp(8).toInt() }
-        })
-
+        // Sem linha divisória após o título — direto para os rows
         card.block()
 
         card.addView(View(this).apply {
@@ -198,7 +192,8 @@ class SettingsActivity : BaseActivity() {
         row.addView(TextView(this).apply {
             text = label
             textSize = 17f
-            setTextColor(labelColor ?: ContextCompat.getColor(this@SettingsActivity, R.color.text_primary))
+            // texto sempre sólido: preto para normal, cor customizada para destrutivo
+            setTextColor(labelColor ?: Color.BLACK)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
 
@@ -214,12 +209,7 @@ class SettingsActivity : BaseActivity() {
         return row
     }
 
-    private fun sheetDivider() = View(this).apply {
-        setBackgroundColor(ContextCompat.getColor(this@SettingsActivity, R.color.divider))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
-            it.marginStart = dp(20).toInt()
-        }
-    }
+    // Sem sheetDivider — removido completamente
 
     private fun showThemeSheet() {
         val current = prefs.getString("theme", "light")
@@ -233,7 +223,7 @@ class SettingsActivity : BaseActivity() {
                     )
                     recreate()
                 })
-                addView(sheetDivider())
+                // sem divisórias
             }
         }
     }
@@ -246,7 +236,6 @@ class SettingsActivity : BaseActivity() {
                     prefs.edit().putString("language", value).apply()
                     recreate()
                 })
-                addView(sheetDivider())
             }
         }
     }
