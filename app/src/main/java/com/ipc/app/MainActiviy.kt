@@ -3,7 +3,6 @@ package com.ipc.app
 import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
@@ -17,7 +16,6 @@ import android.graphics.PorterDuff
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.text.Editable
@@ -36,7 +34,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Switch
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
@@ -59,9 +56,7 @@ import com.ipc.app.data.NvidiaApiService
 import com.ipc.app.data.StreamChunk
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
-import com.ipc.app.ui.LoginActivity
 import com.ipc.app.ui.SettingsActivity
-import com.ipc.app.ui.UserProfileActivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -84,7 +79,6 @@ class MainActiviy : BaseActivity() {
     private var currentTab = R.id.tabChat
     private var keyboardOpen = false
 
-    // Swipe drawer
     private var swipeStartX = 0f
     private var swipeStartY = 0f
     private var isSwipingDrawer = false
@@ -103,7 +97,6 @@ class MainActiviy : BaseActivity() {
     private var inputRowHeightFrozen = false
     private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
 
-    // Extras state
     private var flashMode = false
     private var thinkMoreMode = false
     private var sheetsEnabled = false
@@ -112,6 +105,9 @@ class MainActiviy : BaseActivity() {
     private var currentConversationTitle: String = "Nova conversa"
     private var titleGenerated = false
     private var thinkingContent = ""
+
+    // guarda o shift do IME para não rever translationY do emptyState
+    private var lastImeShift = 0
 
     private val drawerConversations = mutableListOf<Conversation>()
     private val chatHistory = mutableListOf<ChatMessage>()
@@ -185,26 +181,32 @@ class MainActiviy : BaseActivity() {
             )
 
             if (imeNowOpen && !keyboardOpen) {
-                // teclado abriu — sobe o chat se houver mensagens, nunca desce
+                // teclado acabou de abrir
                 keyboardOpen = true
+                lastImeShift = extraShift
                 if (displayMessages.isEmpty()) {
+                    // só move emptyState para cima, nunca volta até o teclado fechar
                     binding.emptyState.animate()
                         .translationY(-(extraShift * 0.45f))
                         .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
                 } else {
-                    // scroll para o último item — só sobe, nunca desce
-                    binding.chatRecyclerView.post {
-                        val llm = binding.chatRecyclerView.layoutManager as? LinearLayoutManager ?: return@post
-                        val lastVisible = llm.findLastCompletelyVisibleItemPosition()
-                        val lastIndex = displayMessages.lastIndex
-                        if (lastVisible < lastIndex) {
+                    val llm = binding.chatRecyclerView.layoutManager as? LinearLayoutManager
+                    val lastVisible = llm?.findLastCompletelyVisibleItemPosition() ?: -1
+                    val lastIndex = displayMessages.lastIndex
+                    if (lastVisible < lastIndex) {
+                        binding.chatRecyclerView.post {
                             binding.chatRecyclerView.smoothScrollToPosition(lastIndex)
                         }
                     }
                 }
+            } else if (imeNowOpen && keyboardOpen && extraShift != lastImeShift) {
+                // teclado já estava aberto mas o shift mudou (ex: sugestões de texto)
+                // NÃO mexemos em nada — o chat fica onde está
+                lastImeShift = extraShift
             } else if (!imeNowOpen && keyboardOpen) {
-                // teclado fechou — repõe emptyState, o chat fica onde está
+                // teclado fechou
                 keyboardOpen = false
+                lastImeShift = 0
                 binding.emptyState.animate()
                     .translationY(0f)
                     .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
@@ -317,10 +319,9 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun groupConversations(list: List<Conversation>): List<Any> {
-        val now = System.currentTimeMillis()
+        val now   = System.currentTimeMillis()
         val day7  = now - 7L  * 24 * 3600 * 1000
         val day30 = now - 30L * 24 * 3600 * 1000
-
         val result = mutableListOf<Any>()
         val g7    = list.filter { it.updatedAt >= day7 }
         val g30   = list.filter { it.updatedAt < day7 && it.updatedAt >= day30 }
@@ -329,7 +330,6 @@ class MainActiviy : BaseActivity() {
                 val cal = Calendar.getInstance().apply { timeInMillis = it.updatedAt }
                 String.format("%02d/%04d", cal.get(Calendar.MONTH) + 1, cal.get(Calendar.YEAR))
             }
-
         if (g7.isNotEmpty())  { result.add("7 Dias");  result.addAll(g7) }
         if (g30.isNotEmpty()) { result.add("30 Dias"); result.addAll(g30) }
         older.entries.sortedByDescending { it.key }.forEach { (label, convs) ->
@@ -342,7 +342,6 @@ class MainActiviy : BaseActivity() {
         val container = binding.drawerConversationsList
         container.removeAllViews()
         val grouped = groupConversations(drawerConversations)
-
         grouped.forEach { item ->
             when (item) {
                 is String -> {
@@ -390,7 +389,6 @@ class MainActiviy : BaseActivity() {
 
     private fun startNewConversation() {
         if (!newChatEnabled) return
-        // FIX: cancelar stream anterior para não bloquear o próximo envio
         streamJob?.cancel()
         streamJob = null
         saveCurrentConversation()
@@ -526,7 +524,6 @@ class MainActiviy : BaseActivity() {
                     it.gravity = Gravity.END
                     it.marginStart = dp(64)
                 })
-
             } else {
                 val col = LinearLayout(holder.wrapper.context).apply {
                     orientation = LinearLayout.VERTICAL
@@ -597,65 +594,47 @@ class MainActiviy : BaseActivity() {
         override fun getItemCount() = msgs.size
     }
 
+    // loader corrigido — tamanho razoável, animação contida dentro do container
     private fun buildLoaderView(ctx: Context): View {
-        val sizePx = dp(12)
-        val color  = ContextCompat.getColor(this, R.color.colorPrimary)
+        val dotSize = dp(8)
+        val gap     = dp(6)
+        val color   = ContextCompat.getColor(this, R.color.colorPrimary)
 
-        val container = FrameLayout(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(52), dp(52)).also {
-                it.topMargin = dp(6); it.bottomMargin = dp(4)
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(6); it.bottomMargin = dp(4) }
+        }
+
+        val dots = (0..2).map {
+            View(ctx).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(color)
+                }
+                layoutParams = LinearLayout.LayoutParams(dotSize, dotSize).also { lp ->
+                    if (it > 0) lp.marginStart = gap
+                }
+                container.addView(this)
             }
         }
 
-        val sq1 = View(ctx).apply {
-            background = GradientDrawable().apply { setColor(color); cornerRadius = dp(2).toFloat() }
-        }
-        val sq2 = View(ctx).apply {
-            background = GradientDrawable().apply { setColor(color); cornerRadius = dp(2).toFloat() }
-        }
-
-        container.addView(sq1, FrameLayout.LayoutParams(sizePx, sizePx).apply { gravity = Gravity.CENTER })
-        container.addView(sq2, FrameLayout.LayoutParams(sizePx, sizePx).apply {
-            gravity = Gravity.CENTER
-            leftMargin = -sizePx
-            topMargin  = -sizePx
-        })
-
-        container.post {
-            val sq1Animator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = 2400
+        // animação: cada dot faz bounce com delay escalonado
+        dots.forEachIndexed { i, dot ->
+            ValueAnimator.ofFloat(0f, -dp(6).toFloat(), 0f).apply {
+                duration = 600
+                startDelay = (i * 150).toLong()
                 repeatCount = ValueAnimator.INFINITE
-                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
-                addUpdateListener { anim ->
-                    val f = anim.animatedFraction
-                    val (tx, ty) = when {
-                        f < 0.25f -> Pair(f / 0.25f * sizePx, 0f)
-                        f < 0.50f -> Pair(sizePx.toFloat(), (f - 0.25f) / 0.25f * sizePx)
-                        f < 0.75f -> Pair(sizePx - (f - 0.50f) / 0.25f * sizePx, sizePx.toFloat())
-                        else      -> Pair(0f, sizePx - (f - 0.75f) / 0.25f * sizePx)
-                    }
-                    sq1.translationX = tx; sq1.translationY = ty
-                }
+                repeatMode = ValueAnimator.RESTART
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { dot.translationY = it.animatedValue as Float }
                 start()
             }
-            val sq2Animator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = 2400
-                repeatCount = ValueAnimator.INFINITE
-                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
-                addUpdateListener { anim ->
-                    val f = anim.animatedFraction
-                    val (tx, ty) = when {
-                        f < 0.25f -> Pair(-(f / 0.25f * sizePx), 0f)
-                        f < 0.50f -> Pair(-sizePx.toFloat(), -((f - 0.25f) / 0.25f * sizePx))
-                        f < 0.75f -> Pair(-(sizePx - (f - 0.50f) / 0.25f * sizePx), -sizePx.toFloat())
-                        else      -> Pair(0f, -(sizePx - (f - 0.75f) / 0.25f * sizePx))
-                    }
-                    sq2.translationX = tx; sq2.translationY = ty
-                }
-                start()
-            }
-            container.tag = listOf(sq1Animator, sq2Animator)
         }
+
         return container
     }
 
@@ -667,14 +646,12 @@ class MainActiviy : BaseActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-
         wrap.addView(TextView(ctx).apply {
             text = "🧠 A pensar…"
             textSize = 14f
             setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
             setPadding(dp(2), dp(4), dp(8), dp(6))
         })
-
         listOf(0.85f, 0.7f, 0.55f).forEach { widthFraction ->
             val bar = View(ctx).apply {
                 background = GradientDrawable().apply {
@@ -800,7 +777,6 @@ class MainActiviy : BaseActivity() {
             }
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
@@ -810,7 +786,6 @@ class MainActiviy : BaseActivity() {
                 it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(4)
             }
         })
-
         card.addView(TextView(this).apply {
             text = "Extras"
             textSize = 13f
@@ -820,39 +795,20 @@ class MainActiviy : BaseActivity() {
             setPadding(dp(20), dp(8), dp(20), dp(16))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         })
-
-        card.addView(buildExtrasRow(
-            iconPath = "icons/svg/flash.svg",
-            label    = "Flash",
-            subtitle = "Respostas rápidas e diretas",
-            isSwitch = false,
-            checked  = flashMode
-        ) { flashMode = !flashMode; thinkMoreMode = false })
-
+        card.addView(buildExtrasRow("icons/svg/flash.svg", "Flash", "Respostas rápidas e diretas", false, flashMode) {
+            flashMode = !flashMode; thinkMoreMode = false
+        })
         card.addView(extrasDiv())
-
-        card.addView(buildExtrasRow(
-            iconPath = "icons/svg/brain.svg",
-            label    = "Think More",
-            subtitle = "Respostas mais detalhadas e profundas",
-            isSwitch = false,
-            checked  = thinkMoreMode
-        ) { thinkMoreMode = !thinkMoreMode; flashMode = false })
-
+        card.addView(buildExtrasRow("icons/svg/brain.svg", "Think More", "Respostas mais detalhadas e profundas", false, thinkMoreMode) {
+            thinkMoreMode = !thinkMoreMode; flashMode = false
+        })
         card.addView(extrasDiv())
-
-        card.addView(buildExtrasRow(
-            iconPath = "icons/svg/sheets.svg",
-            label    = "Sheets",
-            subtitle = "A IA insere rascunhos HTML na conversa",
-            isSwitch = true,
-            checked  = sheetsEnabled
-        ) { sheetsEnabled = !sheetsEnabled })
-
+        card.addView(buildExtrasRow("icons/svg/sheets.svg", "Sheets", "A IA insere rascunhos HTML na conversa", true, sheetsEnabled) {
+            sheetsEnabled = !sheetsEnabled
+        })
         card.addView(View(this).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24))
         })
-
         root.addView(card)
         dialog.setContentView(root)
         dialog.setOnShowListener {
@@ -870,12 +826,8 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun buildExtrasRow(
-        iconPath: String,
-        label: String,
-        subtitle: String,
-        isSwitch: Boolean,
-        checked: Boolean,
-        onClick: () -> Unit
+        iconPath: String, label: String, subtitle: String,
+        isSwitch: Boolean, checked: Boolean, onClick: () -> Unit
     ): View {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val row = LinearLayout(this).apply {
@@ -887,7 +839,6 @@ class MainActiviy : BaseActivity() {
             background = a.getDrawable(0); a.recycle()
             isClickable = true; isFocusable = true
         }
-
         val iconFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
             background = ContextCompat.getDrawable(this@MainActiviy, R.drawable.drawer_icon_bg)
@@ -897,30 +848,24 @@ class MainActiviy : BaseActivity() {
             layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
         })
         row.addView(iconFrame)
-
         val textCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         textCol.addView(TextView(this).apply {
-            text = label
-            textSize = 15f
-            setTextColor(Color.BLACK)
+            text = label; textSize = 15f; setTextColor(Color.BLACK)
         })
         textCol.addView(TextView(this).apply {
-            text = subtitle
-            textSize = 12f
+            text = subtitle; textSize = 12f
             setTextColor(Color.parseColor("#888888"))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(2) }
         })
         row.addView(textCol)
-
         if (isSwitch) {
-            val sw = MaterialSwitch(this).apply {
+            row.addView(MaterialSwitch(this).apply {
                 isChecked = checked
                 setOnCheckedChangeListener { _, _ -> onClick() }
-            }
-            row.addView(sw)
+            })
         } else {
             if (checked) {
                 row.addView(ImageView(this).apply {
@@ -931,7 +876,6 @@ class MainActiviy : BaseActivity() {
             }
             row.setOnClickListener { onClick() }
         }
-
         return row
     }
 
@@ -969,11 +913,9 @@ class MainActiviy : BaseActivity() {
         val targetRadius = if (isPreview) RADIUS_PREVIEW_DP * d else RADIUS_CHAT_DP * d
         val bottomMargin = (BOTTOM_MARGIN_DP * d).toInt()
         if (currentBarMarginPx == targetMargin && currentBarRadiusPx == targetRadius) return
-
         val wrapperBg = binding.bottomNavWrapper.background as? GradientDrawable ?: return
         val fromMargin = currentBarMarginPx
         val fromRadius = currentBarRadiusPx
-
         bottomBarAnimator?.cancel()
         bottomBarAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 380; interpolator = DecelerateInterpolator(2.0f)
@@ -1226,12 +1168,11 @@ class MainActiviy : BaseActivity() {
             .withEndAction { binding.popupOverlay.visibility = View.GONE }.start()
     }
 
-    // ─── Swipe drawer progressivo ─────────────────────────────────────────────
+    // ─── Swipe drawer ─────────────────────────────────────────────────────────
 
     private fun setupSwipeDrawer() {
         val edgePx    = SWIPE_EDGE_WIDTH * density
         val minDistPx = SWIPE_MIN_DIST * density
-
         binding.coordinatorLayout.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -1254,9 +1195,8 @@ class MainActiviy : BaseActivity() {
                         val dx = event.rawX - swipeStartX
                         if (dx < 0) {
                             val newX = (drawerWidth + dx).coerceAtLeast(0f)
-                            val progress = newX / drawerWidth
                             binding.coordinatorLayout.translationX = newX
-                            binding.coordinatorLayout.elevation = 8f + progress * 16f
+                            binding.coordinatorLayout.elevation = 8f + (newX / drawerWidth) * 16f
                             true
                         } else false
                     } else false

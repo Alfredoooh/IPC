@@ -78,7 +78,7 @@ object NvidiaApiService {
 
             override fun onResponse(call: Call, response: Response) {
                 if (!response.isSuccessful) {
-                    trySend(StreamChunk.Error("Erro: ${response.code}"))
+                    trySend(StreamChunk.Error("Erro ${response.code}: verifica a tua ligação"))
                     close()
                     return
                 }
@@ -116,7 +116,6 @@ object NvidiaApiService {
                                 }
                             }
 
-                            // finish_reason "stop" — só fecha se [DONE] não vier
                             val finishReason = choice.optString("finish_reason", "")
                             if (finishReason == "stop" && !doneSent) {
                                 doneSent = true
@@ -125,7 +124,6 @@ object NvidiaApiService {
                             }
                         } catch (_: Exception) {}
                     }
-                    // fallback: se o stream fechou sem [DONE] nem stop
                     if (!doneSent) {
                         trySend(StreamChunk.Done(sb.toString()))
                     }
@@ -182,7 +180,7 @@ object NvidiaApiService {
             Sê conciso, útil e direto. Quando não souberes algo, diz-o claramente.
             Não uses formatação excessiva. Responde de forma natural e conversacional.
             Quando o utilizador pedir uma tabela, formata em markdown com | separadores.
-            Quando o utilizador pedir código de programação /canvas, apresenta o conteúdo do código num bloco de código delimitado por ``` com o tipo canvas.
+            Quando o usuário pedir código então use/canvas, ela serve para passar os códigos.
         """.trimIndent()
     }
 }
