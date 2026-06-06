@@ -1212,45 +1212,49 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun setupPopupMenu() {
-        binding.btnMore.setOnClickListener {
-            if (displayMessages.isNotEmpty() || chatHistory.isNotEmpty()) {
-                // Numa conversa ativa: "Mais" inicia nova conversa
-                startNewConversation()
-            } else {
-                showPopup()
-            }
-        }
-        // Clicar no overlay fecha popup — bloqueia interação fora
-        binding.popupOverlay.setOnClickListener { hidePopup() }
-        // Câmara
-        binding.popupItemCamera.setOnClickListener { hidePopup(); openCamera() }
-        // Importar
-        binding.popupItemImport.setOnClickListener { hidePopup() }
-        // URL — sem funcionalidade
-        binding.popupItemUrl.setOnClickListener { /* inativo */ }
-        // Extras
-        binding.popupItemExtras.setOnClickListener { showExtrasSheet() }
-    }
+    binding.btnMore.setOnClickListener { showPopup() } // sempre abre popup
+    binding.popupOverlay.setOnClickListener { hidePopup() }
+    binding.popupItemCamera.setOnClickListener { hidePopup(); openCamera() }
+    binding.popupItemImport.setOnClickListener { hidePopup() }
+    binding.popupItemUrl.setOnClickListener { /* inativo */ }
+    binding.popupItemExtras.setOnClickListener { showExtrasSheet() }
+}
 
-    private fun showPopup() {
-        if (popupVisible) return; popupVisible = true
-        binding.popupOverlay.visibility = View.VISIBLE; binding.popupOverlay.alpha = 0f
-        binding.popupMenu.post {
-            binding.popupMenu.pivotX = binding.popupMenu.width.toFloat(); binding.popupMenu.pivotY = 0f
-            binding.popupMenu.scaleX = 0.85f; binding.popupMenu.scaleY = 0.85f; binding.popupMenu.alpha = 0f
-            binding.bottomNavWrapper.animate().alpha(0.35f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
-            binding.popupOverlay.animate().alpha(1f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
-            binding.popupMenu.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(300).setInterpolator(OvershootInterpolator(1.2f)).start()
-        }
-    }
+private fun showPopup() {
+    if (popupVisible) return
+    popupVisible = true
+    // Desabilita input enquanto popup está aberto
+    binding.inputMessage.isEnabled = false
+    binding.inputMessage.isFocusable = false
+    hideKeyboard()
 
-    private fun hidePopup() {
-        if (!popupVisible) return; popupVisible = false
-        binding.bottomNavWrapper.animate().alpha(1f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
-        binding.popupMenu.animate().scaleX(0.85f).scaleY(0.85f).alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
-        binding.popupOverlay.animate().alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator())
-            .withEndAction { binding.popupOverlay.visibility = View.GONE }.start()
+    binding.popupOverlay.visibility = View.VISIBLE
+    binding.popupOverlay.alpha = 0f
+    binding.popupMenu.post {
+        binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
+        binding.popupMenu.pivotY = 0f
+        binding.popupMenu.scaleX = 0.85f
+        binding.popupMenu.scaleY = 0.85f
+        binding.popupMenu.alpha = 0f
+        binding.bottomNavWrapper.animate().alpha(0.35f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
+        binding.popupOverlay.animate().alpha(1f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
+        binding.popupMenu.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(300).setInterpolator(OvershootInterpolator(1.2f)).start()
     }
+}
+
+private fun hidePopup() {
+    if (!popupVisible) return
+    popupVisible = false
+    // Reabilita input
+    binding.inputMessage.isEnabled = true
+    binding.inputMessage.isFocusable = true
+    binding.inputMessage.isFocusableInTouchMode = true
+
+    binding.bottomNavWrapper.animate().alpha(1f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
+    binding.popupMenu.animate().scaleX(0.85f).scaleY(0.85f).alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
+    binding.popupOverlay.animate().alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator())
+        .withEndAction { binding.popupOverlay.visibility = View.GONE }.start()
+}
 
     // ─── Swipe drawer progressivo ─────────────────────────────────────────────
 
