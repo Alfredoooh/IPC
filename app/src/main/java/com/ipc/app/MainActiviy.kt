@@ -139,7 +139,6 @@ class MainActiviy : BaseActivity() {
     private val density: Float
         get() = resources.displayMetrics.density
 
-    // Nova conversa só ativa se já há histórico
     private val newChatEnabled: Boolean
         get() = chatHistory.isNotEmpty() || currentConversationId.isNotEmpty()
 
@@ -161,78 +160,85 @@ class MainActiviy : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-    installSplashScreen()
-    super.onCreate(savedInstanceState)
-    binding = ActivityMainBinding.inflate(layoutInflater)
-    setContentView(binding.root)
+        installSplashScreen()
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-    ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
-        val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-        v.updatePadding(top = statusBars.top)
-        insets
-    }
+        ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
+            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            v.updatePadding(top = statusBars.top)
+            insets
+        }
 
-    ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
-        val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-        val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-        val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
-        val imeNowOpen = extraShift > 0
+        ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
+            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
+            val imeNowOpen = extraShift > 0
 
-        binding.bottomNavWrapper.animate()
-            .translationY(-extraShift.toFloat())
-            .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-        binding.bottomNavWrapper.updatePadding(
-            bottom = if (extraShift == 0) navInsets.bottom else 0
-        )
+            binding.bottomNavWrapper.animate()
+                .translationY(-extraShift.toFloat())
+                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+            binding.bottomNavWrapper.updatePadding(
+                bottom = if (extraShift == 0) navInsets.bottom else 0
+            )
 
-        if (imeNowOpen && !keyboardOpen) {
-            keyboardOpen = true
-            if (displayMessages.isEmpty()) {
-                binding.emptyState.animate()
-                    .translationY(-(extraShift * 0.45f))
-                    .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-            }
-            if (displayMessages.isNotEmpty()) {
-                binding.chatRecyclerView.post {
-                    binding.chatRecyclerView.smoothScrollToPosition(displayMessages.lastIndex)
+            if (imeNowOpen && !keyboardOpen) {
+                // teclado abriu — sobe o chat se houver mensagens, nunca desce
+                keyboardOpen = true
+                if (displayMessages.isEmpty()) {
+                    binding.emptyState.animate()
+                        .translationY(-(extraShift * 0.45f))
+                        .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+                } else {
+                    // scroll para o último item — só sobe, nunca desce
+                    binding.chatRecyclerView.post {
+                        val llm = binding.chatRecyclerView.layoutManager as? LinearLayoutManager ?: return@post
+                        val lastVisible = llm.findLastCompletelyVisibleItemPosition()
+                        val lastIndex = displayMessages.lastIndex
+                        if (lastVisible < lastIndex) {
+                            binding.chatRecyclerView.smoothScrollToPosition(lastIndex)
+                        }
+                    }
                 }
+            } else if (!imeNowOpen && keyboardOpen) {
+                // teclado fechou — repõe emptyState, o chat fica onde está
+                keyboardOpen = false
+                binding.emptyState.animate()
+                    .translationY(0f)
+                    .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
             }
-        } else if (!imeNowOpen && keyboardOpen) {
-            keyboardOpen = false
-            binding.emptyState.animate()
-                .translationY(0f)
-                .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
+            insets
         }
-        insets
-    }
 
-    binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
-        it.width = drawerWidth
-    }
-    binding.inputRow.post {
-        if (inputRowHeight == 0) {
-            inputRowHeight = binding.inputRow.height
-            frozenInputRowHeight = inputRowHeight
+        binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
+            it.width = drawerWidth
         }
+        binding.inputRow.post {
+            if (inputRowHeight == 0) {
+                inputRowHeight = binding.inputRow.height
+                frozenInputRowHeight = inputRowHeight
+            }
+        }
+
+        currentBarMarginPx = (MARGIN_CHAT_DP * density).toInt()
+        currentBarRadiusPx = RADIUS_CHAT_DP * density
+
+        setupBottomBarSolid()
+        setupLogo()
+        setupGreeting()
+        setupIcons()
+        setupDrawer()
+        setupSwipeDrawer()
+        setupBottomTabs()
+        setupPreviewImage()
+        setupInput()
+        setupPopupMenu()
+        setupChatRecycler()
+        loadDrawerConversations()
+        refreshNewChatBtn()
     }
-
-    currentBarMarginPx = (MARGIN_CHAT_DP * density).toInt()
-    currentBarRadiusPx = RADIUS_CHAT_DP * density
-
-    setupBottomBarSolid()
-    setupLogo()
-    setupGreeting()
-    setupIcons()
-    setupDrawer()
-    setupSwipeDrawer()
-    setupBottomTabs()
-    setupPreviewImage()
-    setupInput()
-    setupPopupMenu()
-    setupChatRecycler()
-    loadDrawerConversations()
-    refreshNewChatBtn()
-}
 
     // ─── Nova conversa ────────────────────────────────────────────────────────
 
@@ -310,7 +316,6 @@ class MainActiviy : BaseActivity() {
         refreshNewChatBtn()
     }
 
-    /** Agrupa conversas por período: "7 Dias", "30 Dias", "MM/AAAA" */
     private fun groupConversations(list: List<Conversation>): List<Any> {
         val now = System.currentTimeMillis()
         val day7  = now - 7L  * 24 * 3600 * 1000
@@ -341,7 +346,6 @@ class MainActiviy : BaseActivity() {
         grouped.forEach { item ->
             when (item) {
                 is String -> {
-                    // Cabeçalho de período
                     container.addView(TextView(this).apply {
                         text = item
                         textSize = 11f
@@ -386,6 +390,9 @@ class MainActiviy : BaseActivity() {
 
     private fun startNewConversation() {
         if (!newChatEnabled) return
+        // FIX: cancelar stream anterior para não bloquear o próximo envio
+        streamJob?.cancel()
+        streamJob = null
         saveCurrentConversation()
         currentConversationId    = ""
         currentConversationTitle = "Nova conversa"
@@ -424,7 +431,6 @@ class MainActiviy : BaseActivity() {
         val isThinking   = thinkMoreMode
         thinkingContent  = ""
 
-        // Ativa botão nova conversa assim que começa a primeira mensagem
         refreshNewChatBtn()
 
         streamJob = lifecycleScope.launch {
@@ -526,7 +532,6 @@ class MainActiviy : BaseActivity() {
                     orientation = LinearLayout.VERTICAL
                 }
 
-                // Think button
                 if (msg.thinkingContent.isNotEmpty() || (msg.isThinking && msg.isStreaming)) {
                     val thinkBtn = LinearLayout(holder.wrapper.context).apply {
                         orientation = LinearLayout.HORIZONTAL
@@ -560,14 +565,11 @@ class MainActiviy : BaseActivity() {
                     col.addView(thinkBtn)
                 }
 
-                // Loader / skeleton / texto
                 when {
                     msg.isStreaming && msg.isThinking -> {
-                        // Skeleton "thinking" com shimmer
                         col.addView(buildThinkingSkeletonView(holder.wrapper.context))
                     }
                     msg.isStreaming && msg.content.isBlank() -> {
-                        // Loader animado enquanto aguarda primeiro token
                         col.addView(buildLoaderView(holder.wrapper.context))
                     }
                     else -> {
@@ -579,7 +581,6 @@ class MainActiviy : BaseActivity() {
                             text = parseMarkdown(msg.content)
                         }
                         col.addView(tv)
-                        // Loader de streaming ainda ativo (a receber tokens)
                         if (msg.isStreaming) {
                             col.addView(buildLoaderView(holder.wrapper.context))
                         }
@@ -596,13 +597,9 @@ class MainActiviy : BaseActivity() {
         override fun getItemCount() = msgs.size
     }
 
-    /**
-     * Loader animado baseado no CSS do Uiverse (ZacharyCrespin) — dois quadrados
-     * que se movem em direcções opostas numa grelha 2×2.
-     */
     private fun buildLoaderView(ctx: Context): View {
-        val sizePx  = dp(12) // equivale ao --size: 30px escalado para mobile
-        val color   = ContextCompat.getColor(this, R.color.colorPrimary)
+        val sizePx = dp(12)
+        val color  = ContextCompat.getColor(this, R.color.colorPrimary)
 
         val container = FrameLayout(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(dp(52), dp(52)).also {
@@ -610,28 +607,21 @@ class MainActiviy : BaseActivity() {
             }
         }
 
-        // Quadrado "before" — começa centro, anda para a direita/baixo
         val sq1 = View(ctx).apply {
             background = GradientDrawable().apply { setColor(color); cornerRadius = dp(2).toFloat() }
         }
-        // Quadrado "after" — começa offset, anda para a esquerda/cima
         val sq2 = View(ctx).apply {
             background = GradientDrawable().apply { setColor(color); cornerRadius = dp(2).toFloat() }
         }
 
-        val lp1 = FrameLayout.LayoutParams(sizePx, sizePx).apply {
+        container.addView(sq1, FrameLayout.LayoutParams(sizePx, sizePx).apply { gravity = Gravity.CENTER })
+        container.addView(sq2, FrameLayout.LayoutParams(sizePx, sizePx).apply {
             gravity = Gravity.CENTER
-        }
-        val lp2 = FrameLayout.LayoutParams(sizePx, sizePx).apply {
-            gravity = Gravity.CENTER
-            leftMargin  = -sizePx
-            topMargin   = -sizePx
-        }
-        container.addView(sq1, lp1)
-        container.addView(sq2, lp2)
+            leftMargin = -sizePx
+            topMargin  = -sizePx
+        })
 
         container.post {
-            val center = container.width / 2f - sizePx / 2f
             val sq1Animator = ValueAnimator.ofFloat(0f, 1f).apply {
                 duration = 2400
                 repeatCount = ValueAnimator.INFINITE
@@ -669,7 +659,6 @@ class MainActiviy : BaseActivity() {
         return container
     }
 
-    /** Skeleton shimmer "A pensar…" */
     private fun buildThinkingSkeletonView(ctx: Context): View {
         val wrap = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
@@ -679,15 +668,13 @@ class MainActiviy : BaseActivity() {
             )
         }
 
-        val label = TextView(ctx).apply {
+        wrap.addView(TextView(ctx).apply {
             text = "🧠 A pensar…"
             textSize = 14f
             setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
             setPadding(dp(2), dp(4), dp(8), dp(6))
-        }
-        wrap.addView(label)
+        })
 
-        // Linhas skeleton com shimmer
         listOf(0.85f, 0.7f, 0.55f).forEach { widthFraction ->
             val bar = View(ctx).apply {
                 background = GradientDrawable().apply {
@@ -700,8 +687,6 @@ class MainActiviy : BaseActivity() {
                 }
             }
             wrap.addView(bar)
-
-            // Shimmer: alterna alpha
             ValueAnimator.ofFloat(0.4f, 1f, 0.4f).apply {
                 duration = 1200
                 repeatCount = ValueAnimator.INFINITE
@@ -816,7 +801,6 @@ class MainActiviy : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
 
-        // Handle
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
@@ -827,7 +811,6 @@ class MainActiviy : BaseActivity() {
             }
         })
 
-        // Título
         card.addView(TextView(this).apply {
             text = "Extras"
             textSize = 13f
@@ -838,7 +821,6 @@ class MainActiviy : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         })
 
-        // Flash
         card.addView(buildExtrasRow(
             iconPath = "icons/svg/flash.svg",
             label    = "Flash",
@@ -849,7 +831,6 @@ class MainActiviy : BaseActivity() {
 
         card.addView(extrasDiv())
 
-        // Think More
         card.addView(buildExtrasRow(
             iconPath = "icons/svg/brain.svg",
             label    = "Think More",
@@ -860,7 +841,6 @@ class MainActiviy : BaseActivity() {
 
         card.addView(extrasDiv())
 
-        // Sheets
         card.addView(buildExtrasRow(
             iconPath = "icons/svg/sheets.svg",
             label    = "Sheets",
@@ -908,7 +888,6 @@ class MainActiviy : BaseActivity() {
             isClickable = true; isFocusable = true
         }
 
-        // Ícone
         val iconFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
             background = ContextCompat.getDrawable(this@MainActiviy, R.drawable.drawer_icon_bg)
@@ -919,7 +898,6 @@ class MainActiviy : BaseActivity() {
         })
         row.addView(iconFrame)
 
-        // Texto
         val textCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -944,7 +922,6 @@ class MainActiviy : BaseActivity() {
             }
             row.addView(sw)
         } else {
-            // Checkmark se ativo
             if (checked) {
                 row.addView(ImageView(this).apply {
                     setImageDrawable(svgDrawable("icons/svg/ic_check.svg", 18,
@@ -952,7 +929,7 @@ class MainActiviy : BaseActivity() {
                     layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
                 })
             }
-            row.setOnClickListener { onClick(); }
+            row.setOnClickListener { onClick() }
         }
 
         return row
@@ -1202,7 +1179,6 @@ class MainActiviy : BaseActivity() {
         binding.btnNewChatIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 17, iconTint))
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-        // Popup icons
         binding.popupCameraIcon.setImageDrawable(svgDrawable("icons/svg/camera.svg", 20, iconTint))
         binding.popupImportIcon.setImageDrawable(svgDrawable("icons/svg/download.svg", 20, iconTint))
         binding.popupUrlIcon.setImageDrawable(svgDrawable("icons/svg/external.svg", 20, iconTint))
@@ -1210,54 +1186,50 @@ class MainActiviy : BaseActivity() {
     }
 
     private fun setupPopupMenu() {
-    binding.btnMore.setOnClickListener { showPopup() } // sempre abre popup
-    binding.popupOverlay.setOnClickListener { hidePopup() }
-    binding.popupItemCamera.setOnClickListener { hidePopup(); openCamera() }
-    binding.popupItemImport.setOnClickListener { hidePopup() }
-    binding.popupItemUrl.setOnClickListener { /* inativo */ }
-    binding.popupItemExtras.setOnClickListener { showExtrasSheet() }
-}
-
-private fun showPopup() {
-    if (popupVisible) return
-    popupVisible = true
-    // Desabilita input enquanto popup está aberto
-    binding.inputMessage.isEnabled = false
-    binding.inputMessage.isFocusable = false
-    hideKeyboard()
-
-    binding.popupOverlay.visibility = View.VISIBLE
-    binding.popupOverlay.alpha = 0f
-    binding.popupMenu.post {
-        binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
-        binding.popupMenu.pivotY = 0f
-        binding.popupMenu.scaleX = 0.85f
-        binding.popupMenu.scaleY = 0.85f
-        binding.popupMenu.alpha = 0f
-        binding.bottomNavWrapper.animate().alpha(0.35f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
-        binding.popupOverlay.animate().alpha(1f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
-        binding.popupMenu.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(300).setInterpolator(OvershootInterpolator(1.2f)).start()
+        binding.btnMore.setOnClickListener { showPopup() }
+        binding.popupOverlay.setOnClickListener { hidePopup() }
+        binding.popupItemCamera.setOnClickListener { hidePopup(); openCamera() }
+        binding.popupItemImport.setOnClickListener { hidePopup() }
+        binding.popupItemUrl.setOnClickListener { }
+        binding.popupItemExtras.setOnClickListener { showExtrasSheet() }
     }
-}
 
-private fun hidePopup() {
-    if (!popupVisible) return
-    popupVisible = false
-    // Reabilita input
-    binding.inputMessage.isEnabled = true
-    binding.inputMessage.isFocusable = true
-    binding.inputMessage.isFocusableInTouchMode = true
+    private fun showPopup() {
+        if (popupVisible) return
+        popupVisible = true
+        binding.inputMessage.isEnabled = false
+        binding.inputMessage.isFocusable = false
+        hideKeyboard()
+        binding.popupOverlay.visibility = View.VISIBLE
+        binding.popupOverlay.alpha = 0f
+        binding.popupMenu.post {
+            binding.popupMenu.pivotX = binding.popupMenu.width.toFloat()
+            binding.popupMenu.pivotY = 0f
+            binding.popupMenu.scaleX = 0.85f
+            binding.popupMenu.scaleY = 0.85f
+            binding.popupMenu.alpha = 0f
+            binding.bottomNavWrapper.animate().alpha(0.35f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
+            binding.popupOverlay.animate().alpha(1f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
+            binding.popupMenu.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(300).setInterpolator(OvershootInterpolator(1.2f)).start()
+        }
+    }
 
-    binding.bottomNavWrapper.animate().alpha(1f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
-    binding.popupMenu.animate().scaleX(0.85f).scaleY(0.85f).alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
-    binding.popupOverlay.animate().alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator())
-        .withEndAction { binding.popupOverlay.visibility = View.GONE }.start()
-}
+    private fun hidePopup() {
+        if (!popupVisible) return
+        popupVisible = false
+        binding.inputMessage.isEnabled = true
+        binding.inputMessage.isFocusable = true
+        binding.inputMessage.isFocusableInTouchMode = true
+        binding.bottomNavWrapper.animate().alpha(1f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
+        binding.popupMenu.animate().scaleX(0.85f).scaleY(0.85f).alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator()).start()
+        binding.popupOverlay.animate().alpha(0f).setDuration(180).setInterpolator(DecelerateInterpolator())
+            .withEndAction { binding.popupOverlay.visibility = View.GONE }.start()
+    }
 
     // ─── Swipe drawer progressivo ─────────────────────────────────────────────
 
     private fun setupSwipeDrawer() {
-        val edgePx   = SWIPE_EDGE_WIDTH * density
+        val edgePx    = SWIPE_EDGE_WIDTH * density
         val minDistPx = SWIPE_MIN_DIST * density
 
         binding.coordinatorLayout.setOnTouchListener { _, event ->
@@ -1272,7 +1244,6 @@ private fun hidePopup() {
                         val dx = event.rawX - swipeStartX
                         val dy = event.rawY - swipeStartY
                         if (kotlin.math.abs(dx) > kotlin.math.abs(dy) && dx > 0) {
-                            // Movimento progressivo proporcional ao dedo
                             val progress = (dx / drawerWidth).coerceIn(0f, 1f)
                             binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
                             binding.coordinatorLayout.elevation = 8f + progress * 16f

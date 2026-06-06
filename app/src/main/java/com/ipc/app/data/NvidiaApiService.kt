@@ -83,6 +83,7 @@ object NvidiaApiService {
                     return
                 }
                 val sb = StringBuilder()
+                var doneSent = false
                 try {
                     val reader = BufferedReader(response.body!!.charStream())
                     var line: String?
@@ -91,7 +92,10 @@ object NvidiaApiService {
                         if (!l.startsWith("data: ")) continue
                         val data = l.removePrefix("data: ").trim()
                         if (data == "[DONE]") {
-                            trySend(StreamChunk.Done(sb.toString()))
+                            if (!doneSent) {
+                                doneSent = true
+                                trySend(StreamChunk.Done(sb.toString()))
+                            }
                             break
                         }
                         try {
@@ -112,14 +116,19 @@ object NvidiaApiService {
                                 }
                             }
 
+                            // finish_reason "stop" — só fecha se [DONE] não vier
                             val finishReason = choice.optString("finish_reason", "")
-                            if (finishReason == "stop" && sb.isNotEmpty()) {
+                            if (finishReason == "stop" && !doneSent) {
+                                doneSent = true
                                 trySend(StreamChunk.Done(sb.toString()))
                                 break
                             }
                         } catch (_: Exception) {}
                     }
-                    if (sb.isNotEmpty()) trySend(StreamChunk.Done(sb.toString()))
+                    // fallback: se o stream fechou sem [DONE] nem stop
+                    if (!doneSent) {
+                        trySend(StreamChunk.Done(sb.toString()))
+                    }
                 } catch (e: Exception) {
                     trySend(StreamChunk.Error("Erro ao ler stream: ${e.message}"))
                 } finally {
