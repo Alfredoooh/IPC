@@ -44,7 +44,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.caverock.androidsvg.SVG
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.ipc.app.data.AuthApiService
 import com.ipc.app.data.ChatMessage
+import com.ipc.app.data.Conversation
 import com.ipc.app.data.NvidiaApiService
 import com.ipc.app.data.StreamChunk
 import com.ipc.app.databinding.ActivityMainBinding
@@ -54,8 +56,6 @@ import com.ipc.app.ui.SettingsActivity
 import com.ipc.app.ui.UserProfileActivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
@@ -98,10 +98,11 @@ class MainActiviy : BaseActivity() {
     private var thinkMode = false
     private var thinkingContent = ""
 
-    private var currentConversationId: String = UUID.randomUUID().toString()
+    private var currentConversationId: String = ""
     private var currentConversationTitle: String = "Nova conversa"
     private var titleGenerated = false
 
+    private val drawerConversations = mutableListOf<Conversation>()
     private val chatHistory = mutableListOf<ChatMessage>()
     private val displayMessages = mutableListOf<DisplayMessage>()
     private var streamJob: Job? = null
@@ -116,6 +117,7 @@ class MainActiviy : BaseActivity() {
     )
 
     private val prefs by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
+    private val authToken get() = prefs.getString("auth_token", "") ?: ""
 
     private val activeIconColor: Int
         get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
@@ -212,7 +214,7 @@ class MainActiviy : BaseActivity() {
         setupInput()
         setupPopupMenu()
         setupChatRecycler()
-        refreshDrawerConversations()
+        loadDrawerConversations()
     }
 
     private fun setupBottomBarSolid() {
@@ -232,70 +234,54 @@ class MainActiviy : BaseActivity() {
         binding.chatRecyclerView.overScrollMode = View.OVER_SCROLL_NEVER
     }
 
-    private fun saveCurrentConversation() {
-        if (chatHistory.isEmpty()) return
-        val convJson = JSONObject().apply {
-            put("id", currentConversationId)
-            put("title", currentConversationTitle)
-            put("timestamp", System.currentTimeMillis())
-            put("messages", JSONArray().also { arr ->
-                chatHistory.forEach { msg ->
-                    arr.put(JSONObject().apply {
-                        put("role", msg.role)
-                        put("content", msg.content)
-                    })
-                }
-            })
+    private fun loadDrawerConversations() {
+        lifecycleScope.launch {
+            val list = AuthApiService.listConversations(authToken)
+            drawerConversations.clear()
+            drawerConversations.addAll(list)
+            refreshDrawerConversations()
         }
-        prefs.edit().putString("conv_${currentConversationId}", convJson.toString()).apply()
-        val idsJson = prefs.getString("conv_ids", "[]")
-        val ids = JSONArray(idsJson)
-        var found = false
-        for (i in 0 until ids.length()) {
-            if (ids.getString(i) == currentConversationId) { found = true; break }
-        }
-        if (!found) ids.put(currentConversationId)
-        prefs.edit().putString("conv_ids", ids.toString()).apply()
     }
 
-    private fun loadConversation(id: String) {
-        val convJson = prefs.getString("conv_$id", null) ?: return
-        val obj = JSONObject(convJson)
-        currentConversationId    = obj.getString("id")
-        currentConversationTitle = obj.getString("title")
+    private fun saveCurrentConversation() {
+        if (chatHistory.isEmpty()) return
+        val token = authToken
+        val title = currentConversationTitle
+        val msgs  = chatHistory.toList()
+        val id    = currentConversationId
+
+        lifecycleScope.launch {
+            if (id.isEmpty()) {
+                val newId = AuthApiService.createConversation(token, title, msgs)
+                if (newId != null) {
+                    currentConversationId = newId
+                    loadDrawerConversations()
+                }
+            } else {
+                AuthApiService.updateConversation(token, id, title, msgs)
+                loadDrawerConversations()
+            }
+        }
+    }
+
+    private fun loadConversation(conv: Conversation) {
+        currentConversationId    = conv.id
+        currentConversationTitle = conv.title
         titleGenerated = true
         chatHistory.clear()
+        chatHistory.addAll(conv.messages)
         displayMessages.clear()
-        val msgs = obj.getJSONArray("messages")
-        for (i in 0 until msgs.length()) {
-            val m = msgs.getJSONObject(i)
-            chatHistory.add(ChatMessage(m.getString("role"), m.getString("content")))
-            displayMessages.add(DisplayMessage(m.getString("role"), m.getString("content")))
-        }
+        conv.messages.forEach { displayMessages.add(DisplayMessage(it.role, it.content)) }
         chatAdapter.notifyDataSetChanged()
         if (displayMessages.isNotEmpty()) binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
         binding.chatRecyclerView.visibility = View.VISIBLE
         binding.emptyState.visibility = View.GONE
     }
 
-    private fun getAllConversations(): List<Triple<String, String, Long>> {
-        val idsJson = prefs.getString("conv_ids", "[]")
-        val ids = JSONArray(idsJson)
-        val result = mutableListOf<Triple<String, String, Long>>()
-        for (i in 0 until ids.length()) {
-            val id = ids.getString(i)
-            val convJson = prefs.getString("conv_$id", null) ?: continue
-            val obj = JSONObject(convJson)
-            result.add(Triple(id, obj.getString("title"), obj.getLong("timestamp")))
-        }
-        return result.sortedByDescending { it.third }
-    }
-
     private fun refreshDrawerConversations() {
         val container = binding.drawerConversationsList
         container.removeAllViews()
-        val conversations = getAllConversations()
-        conversations.forEach { (id, title, _) ->
+        drawerConversations.forEach { conv ->
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -322,7 +308,7 @@ class MainActiviy : BaseActivity() {
 
             item.addView(iconFrame)
             item.addView(TextView(this).apply {
-                text = title
+                text = conv.title
                 textSize = 14f
                 setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.drawer_text))
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -331,7 +317,7 @@ class MainActiviy : BaseActivity() {
             })
             item.setOnClickListener {
                 closeDrawer()
-                binding.root.postDelayed({ loadConversation(id) }, 250)
+                binding.root.postDelayed({ loadConversation(conv) }, 250)
             }
             container.addView(item)
         }
@@ -339,7 +325,7 @@ class MainActiviy : BaseActivity() {
 
     private fun startNewConversation() {
         saveCurrentConversation()
-        currentConversationId    = UUID.randomUUID().toString()
+        currentConversationId    = ""
         currentConversationTitle = "Nova conversa"
         titleGenerated = false
         chatHistory.clear()
@@ -347,7 +333,7 @@ class MainActiviy : BaseActivity() {
         chatAdapter.notifyDataSetChanged()
         binding.chatRecyclerView.visibility = View.GONE
         binding.emptyState.visibility = View.VISIBLE
-        refreshDrawerConversations()
+        closeDrawer()
     }
 
     private fun sendChatMessage(text: String) {
@@ -367,14 +353,14 @@ class MainActiviy : BaseActivity() {
         chatAdapter.notifyItemInserted(aiIndex)
         binding.chatRecyclerView.smoothScrollToPosition(aiIndex)
 
-        val lang       = prefs.getString("language", "pt") ?: "pt"
-        val authToken  = prefs.getString("auth_token", "") ?: ""
+        val lang        = prefs.getString("language", "pt") ?: "pt"
+        val token       = authToken
         val systemPrompt = NvidiaApiService.buildSystemPrompt(lang)
-        val isThinking = thinkMode
+        val isThinking  = thinkMode
         thinkingContent = ""
 
         streamJob = lifecycleScope.launch {
-            NvidiaApiService.streamChat(chatHistory, systemPrompt, authToken, isThinking)
+            NvidiaApiService.streamChat(chatHistory, systemPrompt, token, isThinking)
                 .collect { chunk ->
                     when (chunk) {
                         is StreamChunk.ThinkToken -> {
@@ -402,15 +388,15 @@ class MainActiviy : BaseActivity() {
                             chatHistory.add(ChatMessage("assistant", aiMsg.content))
                             chatAdapter.notifyItemChanged(aiIndex)
                             binding.chatRecyclerView.scrollToPosition(aiIndex)
-                            saveCurrentConversation()
                             if (!titleGenerated && chatHistory.size >= 2) {
                                 titleGenerated = true
                                 launch {
-                                    val title = NvidiaApiService.generateTitle(text, authToken, lang)
+                                    val title = NvidiaApiService.generateTitle(text, token, lang)
                                     currentConversationTitle = title
                                     saveCurrentConversation()
-                                    refreshDrawerConversations()
                                 }
+                            } else {
+                                saveCurrentConversation()
                             }
                         }
                         is StreamChunk.Error -> {
@@ -470,7 +456,6 @@ class MainActiviy : BaseActivity() {
                     orientation = LinearLayout.VERTICAL
                 }
 
-                // Botão think
                 if (msg.thinkingContent.isNotEmpty() || (msg.isThinking && msg.isStreaming)) {
                     val thinkBtn = LinearLayout(holder.wrapper.context).apply {
                         orientation = LinearLayout.HORIZONTAL
@@ -551,12 +536,10 @@ class MainActiviy : BaseActivity() {
 
     private fun showThinkModal(content: String) {
         val dialog = BottomSheetDialog(this)
-
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
         }
-
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -567,7 +550,6 @@ class MainActiviy : BaseActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -579,7 +561,6 @@ class MainActiviy : BaseActivity() {
                 it.topMargin = dp(10); it.bottomMargin = dp(4)
             }
         })
-
         card.addView(TextView(this).apply {
             text = "Processo de pensamento"
             textSize = 16f
@@ -590,17 +571,13 @@ class MainActiviy : BaseActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             )
         })
-
         card.addView(View(this).apply {
             setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
         })
-
         val scroll = ScrollView(this).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
-            )
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         scroll.addView(TextView(this).apply {
             text = content
@@ -612,7 +589,6 @@ class MainActiviy : BaseActivity() {
         card.addView(scroll)
         root.addView(card)
         dialog.setContentView(root)
-
         dialog.setOnShowListener {
             val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
             bs?.let {
@@ -625,7 +601,6 @@ class MainActiviy : BaseActivity() {
                 behavior.state = BottomSheetBehavior.STATE_EXPANDED
             }
         }
-
         dialog.show()
     }
 
@@ -947,7 +922,7 @@ class MainActiviy : BaseActivity() {
         hideKeyboard()
         drawerOpen = true
         binding.drawerScrim.visibility = View.VISIBLE
-        refreshDrawerConversations()
+        loadDrawerConversations()
         animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat())
     }
 
