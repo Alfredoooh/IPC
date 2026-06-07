@@ -37,7 +37,7 @@ import com.google.android.material.materialswitch.MaterialSwitch
 import com.ipc.app.data.AuthApiService
 import com.ipc.app.data.ChatMessage
 import com.ipc.app.data.Conversation
-import com.ipc.app.data.NvidiaApiService
+import com.ipc.app.data.GeminiApiService
 import com.ipc.app.data.StreamChunk
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -73,7 +73,6 @@ class ChatFragment(private val activity: MainActiviy) {
     private var inputRowAnimator:   ValueAnimator? = null
     private var inputHeightAnimator: ValueAnimator? = null
 
-    // Animação do btnNewChat deslizar para o lugar do btnMore
     private var newChatSlideAnimator: ValueAnimator? = null
 
     val newChatEnabled: Boolean
@@ -162,7 +161,6 @@ class ChatFragment(private val activity: MainActiviy) {
         newChatSlideAnimator?.cancel()
 
         if (hasConv) {
-            // btnMore vai aparecer → btnNewChat desliza de volta para a esquerda (posição normal)
             if (binding.btnNewChat.translationX != 0f) {
                 newChatSlideAnimator = ValueAnimator.ofFloat(binding.btnNewChat.translationX, 0f).apply {
                     duration = 300
@@ -171,7 +169,6 @@ class ChatFragment(private val activity: MainActiviy) {
                     start()
                 }
             }
-            // btnMoreWrapper aparece suavemente
             binding.btnMoreWrapper.visibility = View.VISIBLE
             binding.btnMoreWrapper.alpha = 0f
             binding.btnMoreWrapper.scaleX = 0.7f
@@ -180,17 +177,13 @@ class ChatFragment(private val activity: MainActiviy) {
                 .alpha(1f).scaleX(1f).scaleY(1f)
                 .setDuration(260).setInterpolator(OvershootInterpolator(1.2f)).start()
         } else {
-            // btnMore vai desaparecer → calcula o offset para o btnNewChat ocupar esse espaço
-            // O btnMoreWrapper tem 36dp + 6dp marginEnd = ~42dp de espaço
             val targetX = dp(42).toFloat()
             if (binding.btnMoreWrapper.visibility == View.VISIBLE) {
-                // btnMore some suavemente
                 binding.btnMoreWrapper.animate()
                     .alpha(0f).scaleX(0.7f).scaleY(0.7f)
                     .setDuration(200).setInterpolator(DecelerateInterpolator())
                     .withEndAction { binding.btnMoreWrapper.visibility = View.INVISIBLE }
                     .start()
-                // btnNewChat desliza suavemente para a direita
                 newChatSlideAnimator = ValueAnimator.ofFloat(binding.btnNewChat.translationX, targetX).apply {
                     duration = 300
                     startDelay = 80L
@@ -199,7 +192,6 @@ class ChatFragment(private val activity: MainActiviy) {
                     start()
                 }
             } else {
-                // Estado inicial — sem animação
                 binding.btnMoreWrapper.visibility = View.INVISIBLE
                 binding.btnNewChat.translationX = targetX
             }
@@ -499,14 +491,14 @@ class ChatFragment(private val activity: MainActiviy) {
 
         val lang         = prefs.getString("language", "pt") ?: "pt"
         val token        = authToken
-        val systemPrompt = NvidiaApiService.buildSystemPrompt(lang)
+        val systemPrompt = GeminiApiService.buildSystemPrompt(lang)
         val isThinking   = thinkMoreMode
         thinkingContent  = ""
 
         refreshNewChatBtn()
 
         streamJob = activity.lifecycleScope.launch {
-            NvidiaApiService.streamChat(chatHistory, systemPrompt, token, isThinking)
+            GeminiApiService.streamChat(chatHistory, systemPrompt, token, isThinking)
                 .collect { chunk ->
                     when (chunk) {
                         is StreamChunk.ThinkToken -> {
@@ -534,13 +526,23 @@ class ChatFragment(private val activity: MainActiviy) {
                             chatHistory.add(ChatMessage("assistant", aiMsg.content))
                             chatAdapter.notifyItemChanged(aiIndex)
                             binding.chatRecyclerView.scrollToPosition(aiIndex)
+
+                            val firstUserMsg = chatHistory.firstOrNull { it.role == "user" }?.content ?: text
+
                             if (!titleGenerated && chatHistory.size >= 2) {
                                 titleGenerated = true
+                                // título provisório imediato
+                                currentConversationTitle = firstUserMsg.take(30).trimEnd()
+                                saveCurrentConversation()
+                                activity.drawerManager.loadConversations()
+                                // título gerado pela IA em background
                                 launch {
-                                    val title = NvidiaApiService.generateTitle(text, token, lang)
-                                    currentConversationTitle = title
-                                    saveCurrentConversation()
-                                    activity.drawerManager.loadConversations()
+                                    val generated = GeminiApiService.generateTitle(firstUserMsg, token, lang)
+                                    if (generated.isNotBlank() && generated != "Nova conversa") {
+                                        currentConversationTitle = generated
+                                        saveCurrentConversation()
+                                        activity.drawerManager.loadConversations()
+                                    }
                                 }
                             } else {
                                 saveCurrentConversation()
@@ -901,25 +903,16 @@ class ChatFragment(private val activity: MainActiviy) {
         return wrap
     }
 
-    // ─── Markdown parser correcto ─────────────────────────────────────────────
-    // Usa SpannableStringBuilder nativo em vez de Html.fromHtml para tratar
-    // bullets, bold, italic e headers sem artifacts visuais.
+    // ─── Markdown parser ──────────────────────────────────────────────────────
 
     private fun parseMarkdown(raw: String): Spanned {
-        // Remove blocos <think>
         val text = raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
-
         val sb = SpannableStringBuilder()
-
         val lines = text.split("\n")
         lines.forEachIndexed { idx, line ->
             val trimmed = line.trimStart()
-
-            // Adiciona quebra antes (não na primeira linha)
             if (idx > 0) sb.append("\n")
-
             when {
-                // Header ## ou #
                 trimmed.startsWith("## ") || trimmed.startsWith("# ") -> {
                     val content = trimmed.trimStart('#').trim()
                     val start = sb.length
@@ -927,81 +920,56 @@ class ChatFragment(private val activity: MainActiviy) {
                     sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     sb.setSpan(RelativeSizeSpan(1.15f), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
-                // Header ###
                 trimmed.startsWith("### ") -> {
                     val content = trimmed.trimStart('#').trim()
                     val start = sb.length
                     appendInlineSpans(sb, content)
                     sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
-                // Bullet: linhas que começam com *, -, •
                 trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ") -> {
                     val content = trimmed.substring(2)
                     val start = sb.length
-                    // Adiciona espaço de indentação + bullet nativo
                     sb.append("  ")
-                    val bulletStart = sb.length
                     appendInlineSpans(sb, content)
                     sb.setSpan(
                         BulletSpan(dp(8), ContextCompat.getColor(activity, R.color.text_primary)),
-                        start,
-                        sb.length,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                     )
                 }
-                // Linha de separador markdown (---, ===, |---|)
-                trimmed.matches(Regex("[-=|: ]+")) -> {
-                    // Ignorar
-                }
-                // Linha normal
-                else -> {
-                    appendInlineSpans(sb, line)
-                }
+                trimmed.matches(Regex("[-=|: ]+")) -> {}
+                else -> appendInlineSpans(sb, line)
             }
         }
-
         return sb
     }
 
-    // Aplica bold, italic e code inline dentro de uma linha
     private fun appendInlineSpans(sb: SpannableStringBuilder, line: String) {
-        // Processo sequencial: bold > italic > code
         val pattern = Regex("\\*\\*(.+?)\\*\\*|__(.+?)__|(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)|`(.+?)`")
         var lastEnd = 0
         pattern.findAll(line).forEach { match ->
-            // Texto literal antes do match
-            if (match.range.first > lastEnd) {
-                sb.append(line.substring(lastEnd, match.range.first))
-            }
+            if (match.range.first > lastEnd) sb.append(line.substring(lastEnd, match.range.first))
             val start = sb.length
             when {
                 match.groupValues[1].isNotEmpty() -> {
-                    // **bold**
                     sb.append(match.groupValues[1])
                     sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 match.groupValues[2].isNotEmpty() -> {
-                    // __bold__
                     sb.append(match.groupValues[2])
                     sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 match.groupValues[3].isNotEmpty() -> {
-                    // *italic*
                     sb.append(match.groupValues[3])
                     sb.setSpan(StyleSpan(android.graphics.Typeface.ITALIC), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 match.groupValues[4].isNotEmpty() -> {
-                    // `code`
                     sb.append(match.groupValues[4])
                     sb.setSpan(TypefaceSpan("monospace"), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
             }
             lastEnd = match.range.last + 1
         }
-        // Resto após o último match
-        if (lastEnd < line.length) {
-            sb.append(line.substring(lastEnd))
-        }
+        if (lastEnd < line.length) sb.append(line.substring(lastEnd))
     }
 
     private fun dp(v: Int) = activity.dp(v)

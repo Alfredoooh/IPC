@@ -59,6 +59,83 @@ async function getAuthUser(request, env) {
   return verifyToken(auth.slice(7), env.JWT_SECRET);
 }
 
+// ─── Gemini helpers ───────────────────────────────────────────────────────────
+
+const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_BASE  = "https://generativelanguage.googleapis.com/v1beta/models";
+
+function buildGeminiContents(messages) {
+  // messages: [{role:"user"|"assistant", content:"..."}]
+  // Gemini espera role "user" ou "model"
+  return messages
+    .filter(function(m) { return m.role !== "system"; })
+    .map(function(m) {
+      return {
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      };
+    });
+}
+
+function buildSystemInstruction(language) {
+  return language === "en"
+    ? "You are a helpful AI assistant. Always respond in English. Be concise and direct. When the user asks for a table, use markdown table format. When providing code, always wrap it in fenced code blocks with the language identifier."
+    : "Es um assistente de IA util. Responde sempre em portugues europeu. Se conciso e direto. Quando o utilizador pedir uma tabela, usa formato de tabela markdown. Quando deres codigo, coloca-o sempre em blocos com o identificador de linguagem.";
+}
+
+async function geminiGenerate(apiKey, messages, language, stream, thinkingBudget) {
+  const systemText = buildSystemInstruction(language);
+  const contents   = buildGeminiContents(messages);
+
+  const generationConfig = {
+    maxOutputTokens: 16384,
+    temperature: 1,
+    topP: 0.95,
+  };
+
+  // thinking budget: 0 = desativado, >0 = tokens de raciocínio
+  const thinkingConfig = thinkingBudget > 0
+    ? { thinkingConfig: { thinkingBudget: thinkingBudget } }
+    : { thinkingConfig: { thinkingBudget: 0 } };
+
+  const bodyObj = {
+    system_instruction: { parts: [{ text: systemText }] },
+    contents: contents,
+    generationConfig: Object.assign({}, generationConfig, thinkingConfig),
+  };
+
+  const endpoint = stream
+    ? GEMINI_BASE + "/" + GEMINI_MODEL + ":streamGenerateContent?alt=sse&key=" + apiKey
+    : GEMINI_BASE + "/" + GEMINI_MODEL + ":generateContent?key=" + apiKey;
+
+  return fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bodyObj),
+  });
+}
+
+async function geminiGenerateTitle(apiKey, message, language) {
+  const prompt = language === "en"
+    ? "Generate a short title (max 5 words) for a conversation that starts with: \"" + message + "\". Reply with ONLY the title, no punctuation, no quotes."
+    : "Gera um titulo curto (max 5 palavras) para uma conversa que comeca com: \"" + message + "\". Responde APENAS com o titulo, sem pontuacao, sem aspas.";
+
+  const res = await fetch(GEMINI_BASE + "/gemini-2.0-flash-lite:generateContent?key=" + apiKey, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 20, temperature: 0.5 },
+    }),
+  });
+  if (!res.ok) return "Nova conversa";
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Nova conversa";
+  return text.trim().slice(0, 40);
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -66,24 +143,32 @@ export default {
     const url  = new URL(request.url);
     const path = url.pathname;
 
-    if (path === "/auth/register"               && request.method === "POST")   return handleRegister(request, env);
-    if (path === "/auth/login"                  && request.method === "POST")   return handleLogin(request, env);
-    if (path === "/auth/logout"                 && request.method === "POST")   return handleLogout(request, env);
-    if (path === "/auth/forgot-password"        && request.method === "POST")   return handleForgotPassword(request, env);
-    if (path === "/auth/reset-password"         && request.method === "POST")   return handleResetPassword(request, env);
-    if (path === "/user/me"                     && request.method === "GET")    return handleGetMe(request, env);
-    if (path === "/user/me"                     && request.method === "PUT")    return handleUpdateMe(request, env);
-    if (path === "/ai/chat"                     && request.method === "POST")   return handleAiChat(request, env);
-    if (path === "/ai/title"                    && request.method === "POST")   return handleAiTitle(request, env);
-    if (path === "/conversations"               && request.method === "GET")    return handleListConversations(request, env);
-    if (path === "/conversations"               && request.method === "POST")   return handleCreateConversation(request, env);
-    if (path.match(/^\/conversations\/[^\/]+$/) && request.method === "GET")    return handleGetConversation(request, env);
-    if (path.match(/^\/conversations\/[^\/]+$/) && request.method === "PUT")    return handleUpdateConversation(request, env);
-    if (path.match(/^\/conversations\/[^\/]+$/) && request.method === "DELETE") return handleDeleteConversation(request, env);
+    if (path === "/auth/register"                        && request.method === "POST")   return handleRegister(request, env);
+    if (path === "/auth/login"                           && request.method === "POST")   return handleLogin(request, env);
+    if (path === "/auth/logout"                          && request.method === "POST")   return handleLogout(request, env);
+    if (path === "/auth/forgot-password"                 && request.method === "POST")   return handleForgotPassword(request, env);
+    if (path === "/auth/reset-password"                  && request.method === "POST")   return handleResetPassword(request, env);
+    if (path === "/user/me"                              && request.method === "GET")    return handleGetMe(request, env);
+    if (path === "/user/me"                              && request.method === "PUT")    return handleUpdateMe(request, env);
+    if (path === "/user/avatar"                          && request.method === "PUT")    return handleUpdateAvatar(request, env);
+    if (path === "/ai/chat"                              && request.method === "POST")   return handleAiChat(request, env);
+    if (path === "/ai/title"                             && request.method === "POST")   return handleAiTitle(request, env);
+    if (path === "/ai/summarize"                         && request.method === "POST")   return handleAiSummarize(request, env);
+    if (path === "/conversations"                        && request.method === "GET")    return handleListConversations(request, env);
+    if (path === "/conversations"                        && request.method === "POST")   return handleCreateConversation(request, env);
+    if (path === "/conversations/all"                    && request.method === "DELETE") return handleDeleteAllConversations(request, env);
+    if (path.match(/^\/conversations\/[^\/]+$/)          && request.method === "GET")    return handleGetConversation(request, env);
+    if (path.match(/^\/conversations\/[^\/]+$/)          && request.method === "PUT")    return handleUpdateConversation(request, env);
+    if (path.match(/^\/conversations\/[^\/]+$/)          && request.method === "DELETE") return handleDeleteConversation(request, env);
+    if (path.match(/^\/conversations\/[^\/]+\/pin$/)     && request.method === "PUT")    return handlePinConversation(request, env);
+    if (path.match(/^\/conversations\/[^\/]+\/archive$/) && request.method === "PUT")    return handleArchiveConversation(request, env);
+    if (path === "/conversations/search"                 && request.method === "GET")    return handleSearchConversations(request, env);
 
     return error("Not found", 404);
   },
 };
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
 async function handleRegister(request, env) {
   const body = await request.json().catch(function() { return null; });
@@ -98,7 +183,16 @@ async function handleRegister(request, env) {
   if (existing) return error("Este email já está registado");
   const id           = crypto.randomUUID();
   const passwordHash = await hashPassword(password);
-  const user         = { id: id, name: name, email: email.toLowerCase(), passwordHash: passwordHash, createdAt: Date.now() };
+  const user         = {
+    id: id,
+    name: name,
+    email: email.toLowerCase(),
+    passwordHash: passwordHash,
+    avatar: null,
+    preferences: { language: "pt", theme: "system", fontSize: "medium" },
+    stats: { totalConversations: 0, totalMessages: 0 },
+    createdAt: Date.now(),
+  };
   await env.IPC_USERS.put("user:" + id, JSON.stringify(user));
   await env.IPC_USERS.put("email:" + email.toLowerCase(), id);
   const token = await generateToken({ id: id, email: user.email, name: name }, env.JWT_SECRET);
@@ -118,7 +212,7 @@ async function handleLogin(request, env) {
   const user = JSON.parse(userData);
   if (user.passwordHash !== await hashPassword(password)) return error("Email ou password incorretos", 401);
   const token = await generateToken({ id: user.id, email: user.email, name: user.name }, env.JWT_SECRET);
-  return json({ token: token, id: user.id, name: user.name, email: user.email });
+  return json({ token: token, id: user.id, name: user.name, email: user.email, preferences: user.preferences || {} });
 }
 
 async function handleLogout(request, env) {
@@ -154,13 +248,23 @@ async function handleResetPassword(request, env) {
   return json({ success: true, message: "Password atualizada com sucesso." });
 }
 
+// ─── User ─────────────────────────────────────────────────────────────────────
+
 async function handleGetMe(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);
   const userData = await env.IPC_USERS.get("user:" + payload.id);
   if (!userData) return error("Utilizador não encontrado", 404);
   const user = JSON.parse(userData);
-  return json({ id: user.id, name: user.name, email: user.email, createdAt: user.createdAt });
+  return json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar || null,
+    preferences: user.preferences || {},
+    stats: user.stats || {},
+    createdAt: user.createdAt,
+  });
 }
 
 async function handleUpdateMe(request, env) {
@@ -176,20 +280,51 @@ async function handleUpdateMe(request, env) {
     if (body.password.length < 6) return error("Password deve ter pelo menos 6 caracteres");
     user.passwordHash = await hashPassword(body.password);
   }
+  // preferências: language, theme, fontSize, defaultModel
+  if (body.preferences && typeof body.preferences === "object") {
+    user.preferences = Object.assign({}, user.preferences || {}, body.preferences);
+  }
   await env.IPC_USERS.put("user:" + user.id, JSON.stringify(user));
-  return json({ id: user.id, name: user.name, email: user.email, createdAt: user.createdAt });
+  return json({ id: user.id, name: user.name, email: user.email, avatar: user.avatar || null, preferences: user.preferences || {}, createdAt: user.createdAt });
 }
+
+// Avatar: base64 string guardado no KV (simples, sem R2)
+async function handleUpdateAvatar(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload) return error("Não autenticado", 401);
+  const body = await request.json().catch(function() { return null; });
+  if (!body || !body.avatar) return error("avatar obrigatório");
+  // Limitar tamanho: ~200KB base64
+  if (body.avatar.length > 270000) return error("Imagem demasiado grande (máx ~200KB)");
+  const userData = await env.IPC_USERS.get("user:" + payload.id);
+  if (!userData) return error("Utilizador não encontrado", 404);
+  const user = JSON.parse(userData);
+  user.avatar = body.avatar;
+  await env.IPC_USERS.put("user:" + user.id, JSON.stringify(user));
+  return json({ avatar: user.avatar });
+}
+
+// ─── Conversations ────────────────────────────────────────────────────────────
 
 async function handleListConversations(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);
-  const raw = await env.IPC_USERS.get("convs:" + payload.id);
-  const ids = raw ? JSON.parse(raw) : [];
+  const url      = new URL(request.url);
+  const archived = url.searchParams.get("archived") === "true";
+  const raw      = await env.IPC_USERS.get("convs:" + payload.id);
+  const ids      = raw ? JSON.parse(raw) : [];
   const all = await Promise.all(ids.map(async function(id) {
     const data = await env.IPC_USERS.get("conv:" + id);
     return data ? JSON.parse(data) : null;
   }));
-  const conversations = all.filter(function(c) { return c !== null; }).sort(function(a, b) { return b.updatedAt - a.updatedAt; });
+  const conversations = all
+    .filter(function(c) { return c !== null && (archived ? c.archived === true : !c.archived); })
+    .sort(function(a, b) {
+      // pinned primeiro, depois por updatedAt
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.updatedAt - a.updatedAt;
+    });
   return json({ conversations: conversations });
 }
 
@@ -205,6 +340,10 @@ async function handleCreateConversation(request, env) {
     userId: payload.id,
     title: body.title || "Nova conversa",
     messages: body.messages || [],
+    model: body.model || GEMINI_MODEL,
+    pinned: false,
+    archived: false,
+    tags: body.tags || [],
     createdAt: now,
     updatedAt: now,
   };
@@ -213,6 +352,8 @@ async function handleCreateConversation(request, env) {
   const ids = raw ? JSON.parse(raw) : [];
   ids.unshift(id);
   await env.IPC_USERS.put("convs:" + payload.id, JSON.stringify(ids));
+  // atualizar stats
+  await incrementUserStat(env, payload.id, "totalConversations", 1);
   return json(conversation, 201);
 }
 
@@ -238,7 +379,14 @@ async function handleUpdateConversation(request, env) {
   const body = await request.json().catch(function() { return null; });
   if (!body) return error("Body inválido");
   if (body.title    !== undefined) conversation.title    = body.title;
-  if (body.messages !== undefined) conversation.messages = body.messages;
+  if (body.messages !== undefined) {
+    // atualizar stat de mensagens
+    const added = body.messages.length - conversation.messages.length;
+    if (added > 0) await incrementUserStat(env, payload.id, "totalMessages", added);
+    conversation.messages = body.messages;
+  }
+  if (body.model    !== undefined) conversation.model    = body.model;
+  if (body.tags     !== undefined) conversation.tags     = body.tags;
   conversation.updatedAt = Date.now();
   await env.IPC_USERS.put("conv:" + id, JSON.stringify(conversation));
   return json(conversation);
@@ -257,41 +405,96 @@ async function handleDeleteConversation(request, env) {
   const ids     = raw ? JSON.parse(raw) : [];
   const updated = ids.filter(function(i) { return i !== id; });
   await env.IPC_USERS.put("convs:" + payload.id, JSON.stringify(updated));
+  await incrementUserStat(env, payload.id, "totalConversations", -1);
   return json({ success: true });
 }
+
+// Eliminar TODAS as conversas do utilizador
+async function handleDeleteAllConversations(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload) return error("Não autenticado", 401);
+  const raw = await env.IPC_USERS.get("convs:" + payload.id);
+  const ids = raw ? JSON.parse(raw) : [];
+  await Promise.all(ids.map(function(id) { return env.IPC_USERS.delete("conv:" + id); }));
+  await env.IPC_USERS.put("convs:" + payload.id, JSON.stringify([]));
+  // reset stat
+  const userData = await env.IPC_USERS.get("user:" + payload.id);
+  if (userData) {
+    const user = JSON.parse(userData);
+    if (user.stats) user.stats.totalConversations = 0;
+    await env.IPC_USERS.put("user:" + payload.id, JSON.stringify(user));
+  }
+  return json({ success: true, deleted: ids.length });
+}
+
+// Pin / Unpin
+async function handlePinConversation(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload) return error("Não autenticado", 401);
+  const parts = new URL(request.url).pathname.split("/");
+  const id    = parts[2]; // /conversations/{id}/pin
+  const data  = await env.IPC_USERS.get("conv:" + id);
+  if (!data) return error("Conversa não encontrada", 404);
+  const conversation = JSON.parse(data);
+  if (conversation.userId !== payload.id) return error("Acesso negado", 403);
+  const body = await request.json().catch(function() { return {}; });
+  conversation.pinned    = body.pinned !== undefined ? body.pinned : !conversation.pinned;
+  conversation.updatedAt = Date.now();
+  await env.IPC_USERS.put("conv:" + id, JSON.stringify(conversation));
+  return json({ id: id, pinned: conversation.pinned });
+}
+
+// Archive / Unarchive
+async function handleArchiveConversation(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload) return error("Não autenticado", 401);
+  const parts = new URL(request.url).pathname.split("/");
+  const id    = parts[2]; // /conversations/{id}/archive
+  const data  = await env.IPC_USERS.get("conv:" + id);
+  if (!data) return error("Conversa não encontrada", 404);
+  const conversation = JSON.parse(data);
+  if (conversation.userId !== payload.id) return error("Acesso negado", 403);
+  const body = await request.json().catch(function() { return {}; });
+  conversation.archived  = body.archived !== undefined ? body.archived : !conversation.archived;
+  conversation.pinned    = false; // arquivada não pode estar pinned
+  conversation.updatedAt = Date.now();
+  await env.IPC_USERS.put("conv:" + id, JSON.stringify(conversation));
+  return json({ id: id, archived: conversation.archived });
+}
+
+// Pesquisa de conversas por texto
+async function handleSearchConversations(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload) return error("Não autenticado", 401);
+  const url   = new URL(request.url);
+  const query = (url.searchParams.get("q") || "").toLowerCase().trim();
+  if (!query) return json({ conversations: [] });
+  const raw = await env.IPC_USERS.get("convs:" + payload.id);
+  const ids = raw ? JSON.parse(raw) : [];
+  const all = await Promise.all(ids.map(async function(id) {
+    const data = await env.IPC_USERS.get("conv:" + id);
+    return data ? JSON.parse(data) : null;
+  }));
+  const results = all.filter(function(c) {
+    if (!c || c.archived) return false;
+    if (c.title.toLowerCase().includes(query)) return true;
+    // pesquisar também no conteúdo das mensagens
+    return c.messages.some(function(m) {
+      return m.content && m.content.toLowerCase().includes(query);
+    });
+  }).sort(function(a, b) { return b.updatedAt - a.updatedAt; });
+  return json({ conversations: results });
+}
+
+// ─── AI ───────────────────────────────────────────────────────────────────────
 
 async function handleAiTitle(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);
   const body = await request.json().catch(function() { return null; });
   if (!body || !body.message) return error("message obrigatório");
-  const message  = body.message;
-  const language = body.language || "pt";
-  const prompt = language === "en"
-    ? "Generate a short title (max 5 words) for a conversation that starts with: \"" + message + "\". Reply with ONLY the title, no punctuation, no quotes."
-    : "Gera um titulo curto (max 5 palavras) para uma conversa que comeca com: \"" + message + "\". Responde APENAS com o titulo, sem pontuacao, sem aspas.";
-  const nvidiaRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + env.NVIDIA_API_KEY },
-    body: JSON.stringify({
-      model: "deepseek-ai/deepseek-v4-pro",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.5,
-      max_tokens: 20,
-      stream: false,
-      extra_body: { chat_template_kwargs: { thinking: false } },
-    }),
-  });
-  if (!nvidiaRes.ok) {
-    const errText = await nvidiaRes.text();
-    console.error("[TITLE ERROR]", nvidiaRes.status, errText);
-    return error("Erro ao gerar titulo", nvidiaRes.status);
-  }
-  const data  = await nvidiaRes.json();
-  const title = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content
-    ? data.choices[0].message.content.trim()
-    : "Nova conversa";
-  return json({ title: title.slice(0, 40) });
+  const title = await geminiGenerateTitle(env.GEMINI_API_KEY, body.message, body.language || "pt");
+  return json({ title: title });
 }
 
 async function handleAiChat(request, env) {
@@ -299,41 +502,23 @@ async function handleAiChat(request, env) {
   if (!payload) return error("Não autenticado", 401);
   const body = await request.json().catch(function() { return null; });
   if (!body || !body.messages) return error("Messages obrigatório");
-  const messages     = body.messages;
-  const stream       = body.stream   !== undefined ? body.stream : false;
-  const language     = body.language || "pt";
-  const think        = body.think    || false;
-  const systemPrompt = language === "en"
-    ? "You are a helpful AI assistant. Always respond in English. Be concise and direct. When the user asks for a table, use markdown table format."
-    : "Es um assistente de IA util. Responde sempre em portugues europeu. Se conciso e direto. Quando o utilizador pedir uma tabela, usa formato de tabela markdown.";
-  const allMessages = [{ role: "system", content: systemPrompt }].concat(messages);
 
-  const nvidiaRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + env.NVIDIA_API_KEY,
-      "Accept": stream ? "text/event-stream" : "application/json",
-    },
-    body: JSON.stringify({
-      model: "deepseek-ai/deepseek-v4-pro",
-      messages: allMessages,
-      temperature: 1,
-      top_p: 0.95,
-      max_tokens: 16384,
-      extra_body: { chat_template_kwargs: { thinking: think } },
-      stream: stream,
-    }),
-  });
+  const messages       = body.messages;
+  const stream         = body.stream !== undefined ? body.stream : false;
+  const language       = body.language || "pt";
+  const thinkingBudget = body.think ? 8000 : 0; // tokens de raciocínio quando think=true
 
-  if (!nvidiaRes.ok) {
-    const errText = await nvidiaRes.text();
-    console.error("[CHAT ERROR]", nvidiaRes.status, errText);
-    return error("Erro NVIDIA API: " + errText, nvidiaRes.status);
+  const gemRes = await geminiGenerate(env.GEMINI_API_KEY, messages, language, stream, thinkingBudget);
+
+  if (!gemRes.ok) {
+    const errText = await gemRes.text();
+    console.error("[CHAT ERROR]", gemRes.status, errText);
+    return error("Erro Gemini API: " + errText, gemRes.status);
   }
 
   if (stream) {
-    return new Response(nvidiaRes.body, {
+    // passar o SSE stream diretamente para o cliente
+    return new Response(gemRes.body, {
       headers: Object.assign({}, CORS_HEADERS, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -342,8 +527,67 @@ async function handleAiChat(request, env) {
     });
   }
 
-  const data      = await nvidiaRes.json();
-  const content   = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : "";
-  const reasoning = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.reasoning_content : null;
-  return json({ content: content, reasoning: reasoning, model: data.model, usage: data.usage });
+  // resposta não-stream
+  const data = await gemRes.json();
+  const candidate = data.candidates?.[0];
+  const parts     = candidate?.content?.parts || [];
+  // Gemini pode devolver thinking + text em parts separados
+  let content   = "";
+  let reasoning = null;
+  for (const part of parts) {
+    if (part.thought) {
+      reasoning = part.text;
+    } else {
+      content += part.text || "";
+    }
+  }
+  return json({
+    content: content,
+    reasoning: reasoning,
+    model: GEMINI_MODEL,
+    usage: data.usageMetadata || null,
+  });
+}
+
+// Resumir uma conversa longa (útil para comprimir histórico no cliente)
+async function handleAiSummarize(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload) return error("Não autenticado", 401);
+  const body = await request.json().catch(function() { return null; });
+  if (!body || !body.messages) return error("messages obrigatório");
+  const language = body.language || "pt";
+  const prompt   = language === "en"
+    ? "Summarize the following conversation in a few sentences, keeping the main points and context:\n\n"
+    : "Resume a seguinte conversa em poucas frases, mantendo os pontos principais e o contexto:\n\n";
+  const text = body.messages.map(function(m) {
+    return (m.role === "user" ? "User: " : "Assistant: ") + m.content;
+  }).join("\n");
+  const gemRes = await fetch(GEMINI_BASE + "/" + GEMINI_MODEL + ":generateContent?key=" + env.GEMINI_API_KEY, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt + text }] }],
+      generationConfig: { maxOutputTokens: 512, temperature: 0.5 },
+    }),
+  });
+  if (!gemRes.ok) return error("Erro ao resumir", gemRes.status);
+  const data    = await gemRes.json();
+  const summary = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  return json({ summary: summary });
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+
+async function incrementUserStat(env, userId, stat, delta) {
+  try {
+    const userData = await env.IPC_USERS.get("user:" + userId);
+    if (!userData) return;
+    const user = JSON.parse(userData);
+    if (!user.stats) user.stats = {};
+    user.stats[stat] = (user.stats[stat] || 0) + delta;
+    if (user.stats[stat] < 0) user.stats[stat] = 0;
+    await env.IPC_USERS.put("user:" + userId, JSON.stringify(user));
+  } catch (e) {
+    console.error("[STAT ERROR]", e);
+  }
 }

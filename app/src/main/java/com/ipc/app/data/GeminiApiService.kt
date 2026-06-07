@@ -28,7 +28,7 @@ sealed class StreamChunk {
     data class Error(val message: String) : StreamChunk()
 }
 
-object NvidiaApiService {
+object GeminiApiService {
 
     private const val BASE_URL = "https://ipc.alfredopjonas.workers.dev"
 
@@ -100,7 +100,6 @@ object NvidiaApiService {
                         }
                         try {
                             val json = JSONObject(data)
-                            // Formato Gemini SSE: candidates[0].content.parts[0]
                             val candidates = json.optJSONArray("candidates") ?: continue
                             val candidate  = candidates.optJSONObject(0) ?: continue
                             val content    = candidate.optJSONObject("content") ?: continue
@@ -111,16 +110,14 @@ object NvidiaApiService {
                                 val text = part.optString("text", "")
                                 if (text.isEmpty()) continue
 
-                                // thought=true → bloco de raciocínio
                                 if (part.optBoolean("thought", false)) {
-                                    if (text.isNotEmpty()) trySend(StreamChunk.ThinkToken(text))
+                                    trySend(StreamChunk.ThinkToken(text))
                                 } else {
                                     sb.append(text)
                                     trySend(StreamChunk.Token(text))
                                 }
                             }
 
-                            // Gemini sinaliza fim com finishReason
                             val finishReason = candidate.optString("finishReason", "")
                             if ((finishReason == "STOP" || finishReason == "MAX_TOKENS") && !doneSent) {
                                 doneSent = true
