@@ -184,7 +184,7 @@
                         android:layout_centerVertical="true"
                         android:layout_alignParentEnd="true">
 
-                        <!-- Nova conversa — alpha controlado por código -->
+                        <!-- Nova conversa — ícone new_chat.svg -->
                         <FrameLayout
                             android:id="@+id/btnNewChat"
                             android:layout_width="36dp"
@@ -296,18 +296,20 @@
             android:paddingEnd="32dp"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
+            <!-- logo.png acima da saudação -->
             <ImageView
                 android:id="@+id/emptyLogo"
-                android:layout_width="96dp"
-                android:layout_height="96dp"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
                 android:scaleType="fitCenter"
-                android:adjustViewBounds="true" />
+                android:adjustViewBounds="true"
+                android:layout_marginBottom="16dp" />
 
             <TextView
                 android:id="@+id/emptyGreeting"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="0dp"
                 android:textSize="48sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
@@ -334,7 +336,7 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- POPUP OVERLAY — branco puro, sem divisões -->
+        <!-- POPUP OVERLAY appBar (câmara, importar, url, extras) -->
         <FrameLayout
             android:id="@+id/popupOverlay"
             android:layout_width="match_parent"
@@ -415,7 +417,7 @@
 
                 </LinearLayout>
 
-                <!-- URL - sem funcionalidade, visualmente presente -->
+                <!-- URL -->
                 <LinearLayout
                     android:id="@+id/popupItemUrl"
                     android:layout_width="match_parent"
@@ -478,6 +480,16 @@
 
         </FrameLayout>
 
+        <!-- POPUP BOTTOM BAR (opções conversa) — sheet inferior -->
+        <FrameLayout
+            android:id="@+id/convPopupOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="#44000000" />
+
         <View
             android:id="@+id/bottomBlurBg"
             android:layout_width="match_parent"
@@ -487,6 +499,7 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="20dp" />
 
+        <!-- BOTTOM NAV WRAPPER -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
@@ -498,6 +511,7 @@
             android:layout_marginBottom="20dp"
             android:elevation="4dp">
 
+            <!-- INPUT ROW -->
             <LinearLayout
                 android:id="@+id/inputRow"
                 android:layout_width="match_parent"
@@ -550,76 +564,73 @@
 
             </LinearLayout>
 
+            <!-- BOTTOM NAV ROW -->
             <LinearLayout
                 android:id="@+id/bottomNav"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
+                <!-- Botão ADD circular (abre popup conversa) -->
                 <FrameLayout
-                    android:id="@+id/tabChat"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:id="@+id/btnBottomAdd"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/add_circle_bg"
                     android:clickable="true"
                     android:focusable="true">
 
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                    <ImageView
+                        android:id="@+id/btnBottomAddIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
                         android:layout_gravity="center"
-                        android:orientation="vertical"
-                        android:gravity="center">
-
-                        <ImageView
-                            android:id="@+id/tabChatIcon"
-                            android:layout_width="22dp"
-                            android:layout_height="22dp" />
-
-                        <TextView
-                            android:id="@+id/tabChatLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="Chat"
-                            android:textSize="10sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                    </LinearLayout>
+                        android:background="?attr/selectableItemBackgroundBorderless" />
 
                 </FrameLayout>
 
+                <!-- Spacer para empurrar tab preview para a direita -->
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <!-- Tab Preview — pill estilizado como "Falar" do Grok -->
                 <FrameLayout
                     android:id="@+id/tabPreview"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/tab_preview_pill_bg"
                     android:clickable="true"
-                    android:focusable="true">
+                    android:focusable="true"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp">
 
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:orientation="vertical"
-                        android:gravity="center">
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
 
                         <ImageView
                             android:id="@+id/tabPreviewIcon"
-                            android:layout_width="22dp"
-                            android:layout_height="22dp" />
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="6dp" />
 
                         <TextView
                             android:id="@+id/tabPreviewLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
                             android:text="Preview"
-                            android:textSize="10sp"
-                            android:textColor="@color/text_secondary" />
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary" />
 
                     </LinearLayout>
 

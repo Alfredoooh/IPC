@@ -4,10 +4,10 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.graphics.BitmapFactory
 import android.text.Editable
 import android.text.Html
 import android.text.Spanned
@@ -117,6 +117,11 @@ class ChatFragment(private val activity: MainActiviy) {
         binding.emptyGreeting.text = when {
             hour < 12 -> "Bom dia"; hour < 18 -> "Boa tarde"; else -> "Boa noite"
         }
+        // Carregar logo.png acima da saudação
+        runCatching {
+            val logoBitmap = activity.assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
+            if (logoBitmap != null) binding.emptyLogo.setImageBitmap(logoBitmap)
+        }
         runCatching {
             val tf = Typeface.createFromAsset(activity.assets, "fonts/pattern/times_new_roman.ttf")
             binding.emptyGreeting.typeface  = Typeface.create(tf, Typeface.BOLD)
@@ -199,42 +204,31 @@ class ChatFragment(private val activity: MainActiviy) {
         binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
             val newH = bottom - top; val oldH = oldBottom - oldTop
             if (newH == oldH || newH <= 0 || oldH <= 0 || !inputRowVisible) return@addOnLayoutChangeListener
-            val delta = newH - oldH
             val fromH = if (inputRowHeightFrozen) frozenInputRowHeight else binding.inputRow.height
-            if (fromH <= 0) return@addOnLayoutChangeListener
-            val toH = (fromH + delta).coerceAtLeast(1)
-            if (fromH == toH) return@addOnLayoutChangeListener
-            preDrawListener?.let { binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(it) }
-            preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(this)
-                    preDrawListener = null
-                    inputRowHeightFrozen = true; frozenInputRowHeight = fromH
-                    binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = fromH }
-                    inputHeightAnimator?.cancel()
-                    inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
-                        duration = 180; interpolator = DecelerateInterpolator(1.5f)
-                        addUpdateListener { anim ->
-                            val h = anim.animatedValue as Int
-                            frozenInputRowHeight = h
-                            binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
-                            syncBlurBgSize()
-                        }
-                        addListener(object : AnimatorListenerAdapter() {
-                            override fun onAnimationEnd(animation: Animator) {
-                                inputRowHeightFrozen = false
-                                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also {
-                                    it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                                }
-                                syncBlurBgSize()
-                            }
-                        })
-                        start()
-                    }
-                    return false
-                }
+            if (preDrawListener != null) {
+                binding.inputRow.viewTreeObserver.removeOnPreDrawListener(preDrawListener)
+                preDrawListener = null
             }
-            binding.inputMessage.viewTreeObserver.addOnPreDrawListener(preDrawListener)
+            inputHeightAnimator?.cancel()
+            val targetH = fromH + (newH - oldH)
+            inputHeightAnimator = ValueAnimator.ofInt(fromH, targetH).apply {
+                duration = 180; interpolator = DecelerateInterpolator(1.5f)
+                addUpdateListener { anim ->
+                    val h = anim.animatedValue as Int
+                    inputRowHeightFrozen = true; frozenInputRowHeight = fromH
+                    binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
+                }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        inputRowHeightFrozen = false
+                        binding.inputRow.layoutParams = binding.inputRow.layoutParams.also {
+                            it.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                        }
+                        inputRowHeight = binding.inputRow.height
+                    }
+                })
+                start()
+            }
         }
 
         binding.inputMessage.addTextChangedListener(object : TextWatcher {
@@ -242,16 +236,38 @@ class ChatFragment(private val activity: MainActiviy) {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 val hasText = !s.isNullOrBlank()
-                if (hasText && !sendBtnVisible) showSendBtn()
-                else if (!hasText && sendBtnVisible) hideSendBtn()
+                if (hasText != sendBtnVisible) {
+                    sendBtnVisible = hasText
+                    animateSendBtn(hasText)
+                }
             }
         })
 
         binding.btnSend.setOnClickListener {
             val text = binding.inputMessage.text.toString().trim()
-            if (text.isNotEmpty()) {
-                binding.inputMessage.text?.clear()
-                sendChatMessage(text)
+            if (text.isNotEmpty()) sendMessage(text)
+        }
+    }
+
+    private fun animateSendBtn(show: Boolean) {
+        sendBtnAnimator?.cancel()
+        if (show) {
+            binding.btnSend.visibility = View.VISIBLE
+            sendBtnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 200; interpolator = OvershootInterpolator(1.5f)
+                addUpdateListener { binding.btnSend.alpha = it.animatedValue as Float }
+                start()
+            }
+        } else {
+            sendBtnAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
+                duration = 150; interpolator = DecelerateInterpolator()
+                addUpdateListener { binding.btnSend.alpha = it.animatedValue as Float }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        binding.btnSend.visibility = View.GONE
+                    }
+                })
+                start()
             }
         }
     }
@@ -269,12 +285,11 @@ class ChatFragment(private val activity: MainActiviy) {
         binding.inputRow.visibility = View.VISIBLE
         inputRowAnimator?.cancel()
         inputRowAnimator = ValueAnimator.ofInt(0, targetH).apply {
-            duration = 280; interpolator = DecelerateInterpolator(1.5f)
+            duration = 260; interpolator = DecelerateInterpolator(1.8f)
             addUpdateListener { anim ->
                 val h = anim.animatedValue as Int
                 binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
                 binding.inputRow.alpha = h.toFloat() / targetH
-                syncBlurBgSize()
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
@@ -283,7 +298,6 @@ class ChatFragment(private val activity: MainActiviy) {
                     }
                     binding.inputRow.alpha = 1f
                     frozenInputRowHeight = binding.inputRow.height
-                    syncBlurBgSize()
                 }
             })
             start()
@@ -296,192 +310,160 @@ class ChatFragment(private val activity: MainActiviy) {
         val fromH = if (inputRowHeight > 0) inputRowHeight else binding.inputRow.height
         inputRowAnimator?.cancel()
         inputRowAnimator = ValueAnimator.ofInt(fromH, 0).apply {
-            duration = 240; interpolator = DecelerateInterpolator(1.5f)
+            duration = 220; interpolator = DecelerateInterpolator(1.8f)
             addUpdateListener { anim ->
                 val h = anim.animatedValue as Int
                 binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
                 binding.inputRow.alpha = h.toFloat() / fromH
-                syncBlurBgSize()
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     binding.inputRow.visibility = View.GONE
                     binding.inputRow.alpha = 1f
-                    syncBlurBgSize()
                 }
             })
             start()
         }
     }
 
-    private fun showSendBtn() {
-        sendBtnVisible = true; binding.btnSend.visibility = View.VISIBLE
-        sendBtnAnimator?.cancel()
-        sendBtnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 180; interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                val v = anim.animatedValue as Float
-                binding.btnSend.alpha  = v
-                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
-                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
-            }
-            start()
-        }
-    }
+    // ─── Conversa ─────────────────────────────────────────────────────────────
 
-    private fun hideSendBtn() {
-        sendBtnVisible = false; sendBtnAnimator?.cancel()
-        sendBtnAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = 150; interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                val v = anim.animatedValue as Float
-                binding.btnSend.alpha  = v
-                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
-                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) { binding.btnSend.visibility = View.GONE }
-            })
-            start()
-        }
-    }
-
-    // ─── Conversas ────────────────────────────────────────────────────────────
-
-    fun saveCurrentConversation() {
-        if (chatHistory.isEmpty()) return
-        val token = authToken
-        val title = currentConversationTitle
-        val msgs  = chatHistory.toList()
-        val id    = currentConversationId
-        activity.lifecycleScope.launch {
-            if (id.isEmpty()) {
-                val newId = AuthApiService.createConversation(token, title, msgs)
-                if (newId != null) {
-                    currentConversationId = newId
-                    activity.drawerManager.loadConversations()
-                }
-            } else {
-                AuthApiService.updateConversation(token, id, title, msgs)
-                activity.drawerManager.loadConversations()
-            }
+    fun startNewConversation() {
+        streamJob?.cancel()
+        chatHistory.clear()
+        displayMessages.clear()
+        currentConversationId    = ""
+        currentConversationTitle = "Nova conversa"
+        titleGenerated           = false
+        thinkingContent          = ""
+        chatAdapter.notifyDataSetChanged()
+        binding.inputMessage.setText("")
+        syncVisibility()
+        refreshNewChatBtn()
+        // se estiver no tab preview, volta ao chat
+        if (activity.currentTab == R.id.tabPreview) {
+            activity.currentTab = R.id.tabPreview
         }
     }
 
     fun loadConversation(conv: Conversation) {
+        streamJob?.cancel()
+        chatHistory.clear()
+        displayMessages.clear()
         currentConversationId    = conv.id
         currentConversationTitle = conv.title
-        titleGenerated = true
-        chatHistory.clear()
-        chatHistory.addAll(conv.messages)
-        displayMessages.clear()
-        conv.messages.forEach { displayMessages.add(DisplayMessage(it.role, it.content)) }
+        titleGenerated           = true
+        thinkingContent          = ""
+        conv.messages.forEach { msg ->
+            chatHistory.add(msg)
+            displayMessages.add(DisplayMessage(msg.role, msg.content))
+        }
         chatAdapter.notifyDataSetChanged()
-        if (displayMessages.isNotEmpty()) binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
-        binding.chatRecyclerView.visibility = View.VISIBLE
-        binding.emptyState.visibility = View.GONE
+        binding.chatRecyclerView.post {
+            if (displayMessages.isNotEmpty())
+                binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
+        }
+        syncVisibility()
         refreshNewChatBtn()
+        if (activity.currentTab == R.id.tabPreview) {
+            activity.selectTab(R.id.tabPreview)
+        }
     }
 
-    fun startNewConversation() {
-        if (!newChatEnabled) return
-        streamJob?.cancel()
-        streamJob = null
-        saveCurrentConversation()
-        currentConversationId    = ""
-        currentConversationTitle = "Nova conversa"
-        titleGenerated = false
-        chatHistory.clear()
-        displayMessages.clear()
-        chatAdapter.notifyDataSetChanged()
-        binding.chatRecyclerView.visibility = View.GONE
-        binding.emptyState.visibility = View.VISIBLE
-        activity.closeDrawer()
-        refreshNewChatBtn()
+    fun saveCurrentConversation() {
+        if (chatHistory.isEmpty()) return
+        activity.lifecycleScope.launch {
+            val id = AuthApiService.saveConversation(
+                authToken,
+                currentConversationId,
+                currentConversationTitle,
+                chatHistory
+            )
+            if (currentConversationId.isEmpty() && id.isNotEmpty()) {
+                currentConversationId = id
+                refreshNewChatBtn()
+            }
+        }
     }
 
     // ─── Enviar mensagem ──────────────────────────────────────────────────────
 
-    private fun sendChatMessage(text: String) {
-        if (text.isBlank() || streamJob?.isActive == true) return
+    private fun sendMessage(text: String) {
+        binding.inputMessage.setText("")
+        activity.hideKeyboard()
 
-        binding.emptyState.visibility = View.GONE
-        binding.chatRecyclerView.visibility = View.VISIBLE
-
-        if (activity.keyboardOpen && binding.chatRecyclerView.translationY == 0f) {
-            binding.chatRecyclerView.translationY = -activity.maxImeShift.toFloat()
+        if (displayMessages.isEmpty()) {
+            binding.emptyState.visibility       = View.GONE
+            binding.chatRecyclerView.visibility = View.VISIBLE
         }
 
-        chatHistory.add(ChatMessage("user", text))
         displayMessages.add(DisplayMessage("user", text))
+        chatHistory.add(ChatMessage("user", text))
         chatAdapter.notifyItemInserted(displayMessages.lastIndex)
-        binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
 
-        val aiMsg   = DisplayMessage("assistant", "", isStreaming = true)
+        val aiIndex = displayMessages.size
+        val aiMsg   = DisplayMessage("assistant", "", isStreaming = true, isThinking = thinkMoreMode)
         displayMessages.add(aiMsg)
-        val aiIndex = displayMessages.lastIndex
         chatAdapter.notifyItemInserted(aiIndex)
         binding.chatRecyclerView.scrollToPosition(aiIndex)
-
-        val lang         = prefs.getString("language", "pt") ?: "pt"
-        val token        = authToken
-        val systemPrompt = NvidiaApiService.buildSystemPrompt(lang)
-        val isThinking   = thinkMoreMode
-        thinkingContent  = ""
-
         refreshNewChatBtn()
 
+        val token = authToken
+        val lang  = prefs.getString("language", "pt") ?: "pt"
+
+        streamJob?.cancel()
         streamJob = activity.lifecycleScope.launch {
-            NvidiaApiService.streamChat(chatHistory, systemPrompt, token, isThinking)
-                .collect { chunk ->
-                    when (chunk) {
-                        is StreamChunk.ThinkToken -> {
-                            thinkingContent += chunk.text
-                            if (aiMsg.content.isEmpty()) {
-                                aiMsg.isThinking = true
-                                aiMsg.content = "thinking"
-                            }
-                            chatAdapter.notifyItemChanged(aiIndex)
+            NvidiaApiService.streamMessage(
+                messages   = chatHistory.dropLast(1),
+                userMessage = text,
+                token      = token,
+                language   = lang,
+                flash      = flashMode,
+                thinkMore  = thinkMoreMode
+            ).collect { chunk ->
+                when (chunk) {
+                    is StreamChunk.Thinking -> {
+                        thinkingContent += chunk.text
+                        aiMsg.isThinking = true
+                        chatAdapter.notifyItemChanged(aiIndex)
+                    }
+                    is StreamChunk.Text -> {
+                        if (aiMsg.isThinking) {
+                            aiMsg.isThinking = false
+                            aiMsg.content    = ""
                         }
-                        is StreamChunk.Token -> {
-                            if (aiMsg.isThinking) {
-                                aiMsg.isThinking = false
-                                aiMsg.content    = ""
-                            }
-                            aiMsg.content += chunk.text
-                            chatAdapter.notifyItemChanged(aiIndex)
-                            binding.chatRecyclerView.scrollToPosition(aiIndex)
-                        }
-                        is StreamChunk.Done -> {
-                            aiMsg.isStreaming     = false
-                            aiMsg.isThinking      = false
-                            if (aiMsg.content.isBlank()) aiMsg.content = chunk.fullText
-                            aiMsg.thinkingContent = thinkingContent
-                            chatHistory.add(ChatMessage("assistant", aiMsg.content))
-                            chatAdapter.notifyItemChanged(aiIndex)
-                            binding.chatRecyclerView.scrollToPosition(aiIndex)
-                            if (!titleGenerated && chatHistory.size >= 2) {
-                                titleGenerated = true
-                                launch {
-                                    val title = NvidiaApiService.generateTitle(text, token, lang)
-                                    // actualiza o título — o drawer vai reflectir na próxima abertura
-                                    currentConversationTitle = title
-                                    saveCurrentConversation()
-                                    // actualiza o drawer imediatamente após salvar
-                                    activity.drawerManager.loadConversations()
-                                }
-                            } else {
+                        aiMsg.content += chunk.text
+                        chatAdapter.notifyItemChanged(aiIndex)
+                        binding.chatRecyclerView.scrollToPosition(aiIndex)
+                    }
+                    is StreamChunk.Done -> {
+                        aiMsg.isStreaming     = false
+                        aiMsg.isThinking      = false
+                        if (aiMsg.content.isBlank()) aiMsg.content = chunk.fullText
+                        aiMsg.thinkingContent = thinkingContent
+                        chatHistory.add(ChatMessage("assistant", aiMsg.content))
+                        chatAdapter.notifyItemChanged(aiIndex)
+                        binding.chatRecyclerView.scrollToPosition(aiIndex)
+                        if (!titleGenerated && chatHistory.size >= 2) {
+                            titleGenerated = true
+                            launch {
+                                val title = NvidiaApiService.generateTitle(text, token, lang)
+                                currentConversationTitle = title
                                 saveCurrentConversation()
+                                activity.drawerManager.loadConversations()
                             }
-                        }
-                        is StreamChunk.Error -> {
-                            aiMsg.isStreaming = false
-                            aiMsg.isThinking  = false
-                            aiMsg.content     = "⚠️ ${chunk.message}"
-                            chatAdapter.notifyItemChanged(aiIndex)
+                        } else {
+                            saveCurrentConversation()
                         }
                     }
+                    is StreamChunk.Error -> {
+                        aiMsg.isStreaming = false
+                        aiMsg.isThinking  = false
+                        aiMsg.content     = "⚠️ ${chunk.message}"
+                        chatAdapter.notifyItemChanged(aiIndex)
+                    }
                 }
+            }
         }
     }
 

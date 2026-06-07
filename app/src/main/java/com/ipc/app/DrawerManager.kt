@@ -79,7 +79,6 @@ class DrawerManager(private val activity: MainActiviy) {
                         isClickable = true; isFocusable = true
                     }
 
-                    // pin_filled quando fixada
                     if (item.pinned) {
                         row.addView(ImageView(activity).apply {
                             setImageDrawable(activity.svgDrawable("icons/svg/pin_filled.svg", 13,
@@ -98,13 +97,13 @@ class DrawerManager(private val activity: MainActiviy) {
                     })
 
                     row.addView(ImageView(activity).apply {
-                        setImageDrawable(activity.svgDrawable("icons/svg/trash.svg", 15, Color.parseColor("#C0C0C0")))
+                        setImageDrawable(activity.svgDrawable("icons/svg/more_vertical.svg", 15, Color.parseColor("#C0C0C0")))
                         layoutParams = LinearLayout.LayoutParams(dp(36), dp(52)).also { it.marginStart = dp(4) }
                         scaleType = ImageView.ScaleType.CENTER
                         val a = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackgroundBorderless))
                         background = a.getDrawable(0); a.recycle()
                         isClickable = true; isFocusable = true
-                        setOnClickListener { showDeleteConfirmation(item) }
+                        setOnClickListener { showConversationOptions(item) }
                     })
 
                     row.setOnClickListener {
@@ -121,7 +120,7 @@ class DrawerManager(private val activity: MainActiviy) {
         }
     }
 
-    // ─── Modal: opções da conversa ────────────────────────────────────────────
+    // ─── Modal: opções da conversa (popup com as 4 opções pedidas) ────────────
 
     fun showConversationOptions(conv: Conversation) {
         val dialog = BottomSheetDialog(activity)
@@ -142,19 +141,38 @@ class DrawerManager(private val activity: MainActiviy) {
         })
         card.addView(divider())
 
-        // Fixar/desafixar — pin / pin_filled
-        val pinLabel = if (conv.pinned) "Desafixar" else "Fixar"
+        val iconTint = ContextCompat.getColor(activity, R.color.icon_tint)
+        val redColor = Color.parseColor("#FF3B30")
+
+        // 1. Eliminar conversa
+        card.addView(optionRow("icons/svg/trash.svg", "Eliminar conversa", redColor) {
+            dialog.dismiss()
+            showDeleteConfirmation(conv)
+        })
+        card.addView(rowDivider())
+
+        // 2. Fixar / Desafixar conversa
+        val pinLabel = if (conv.pinned) "Desafixar conversa" else "Fixar conversa"
         val pinIcon  = if (conv.pinned) "icons/svg/pin_filled.svg" else "icons/svg/pin.svg"
-        card.addView(optionRow(pinIcon, pinLabel) {
+        card.addView(optionRow(pinIcon, pinLabel, iconTint) {
             dialog.dismiss()
             activity.lifecycleScope.launch {
                 AuthApiService.pinConversation(authToken, conv.id, !conv.pinned)
                 loadConversations()
             }
         })
+        card.addView(rowDivider())
 
-        val archLabel = if (conv.archived) "Desarquivar" else "Arquivar"
-        card.addView(optionRow("icons/svg/history.svg", archLabel) {
+        // 3. Partilhar conversa
+        card.addView(optionRow("icons/svg/share.svg", "Partilhar conversa", iconTint) {
+            dialog.dismiss()
+            shareConversation(conv)
+        })
+        card.addView(rowDivider())
+
+        // 4. Arquivar / Desarquivar conversa
+        val archLabel = if (conv.archived) "Desarquivar conversa" else "Arquivar conversa"
+        card.addView(optionRow("icons/svg/history.svg", archLabel, iconTint) {
             dialog.dismiss()
             activity.lifecycleScope.launch {
                 AuthApiService.archiveConversation(authToken, conv.id, !conv.archived)
@@ -162,10 +180,7 @@ class DrawerManager(private val activity: MainActiviy) {
                 else loadConversations()
             }
         })
-        card.addView(optionRow("icons/svg/trash.svg", "Eliminar", Color.parseColor("#FF3B30")) {
-            dialog.dismiss()
-            showDeleteConfirmation(conv)
-        })
+
         card.addView(View(activity).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(20))
         })
@@ -177,10 +192,19 @@ class DrawerManager(private val activity: MainActiviy) {
         }
         dialog.setContentView(root)
         dialog.setOnShowListener {
-            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-                ?.setBackgroundColor(Color.TRANSPARENT)
+            val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bs?.setBackgroundColor(Color.TRANSPARENT)
         }
         dialog.show()
+    }
+
+    private fun shareConversation(conv: Conversation) {
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_SUBJECT, conv.title)
+            putExtra(android.content.Intent.EXTRA_TEXT, conv.title)
+        }
+        activity.startActivity(android.content.Intent.createChooser(intent, "Partilhar conversa"))
     }
 
     // ─── Modal: confirmação de eliminação ─────────────────────────────────────
@@ -198,7 +222,9 @@ class DrawerManager(private val activity: MainActiviy) {
         card.addView(ImageView(activity).apply {
             setImageDrawable(activity.svgDrawable("icons/svg/trash.svg", 28, Color.parseColor("#FF3B30")))
             layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).also {
-                it.gravity = Gravity.CENTER_HORIZONTAL; it.bottomMargin = dp(12)
+                it.gravity = Gravity.CENTER_HORIZONTAL
+                it.topMargin = dp(8)
+                it.bottomMargin = dp(12)
             }
         })
         card.addView(TextView(activity).apply {
@@ -258,15 +284,15 @@ class DrawerManager(private val activity: MainActiviy) {
         }
         dialog.setContentView(root)
         dialog.setOnShowListener {
-            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-                ?.setBackgroundColor(Color.TRANSPARENT)
+            val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            bs?.setBackgroundColor(Color.TRANSPARENT)
         }
         dialog.show()
     }
 
     // ─── Utilitários ──────────────────────────────────────────────────────────
 
-    private fun optionRow(iconPath: String, label: String, color: Int = ContextCompat.getColor(activity, R.color.text_primary), action: () -> Unit): View {
+    private fun optionRow(iconPath: String, label: String, color: Int, action: () -> Unit): View {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             minimumHeight = dp(54); setPadding(dp(20), 0, dp(20), 0)
@@ -298,6 +324,13 @@ class DrawerManager(private val activity: MainActiviy) {
     private fun divider() = View(activity).apply {
         setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
+    }
+
+    private fun rowDivider() = View(activity).apply {
+        setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
+            it.marginStart = dp(56)
+        }
     }
 
     private fun dp(v: Int) = activity.dp(v)

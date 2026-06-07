@@ -11,11 +11,16 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.view.inputmethod.InputMethodManager
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -23,9 +28,15 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.ipc.app.data.AuthApiService
+import com.ipc.app.data.Conversation
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
 import com.ipc.app.ui.SettingsActivity
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainActiviy : BaseActivity() {
@@ -36,7 +47,7 @@ class MainActiviy : BaseActivity() {
     var popupVisible = false
     private var drawerAnimator: ValueAnimator? = null
     private var bottomBarAnimator: ValueAnimator? = null
-    var currentTab = R.id.tabChat
+    var currentTab = R.id.tabPreview   // começa no único tab existente
     var keyboardOpen = false
 
     private var swipeStartX = 0f
@@ -153,6 +164,7 @@ class MainActiviy : BaseActivity() {
         setupDrawer()
         setupSwipeDrawer()
         setupBottomTabs()
+        setupBottomAddButton()
         setupPopupMenu()
         chatFragment.setup()
         drawerManager.loadConversations()
@@ -175,26 +187,30 @@ class MainActiviy : BaseActivity() {
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
         binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
         binding.btnMore.setImageDrawable(svgDrawable("icons/svg/more_vertical.svg", 16, iconTint))
-        binding.btnNewChatIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 17, iconTint))
+        // new_chat.svg — adicionas tu o ficheiro depois
+        binding.btnNewChatIcon.setImageDrawable(svgDrawable("icons/svg/new_chat.svg", 17, iconTint))
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
         binding.popupCameraIcon.setImageDrawable(svgDrawable("icons/svg/camera.svg", 20, iconTint))
         binding.popupImportIcon.setImageDrawable(svgDrawable("icons/svg/download.svg", 20, iconTint))
         binding.popupUrlIcon.setImageDrawable(svgDrawable("icons/svg/external.svg", 20, iconTint))
         binding.popupExtrasIcon.setImageDrawable(svgDrawable("icons/svg/extras.svg", 20, iconTint))
+        // botão add circular no bottom bar
+        binding.btnBottomAddIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 18, iconTint))
     }
 
-    // ─── Tabs ─────────────────────────────────────────────────────────────────
+    // ─── Tab Preview ──────────────────────────────────────────────────────────
 
     private fun setupBottomTabs() {
-        refreshTabIcons()
-        binding.tabChat.setOnClickListener    { selectTab(R.id.tabChat) }
+        refreshTabPreviewPill()
         binding.tabPreview.setOnClickListener { selectTab(R.id.tabPreview) }
     }
 
     fun selectTab(tabId: Int) {
-        if (currentTab == tabId) return; currentTab = tabId
-        refreshTabIcons(); updateContentForTab()
+        if (currentTab == tabId) return
+        currentTab = tabId
+        refreshTabPreviewPill()
+        updateContentForTab()
     }
 
     private fun updateContentForTab() {
@@ -203,25 +219,31 @@ class MainActiviy : BaseActivity() {
         if (!isPreview) {
             chatFragment.syncVisibility()
         } else {
-            binding.emptyState.visibility = View.GONE
+            binding.emptyState.visibility       = View.GONE
             binding.chatRecyclerView.visibility = View.GONE
         }
         animateBottomBarState()
         if (isPreview) chatFragment.hideInputRow() else chatFragment.showInputRow()
     }
 
-    fun refreshTabIcons() {
-        val active = activeIconColor; val inactive = inactiveIconColor
-        binding.tabChatIcon.setImageDrawable(
-            if (currentTab == R.id.tabChat) svgDrawable("icons/svg/chat_filled.svg", 22, active)
-            else svgDrawable("icons/svg/chat.svg", 22, inactive)
-        )
-        binding.tabChatLabel.setTextColor(if (currentTab == R.id.tabChat) active else inactive)
+    fun refreshTabPreviewPill() {
+        val isActive = currentTab == R.id.tabPreview
+        val iconColor = if (isActive) activeIconColor else inactiveIconColor
         binding.tabPreviewIcon.setImageDrawable(
-            if (currentTab == R.id.tabPreview) svgDrawable("icons/svg/preview_filled.svg", 22, active)
-            else svgDrawable("icons/svg/preview.svg", 22, inactive)
+            if (isActive) svgDrawable("icons/svg/preview_filled.svg", 20, iconColor)
+            else svgDrawable("icons/svg/preview.svg", 20, iconColor)
         )
-        binding.tabPreviewLabel.setTextColor(if (currentTab == R.id.tabPreview) active else inactive)
+        binding.tabPreviewLabel.setTextColor(iconColor)
+
+        // pill background: highlight quando activo, semitransparente quando inactivo
+        val pillBg = GradientDrawable().apply {
+            cornerRadius = dp(20).toFloat()
+            setColor(
+                if (isActive) ContextCompat.getColor(this@MainActiviy, R.color.tab_preview_pill_bg)
+                else Color.TRANSPARENT
+            )
+        }
+        binding.tabPreview.background = pillBg
     }
 
     // ─── Bottom bar animação ──────────────────────────────────────────────────
@@ -259,7 +281,65 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Popup menu ───────────────────────────────────────────────────────────
+    // ─── Botão ADD bottom bar → popup sheet conversa ──────────────────────────
+
+    private fun setupBottomAddButton() {
+        binding.btnBottomAdd.setOnClickListener {
+            showBottomAddSheet()
+        }
+    }
+
+    fun showBottomAddSheet() {
+        val dialog = BottomSheetDialog(this)
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
+            }
+        }
+        card.addView(sheetHandle())
+
+        val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
+        val redColor = Color.parseColor("#FF3B30")
+
+        // Câmara
+        card.addView(sheetOptionRow("icons/svg/camera.svg", "Câmara", iconTint) {
+            dialog.dismiss(); openCamera()
+        })
+        card.addView(sheetDivider())
+        // Importar Ficheiro
+        card.addView(sheetOptionRow("icons/svg/download.svg", "Importar Ficheiro", iconTint) {
+            dialog.dismiss()
+        })
+        card.addView(sheetDivider())
+        // URL
+        card.addView(sheetOptionRow("icons/svg/external.svg", "URL / Link", Color.parseColor("#888888"), alpha = 0.4f) {
+            dialog.dismiss()
+        })
+        card.addView(sheetDivider())
+        // Extras
+        card.addView(sheetOptionRow("icons/svg/extras.svg", "Extras", iconTint) {
+            dialog.dismiss(); chatFragment.showExtrasSheet()
+        })
+        card.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24))
+        })
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)
+            addView(card)
+        }
+        dialog.setContentView(root)
+        dialog.setOnShowListener {
+            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                ?.setBackgroundColor(Color.TRANSPARENT)
+        }
+        dialog.show()
+    }
+
+    // ─── Popup menu appBar ────────────────────────────────────────────────────
 
     private fun setupPopupMenu() {
         binding.btnMore.setOnClickListener { showPopup() }
@@ -410,7 +490,59 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Utilitários ──────────────────────────────────────────────────────────
+    // ─── Utilitários UI sheets ────────────────────────────────────────────────
+
+    private fun sheetHandle() = View(this).apply {
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
+            setColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
+        }
+        layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
+            it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(8)
+        }
+    }
+
+    private fun sheetDivider() = View(this).apply {
+        setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
+            it.marginStart = dp(56)
+        }
+    }
+
+    private fun sheetOptionRow(
+        iconPath: String,
+        label: String,
+        iconColor: Int,
+        alpha: Float = 1f,
+        action: () -> Unit
+    ): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(56); setPadding(dp(20), 0, dp(20), 0)
+            val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+            background = a.getDrawable(0); a.recycle()
+            isClickable = true; isFocusable = true
+            this.alpha = alpha
+        }
+        val iconFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
+            background = ContextCompat.getDrawable(this@MainActiviy, R.drawable.drawer_icon_bg)
+        }
+        iconFrame.addView(ImageView(this).apply {
+            setImageDrawable(svgDrawable(iconPath, 14, iconColor))
+            layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
+        })
+        row.addView(iconFrame)
+        row.addView(TextView(this).apply {
+            text = label; textSize = 15f
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_primary))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        row.setOnClickListener { action() }
+        return row
+    }
+
+    // ─── Utilitários gerais ───────────────────────────────────────────────────
 
     fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -439,7 +571,7 @@ class MainActiviy : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        refreshTabIcons()
+        refreshTabPreviewPill()
     }
 
     override fun onPause() {
