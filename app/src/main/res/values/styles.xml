@@ -28,7 +28,7 @@
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">20dp</item>
     </style>
-    
+
     <style name="FullScreenBottomSheetDialog" parent="Theme.Design.Light.BottomSheetDialog">
         <item name="android:windowIsFloating">false</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
@@ -38,6 +38,19 @@
 
     <style name="FullScreenBottomSheet" parent="Widget.Design.BottomSheet.Modal">
         <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <!--
+        Preview modal: herda do tema base da app para NÃO alterar a statusBar.
+        O dim suave fica via backgroundDimAmount, sem tocar na cor da barra.
+    -->
+    <style name="PreviewModalDialog" parent="Theme.Design.Light.BottomSheetDialog">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.25</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+        <item name="bottomSheetStyle">@style/FullScreenBottomSheet</item>
     </style>
 
 </resources>

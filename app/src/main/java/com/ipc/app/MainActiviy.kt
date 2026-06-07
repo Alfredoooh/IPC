@@ -12,15 +12,17 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
-import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
@@ -90,26 +92,36 @@ class MainActiviy : BaseActivity() {
 
     fun showPreviewModal() {
         if (previewDialog?.isShowing == true) return
-        val dialog = BottomSheetDialog(this, R.style.FullScreenBottomSheetDialog)
+
+        // Usar o tema base sem alterar a statusBar — apenas dim suave
+        val dialog = BottomSheetDialog(this, R.style.PreviewModalDialog)
         previewDialog = dialog
 
+        val screenW = resources.displayMetrics.widthPixels
         val screenH = resources.displayMetrics.heightPixels
-        val statusBarH = run {
-            var h = 0
-            ViewCompat.getRootWindowInsets(binding.root)
-                ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top?.let { h = it }
-            h
-        }
 
+        val cornerDp = 24f
+        val cornerPx = cornerDp * density
+
+        // Container com bordas curvas
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
-            setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(
+                    cornerPx, cornerPx, // top-left
+                    cornerPx, cornerPx, // top-right
+                    0f, 0f,             // bottom-right
+                    0f, 0f              // bottom-left
+                )
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
+            }
+            clipToOutline = true
         }
 
-        // Conteúdo do preview (imagem + título + subtítulo próprios)
+        // Conteúdo do preview
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity     = Gravity.CENTER_HORIZONTAL
@@ -155,11 +167,11 @@ class MainActiviy : BaseActivity() {
             ).also { it.topMargin = dp(8) }
         })
 
-        // Botão fechar (X) no topo
+        // Botão fechar (X) no topo — posicionado dentro do root com margem relativa
         val closeBtn = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(dp(36), dp(36)).also {
                 it.gravity    = Gravity.TOP or Gravity.END
-                it.topMargin  = statusBarH + dp(12)
+                it.topMargin  = dp(16)
                 it.marginEnd  = dp(16)
             }
             background = ContextCompat.getDrawable(this@MainActiviy, R.drawable.appbar_btn_bg)
@@ -178,12 +190,15 @@ class MainActiviy : BaseActivity() {
         dialog.setContentView(root)
         dialog.setOnShowListener {
             val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bs?.let {
-                it.setBackgroundColor(Color.TRANSPARENT)
-                it.layoutParams.height = screenH
-                it.requestLayout()
-                val beh = BottomSheetBehavior.from(it)
-                beh.peekHeight  = screenH
+            bs?.let { sheet ->
+                // Fundo transparente para o sheet nativo — o root já tem as bordas
+                sheet.setBackgroundColor(Color.TRANSPARENT)
+                // Altura total menos um pequeno gap no topo para as bordas ficarem visíveis
+                val topGap = dp(32)
+                sheet.layoutParams.height = screenH - topGap
+                sheet.requestLayout()
+                val beh = BottomSheetBehavior.from(sheet)
+                beh.peekHeight  = screenH - topGap
                 beh.state       = BottomSheetBehavior.STATE_EXPANDED
                 beh.isDraggable = false
             }
@@ -444,15 +459,130 @@ class MainActiviy : BaseActivity() {
         dialog.show()
     }
 
-    // ─── Popup menu btnMore → BottomSheet com opções da conversa ─────────────
+    // ─── PopupMenu btnMore → popup nativo ancorado ao botão ──────────────────
+
+    private var morePopup: PopupWindow? = null
 
     private fun setupPopupMenu() {
-        binding.btnMore.setOnClickListener { showConvOptionsSheet() }
+        binding.btnMore.setOnClickListener { v -> showMorePopup(v) }
         binding.popupOverlay.setOnClickListener { hidePopup() }
         binding.popupItemCamera.setOnClickListener { hidePopup(); openCamera() }
         binding.popupItemImport.setOnClickListener { hidePopup() }
         binding.popupItemUrl.setOnClickListener { }
         binding.popupItemExtras.setOnClickListener { chatFragment.showExtrasSheet() }
+    }
+
+    private fun showMorePopup(anchor: View) {
+        if (morePopup?.isShowing == true) return
+
+        val conv = chatFragment.currentConversationSnapshot ?: return
+        val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
+        val redColor = Color.parseColor("#FF3B30")
+
+        // Container do popup com bordas curvas
+        val popupWidth = dp(220)
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
+            }
+            elevation = dp(8).toFloat()
+            clipToOutline = true
+        }
+
+        fun popupRow(iconPath: String, label: String, color: Int, alpha: Float = 1f, action: () -> Unit): View {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(16), 0, dp(16), 0)
+                this.alpha = alpha
+                val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+                background = a.getDrawable(0); a.recycle()
+                isClickable = true; isFocusable = true
+            }
+            row.addView(ImageView(this).apply {
+                setImageDrawable(svgDrawable(iconPath, 20, color))
+                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).also { it.marginEnd = dp(14) }
+            })
+            row.addView(TextView(this).apply {
+                text = label; textSize = 15f
+                setTextColor(color)
+            })
+            row.setOnClickListener {
+                morePopup?.dismiss()
+                action()
+            }
+            return row
+        }
+
+        fun rowDiv() = View(this).apply {
+            setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
+                it.marginStart = dp(50)
+            }
+        }
+
+        val pinLabel = if (conv.pinned) "Desafixar conversa" else "Fixar conversa"
+        val pinIcon  = if (conv.pinned) "icons/svg/pin_filled.svg" else "icons/svg/pin.svg"
+        card.addView(popupRow(pinIcon, pinLabel, iconTint) {
+            lifecycleScope.launch {
+                AuthApiService.pinConversation(authToken, conv.id, !conv.pinned)
+                drawerManager.loadConversations()
+            }
+        })
+        card.addView(rowDiv())
+
+        val archLabel = if (conv.archived) "Desarquivar" else "Arquivar"
+        val archIcon  = if (conv.archived) "icons/svg/bookmark_filled.svg" else "icons/svg/bookmark.svg"
+        card.addView(popupRow(archIcon, archLabel, iconTint) {
+            lifecycleScope.launch {
+                AuthApiService.archiveConversation(authToken, conv.id, !conv.archived)
+                if (conv.id == chatFragment.currentConversationId) chatFragment.startNewConversation()
+                else drawerManager.loadConversations()
+            }
+        })
+        card.addView(rowDiv())
+
+        card.addView(popupRow("icons/svg/share.svg", "Partilhar", iconTint) {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, conv.title)
+            }
+            startActivity(Intent.createChooser(intent, "Partilhar conversa"))
+        })
+        card.addView(rowDiv())
+
+        card.addView(popupRow("icons/svg/trash.svg", "Eliminar", redColor) {
+            drawerManager.showDeleteConfirmation(conv)
+        })
+
+        val popup = PopupWindow(card, popupWidth, ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
+            isOutsideTouchable = true
+            elevation = dp(8).toFloat()
+            setBackgroundDrawable(null) // sem fundo extra — o card já tem o próprio
+            animationStyle = android.R.style.Animation_Dialog
+        }
+        morePopup = popup
+
+        // Medir o card para posicionar acima/abaixo do âncora
+        card.measure(
+            View.MeasureSpec.makeMeasureSpec(popupWidth, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        val popupH = card.measuredHeight
+        val anchorLoc = IntArray(2).also { anchor.getLocationOnScreen(it) }
+        val anchorBottom = anchorLoc[1] + anchor.height
+        val screenH = resources.displayMetrics.heightPixels
+        val xOff = -(popupWidth - anchor.width) // alinha o lado direito do popup com o botão
+        val yOff = if (anchorBottom + popupH + dp(8) < screenH) {
+            dp(4) // aparece abaixo
+        } else {
+            -(popupH + anchor.height + dp(4)) // aparece acima
+        }
+
+        popup.showAsDropDown(anchor, xOff, yOff)
     }
 
     fun showConvOptionsSheet() {
@@ -655,7 +785,7 @@ class MainActiviy : BaseActivity() {
     // ─── Utilitários gerais ───────────────────────────────────────────────────
 
     fun hideKeyboard() {
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
         val v = currentFocus ?: binding.root
         imm.hideSoftInputFromWindow(v.windowToken, 0)
         binding.inputMessage.clearFocus()
@@ -691,6 +821,7 @@ class MainActiviy : BaseActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        if (morePopup?.isShowing == true) { morePopup?.dismiss(); return }
         if (popupVisible) { hidePopup(); return }
         if (drawerOpen)   { closeDrawer(); return }
         super.onBackPressed()
