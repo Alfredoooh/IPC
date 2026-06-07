@@ -57,15 +57,14 @@
     <color name="send_btn_color">#6F5AF6</color>
     <color name="send_icon_color">#FFFFFF</color>
     
-    <!-- Auth screens dark -->
     <color name="auth_button_bg">#6F5AF6</color>
     <color name="auth_button_text">#FFFFFF</color>
     <color name="auth_input_bg">#1f1f1f</color>
     <color name="auth_link_color">#9B8AF8</color>
     
-    <!-- AppBar button: escuro -->
     <color name="appbar_btn_bg_color">#18FFFFFF</color>
     <color name="appbar_solid">#FF121212</color>
     <color name="bottom_bar_solid">#FF1f1f1f</color>
+    
     <color name="tab_preview_pill_bg">#2A2440</color>
 </resources>

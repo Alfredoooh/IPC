@@ -58,22 +58,19 @@
     <color name="send_btn_color">#6F5AF6</color>
     <color name="send_icon_color">#FFFFFF</color>
     
-    <!-- Gradiente quente fundo (substitui gradiente azul) -->
     <color name="gradient_warm_top">#F0EEFF</color>
     <color name="gradient_warm_bottom">#FFFFFF</color>
-    <!-- mantidos para compatibilidade -->
     <color name="gradient_blue_top">#F0EEFF</color>
     <color name="gradient_blue_bottom">#FFFFFF</color>
     
-    <!-- Auth screens -->
     <color name="auth_button_bg">#6F5AF6</color>
     <color name="auth_button_text">#FFFFFF</color>
     <color name="auth_input_bg">#F2F2F7</color>
     <color name="auth_link_color">#6F5AF6</color>
     
-    <!-- AppBar button: claro -->
     <color name="appbar_btn_bg_color">#0F000000</color>
     <color name="appbar_solid">#FFFFFFFF</color>
     <color name="bottom_bar_solid">#FFFFFFFF</color>
+    
     <color name="tab_preview_pill_bg">#E8E4FF</color>
 </resources>
