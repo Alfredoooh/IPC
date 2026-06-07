@@ -9,14 +9,19 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.Editable
-import android.text.Html
 import android.text.Spanned
+import android.text.SpannableStringBuilder
 import android.text.TextWatcher
+import android.text.style.BulletSpan
+import android.text.style.StyleSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.TypefaceSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -68,14 +73,15 @@ class ChatFragment(private val activity: MainActiviy) {
     private var inputRowAnimator:   ValueAnimator? = null
     private var inputHeightAnimator: ValueAnimator? = null
 
+    // Animação do btnNewChat deslizar para o lugar do btnMore
+    private var newChatSlideAnimator: ValueAnimator? = null
+
     val newChatEnabled: Boolean
         get() = chatHistory.isNotEmpty() || currentConversationId.isNotEmpty()
 
-    // Exposto para MainActiviy saber se há conversa activa (para o btnMore)
     val chatHistoryNotEmpty: Boolean
         get() = chatHistory.isNotEmpty()
 
-    // Snapshot da conversa actual para o sheet de opções do btnMore
     val currentConversationSnapshot: Conversation?
         get() {
             if (chatHistory.isEmpty() && currentConversationId.isEmpty()) return null
@@ -150,11 +156,58 @@ class ChatFragment(private val activity: MainActiviy) {
     // ─── New chat btn + More btn ──────────────────────────────────────────────
 
     fun refreshNewChatBtn() {
-        val enabled = newChatEnabled
-        binding.btnNewChat.alpha       = if (enabled) 1f else 0.35f
-        binding.btnNewChat.isClickable = enabled
-        binding.btnNewChat.isFocusable = enabled
+        val hasConv = newChatEnabled
         activity.refreshMoreBtn()
+
+        newChatSlideAnimator?.cancel()
+
+        if (hasConv) {
+            // btnMore vai aparecer → btnNewChat desliza de volta para a esquerda (posição normal)
+            if (binding.btnNewChat.translationX != 0f) {
+                newChatSlideAnimator = ValueAnimator.ofFloat(binding.btnNewChat.translationX, 0f).apply {
+                    duration = 300
+                    interpolator = DecelerateInterpolator(1.8f)
+                    addUpdateListener { binding.btnNewChat.translationX = it.animatedValue as Float }
+                    start()
+                }
+            }
+            // btnMoreWrapper aparece suavemente
+            binding.btnMoreWrapper.visibility = View.VISIBLE
+            binding.btnMoreWrapper.alpha = 0f
+            binding.btnMoreWrapper.scaleX = 0.7f
+            binding.btnMoreWrapper.scaleY = 0.7f
+            binding.btnMoreWrapper.animate()
+                .alpha(1f).scaleX(1f).scaleY(1f)
+                .setDuration(260).setInterpolator(OvershootInterpolator(1.2f)).start()
+        } else {
+            // btnMore vai desaparecer → calcula o offset para o btnNewChat ocupar esse espaço
+            // O btnMoreWrapper tem 36dp + 6dp marginEnd = ~42dp de espaço
+            val targetX = dp(42).toFloat()
+            if (binding.btnMoreWrapper.visibility == View.VISIBLE) {
+                // btnMore some suavemente
+                binding.btnMoreWrapper.animate()
+                    .alpha(0f).scaleX(0.7f).scaleY(0.7f)
+                    .setDuration(200).setInterpolator(DecelerateInterpolator())
+                    .withEndAction { binding.btnMoreWrapper.visibility = View.INVISIBLE }
+                    .start()
+                // btnNewChat desliza suavemente para a direita
+                newChatSlideAnimator = ValueAnimator.ofFloat(binding.btnNewChat.translationX, targetX).apply {
+                    duration = 300
+                    startDelay = 80L
+                    interpolator = OvershootInterpolator(1.1f)
+                    addUpdateListener { binding.btnNewChat.translationX = it.animatedValue as Float }
+                    start()
+                }
+            } else {
+                // Estado inicial — sem animação
+                binding.btnMoreWrapper.visibility = View.INVISIBLE
+                binding.btnNewChat.translationX = targetX
+            }
+        }
+
+        binding.btnNewChat.alpha       = if (hasConv) 1f else 0.35f
+        binding.btnNewChat.isClickable = hasConv
+        binding.btnNewChat.isFocusable = hasConv
     }
 
     // ─── Sync visibility ──────────────────────────────────────────────────────
@@ -450,7 +503,6 @@ class ChatFragment(private val activity: MainActiviy) {
         val isThinking   = thinkMoreMode
         thinkingContent  = ""
 
-        // Assim que o utilizador envia a primeira mensagem, já mostra o btnMore
         refreshNewChatBtn()
 
         streamJob = activity.lifecycleScope.launch {
@@ -488,7 +540,6 @@ class ChatFragment(private val activity: MainActiviy) {
                                     val title = NvidiaApiService.generateTitle(text, token, lang)
                                     currentConversationTitle = title
                                     saveCurrentConversation()
-                                    // Drawer actualiza com o título real gerado pela IA
                                     activity.drawerManager.loadConversations()
                                 }
                             } else {
@@ -850,20 +901,107 @@ class ChatFragment(private val activity: MainActiviy) {
         return wrap
     }
 
-    private fun parseMarkdown(text: String): Spanned {
-        val cleaned = text.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
-        val html = cleaned
-            .replace(Regex("\\*\\*(.+?)\\*\\*"), "<b>$1</b>")
-            .replace(Regex("__(.+?)__"), "<b>$1</b>")
-            .replace(Regex("(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)"), "<i>$1</i>")
-            .replace(Regex("`(.+?)`"), "<tt>$1</tt>")
-            .replace(Regex("^#{1,2}\\s+(.+)$", RegexOption.MULTILINE), "<b><big>$1</big></b>")
-            .replace(Regex("^#{3,}\\s+(.+)$", RegexOption.MULTILINE), "<b>$1</b>")
-            .replace(Regex("^[-•]\\s+(.+)$", RegexOption.MULTILINE), "• $1")
-            .replace(Regex("^\\|.+\\|$", RegexOption.MULTILINE), "")
-            .replace(Regex("^[|:\\- ]+$", RegexOption.MULTILINE), "")
-            .replace("\n", "<br>")
-        return Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
+    // ─── Markdown parser correcto ─────────────────────────────────────────────
+    // Usa SpannableStringBuilder nativo em vez de Html.fromHtml para tratar
+    // bullets, bold, italic e headers sem artifacts visuais.
+
+    private fun parseMarkdown(raw: String): Spanned {
+        // Remove blocos <think>
+        val text = raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
+
+        val sb = SpannableStringBuilder()
+
+        val lines = text.split("\n")
+        lines.forEachIndexed { idx, line ->
+            val trimmed = line.trimStart()
+
+            // Adiciona quebra antes (não na primeira linha)
+            if (idx > 0) sb.append("\n")
+
+            when {
+                // Header ## ou #
+                trimmed.startsWith("## ") || trimmed.startsWith("# ") -> {
+                    val content = trimmed.trimStart('#').trim()
+                    val start = sb.length
+                    appendInlineSpans(sb, content)
+                    sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(RelativeSizeSpan(1.15f), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                // Header ###
+                trimmed.startsWith("### ") -> {
+                    val content = trimmed.trimStart('#').trim()
+                    val start = sb.length
+                    appendInlineSpans(sb, content)
+                    sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                // Bullet: linhas que começam com *, -, •
+                trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ") -> {
+                    val content = trimmed.substring(2)
+                    val start = sb.length
+                    // Adiciona espaço de indentação + bullet nativo
+                    sb.append("  ")
+                    val bulletStart = sb.length
+                    appendInlineSpans(sb, content)
+                    sb.setSpan(
+                        BulletSpan(dp(8), ContextCompat.getColor(activity, R.color.text_primary)),
+                        start,
+                        sb.length,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+                // Linha de separador markdown (---, ===, |---|)
+                trimmed.matches(Regex("[-=|: ]+")) -> {
+                    // Ignorar
+                }
+                // Linha normal
+                else -> {
+                    appendInlineSpans(sb, line)
+                }
+            }
+        }
+
+        return sb
+    }
+
+    // Aplica bold, italic e code inline dentro de uma linha
+    private fun appendInlineSpans(sb: SpannableStringBuilder, line: String) {
+        // Processo sequencial: bold > italic > code
+        val pattern = Regex("\\*\\*(.+?)\\*\\*|__(.+?)__|(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)|`(.+?)`")
+        var lastEnd = 0
+        pattern.findAll(line).forEach { match ->
+            // Texto literal antes do match
+            if (match.range.first > lastEnd) {
+                sb.append(line.substring(lastEnd, match.range.first))
+            }
+            val start = sb.length
+            when {
+                match.groupValues[1].isNotEmpty() -> {
+                    // **bold**
+                    sb.append(match.groupValues[1])
+                    sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                match.groupValues[2].isNotEmpty() -> {
+                    // __bold__
+                    sb.append(match.groupValues[2])
+                    sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                match.groupValues[3].isNotEmpty() -> {
+                    // *italic*
+                    sb.append(match.groupValues[3])
+                    sb.setSpan(StyleSpan(android.graphics.Typeface.ITALIC), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                match.groupValues[4].isNotEmpty() -> {
+                    // `code`
+                    sb.append(match.groupValues[4])
+                    sb.setSpan(TypefaceSpan("monospace"), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+            }
+            lastEnd = match.range.last + 1
+        }
+        // Resto após o último match
+        if (lastEnd < line.length) {
+            sb.append(line.substring(lastEnd))
+        }
     }
 
     private fun dp(v: Int) = activity.dp(v)

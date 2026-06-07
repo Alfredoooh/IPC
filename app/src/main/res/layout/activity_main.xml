@@ -137,7 +137,7 @@
             android:id="@+id/appBarLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@android:color/transparent"
+            android:background="@color/appbar_solid"
             android:fitsSystemWindows="false"
             app:elevation="0dp"
             app:liftOnScroll="false">
@@ -145,12 +145,6 @@
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
-
-                <View
-                    android:id="@+id/appBarGradient"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/appbar_gradient" />
 
                 <RelativeLayout
                     android:layout_width="match_parent"
@@ -231,6 +225,15 @@
             </FrameLayout>
 
         </com.google.android.material.appbar.AppBarLayout>
+
+        <!-- Gradiente que faz fade da appbar sólida para transparente, abaixo da appbar -->
+        <View
+            android:id="@+id/appBarGradient"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:background="@drawable/appbar_gradient"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior"
+            android:layout_marginTop="0dp" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/chatRecyclerView"
