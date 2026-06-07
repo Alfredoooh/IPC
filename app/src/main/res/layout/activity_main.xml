@@ -158,6 +158,7 @@
                     android:paddingStart="8dp"
                     android:paddingEnd="8dp">
 
+                    <!-- Botão menu (hamburger/side panel) -->
                     <FrameLayout
                         android:layout_width="36dp"
                         android:layout_height="36dp"
@@ -176,6 +177,7 @@
 
                     </FrameLayout>
 
+                    <!-- Botões direita: nova conversa + more -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -184,7 +186,7 @@
                         android:layout_centerVertical="true"
                         android:layout_alignParentEnd="true">
 
-                        <!-- Nova conversa — ícone new_chat.svg -->
+                        <!-- Nova conversa -->
                         <FrameLayout
                             android:id="@+id/btnNewChat"
                             android:layout_width="36dp"
@@ -203,12 +205,15 @@
 
                         </FrameLayout>
 
+                        <!-- More (opções da conversa) — invisível até haver conversa -->
                         <FrameLayout
+                            android:id="@+id/btnMoreWrapper"
                             android:layout_width="36dp"
                             android:layout_height="36dp"
                             android:background="@drawable/appbar_btn_bg"
                             android:clickable="true"
-                            android:focusable="true">
+                            android:focusable="true"
+                            android:visibility="invisible">
 
                             <ImageView
                                 android:id="@+id/btnMore"
@@ -296,7 +301,6 @@
             android:paddingEnd="32dp"
             app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-            <!-- logo.png acima da saudação -->
             <ImageView
                 android:id="@+id/emptyLogo"
                 android:layout_width="72dp"
@@ -336,7 +340,7 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- POPUP OVERLAY appBar (câmara, importar, url, extras) -->
+        <!-- POPUP OVERLAY appBar -->
         <FrameLayout
             android:id="@+id/popupOverlay"
             android:layout_width="match_parent"
@@ -359,7 +363,6 @@
                 android:clickable="true"
                 android:focusable="true">
 
-                <!-- Câmara -->
                 <LinearLayout
                     android:id="@+id/popupItemCamera"
                     android:layout_width="match_parent"
@@ -388,7 +391,6 @@
 
                 </LinearLayout>
 
-                <!-- Importar Ficheiro -->
                 <LinearLayout
                     android:id="@+id/popupItemImport"
                     android:layout_width="match_parent"
@@ -417,7 +419,6 @@
 
                 </LinearLayout>
 
-                <!-- URL -->
                 <LinearLayout
                     android:id="@+id/popupItemUrl"
                     android:layout_width="match_parent"
@@ -447,7 +448,6 @@
 
                 </LinearLayout>
 
-                <!-- Extras -->
                 <LinearLayout
                     android:id="@+id/popupItemExtras"
                     android:layout_width="match_parent"
@@ -480,7 +480,7 @@
 
         </FrameLayout>
 
-        <!-- POPUP BOTTOM BAR (opções conversa) — sheet inferior -->
+        <!-- POPUP CONV OVERLAY -->
         <FrameLayout
             android:id="@+id/convPopupOverlay"
             android:layout_width="match_parent"
@@ -572,7 +572,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- Botão ADD circular (abre popup conversa) -->
+                <!-- Botão ADD circular -->
                 <FrameLayout
                     android:id="@+id/btnBottomAdd"
                     android:layout_width="40dp"
@@ -592,13 +592,12 @@
 
                 </FrameLayout>
 
-                <!-- Spacer para empurrar tab preview para a direita -->
                 <View
                     android:layout_width="0dp"
                     android:layout_height="1dp"
                     android:layout_weight="1" />
 
-                <!-- Tab Preview — pill estilizado como "Falar" do Grok -->
+                <!-- Tab Preview — abre modal full-screen -->
                 <FrameLayout
                     android:id="@+id/tabPreview"
                     android:layout_width="wrap_content"

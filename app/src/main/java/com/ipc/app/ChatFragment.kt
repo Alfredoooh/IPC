@@ -40,9 +40,9 @@ import java.util.Calendar
 
 class ChatFragment(private val activity: MainActiviy) {
 
-    private val binding     get() = activity.binding
-    private val prefs       get() = activity.prefs
-    private val authToken   get() = activity.authToken
+    private val binding   get() = activity.binding
+    private val prefs     get() = activity.prefs
+    private val authToken get() = activity.authToken
 
     private var flashMode     = false
     private var thinkMoreMode = false
@@ -58,18 +58,34 @@ class ChatFragment(private val activity: MainActiviy) {
     private var streamJob: Job? = null
     private lateinit var chatAdapter: ChatAdapter
 
-    private var sendBtnVisible       = false
-    var inputRowVisible              = true
-    private var inputRowHeight       = 0
-    private var frozenInputRowHeight = 0
-    private var inputRowHeightFrozen = false
+    private var sendBtnVisible        = false
+    var inputRowVisible               = true
+    private var inputRowHeight        = 0
+    private var frozenInputRowHeight  = 0
+    private var inputRowHeightFrozen  = false
     private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
-    private var sendBtnAnimator: ValueAnimator?   = null
-    private var inputRowAnimator: ValueAnimator?  = null
+    private var sendBtnAnimator:    ValueAnimator? = null
+    private var inputRowAnimator:   ValueAnimator? = null
     private var inputHeightAnimator: ValueAnimator? = null
 
     val newChatEnabled: Boolean
         get() = chatHistory.isNotEmpty() || currentConversationId.isNotEmpty()
+
+    // Exposto para MainActiviy saber se há conversa activa (para o btnMore)
+    val chatHistoryNotEmpty: Boolean
+        get() = chatHistory.isNotEmpty()
+
+    // Snapshot da conversa actual para o sheet de opções do btnMore
+    val currentConversationSnapshot: Conversation?
+        get() {
+            if (chatHistory.isEmpty() && currentConversationId.isEmpty()) return null
+            return Conversation(
+                id        = currentConversationId,
+                title     = currentConversationTitle,
+                messages  = chatHistory.toList(),
+                updatedAt = System.currentTimeMillis()
+            )
+        }
 
     data class DisplayMessage(
         val role: String,
@@ -88,7 +104,7 @@ class ChatFragment(private val activity: MainActiviy) {
         setupInput()
         binding.inputRow.post {
             if (inputRowHeight == 0) {
-                inputRowHeight = binding.inputRow.height
+                inputRowHeight       = binding.inputRow.height
                 frozenInputRowHeight = inputRowHeight
             }
         }
@@ -117,28 +133,28 @@ class ChatFragment(private val activity: MainActiviy) {
         binding.emptyGreeting.text = when {
             hour < 12 -> "Bom dia"; hour < 18 -> "Boa tarde"; else -> "Boa noite"
         }
-        // Carregar logo.png acima da saudação
         runCatching {
             val logoBitmap = activity.assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
             binding.emptyLogo.setImageBitmap(logoBitmap)
         }
         runCatching {
             val tf = Typeface.createFromAsset(activity.assets, "fonts/pattern/times_new_roman.ttf")
-            binding.emptyGreeting.typeface  = Typeface.create(tf, Typeface.BOLD)
-            binding.emptySubtitle.typeface  = tf
-            binding.previewTitle.typeface   = Typeface.create(tf, Typeface.BOLD)
+            binding.emptyGreeting.typeface   = Typeface.create(tf, Typeface.BOLD)
+            binding.emptySubtitle.typeface   = tf
+            binding.previewTitle.typeface    = Typeface.create(tf, Typeface.BOLD)
             binding.previewSubtitle.typeface = tf
-            binding.drawerAppName.typeface  = Typeface.create(tf, Typeface.BOLD)
+            binding.drawerAppName.typeface   = Typeface.create(tf, Typeface.BOLD)
         }
     }
 
-    // ─── New chat btn ─────────────────────────────────────────────────────────
+    // ─── New chat btn + More btn ──────────────────────────────────────────────
 
     fun refreshNewChatBtn() {
         val enabled = newChatEnabled
-        binding.btnNewChat.alpha      = if (enabled) 1f else 0.35f
+        binding.btnNewChat.alpha       = if (enabled) 1f else 0.35f
         binding.btnNewChat.isClickable = enabled
         binding.btnNewChat.isFocusable = enabled
+        activity.refreshMoreBtn()
     }
 
     // ─── Sync visibility ──────────────────────────────────────────────────────
@@ -384,7 +400,7 @@ class ChatFragment(private val activity: MainActiviy) {
         chatAdapter.notifyDataSetChanged()
         if (displayMessages.isNotEmpty()) binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
         binding.chatRecyclerView.visibility = View.VISIBLE
-        binding.emptyState.visibility = View.GONE
+        binding.emptyState.visibility       = View.GONE
         refreshNewChatBtn()
     }
 
@@ -400,7 +416,7 @@ class ChatFragment(private val activity: MainActiviy) {
         displayMessages.clear()
         chatAdapter.notifyDataSetChanged()
         binding.chatRecyclerView.visibility = View.GONE
-        binding.emptyState.visibility = View.VISIBLE
+        binding.emptyState.visibility       = View.VISIBLE
         activity.closeDrawer()
         refreshNewChatBtn()
     }
@@ -410,7 +426,7 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun sendChatMessage(text: String) {
         if (text.isBlank() || streamJob?.isActive == true) return
 
-        binding.emptyState.visibility = View.GONE
+        binding.emptyState.visibility       = View.GONE
         binding.chatRecyclerView.visibility = View.VISIBLE
 
         if (activity.keyboardOpen && binding.chatRecyclerView.translationY == 0f) {
@@ -434,6 +450,7 @@ class ChatFragment(private val activity: MainActiviy) {
         val isThinking   = thinkMoreMode
         thinkingContent  = ""
 
+        // Assim que o utilizador envia a primeira mensagem, já mostra o btnMore
         refreshNewChatBtn()
 
         streamJob = activity.lifecycleScope.launch {
@@ -444,7 +461,7 @@ class ChatFragment(private val activity: MainActiviy) {
                             thinkingContent += chunk.text
                             if (aiMsg.content.isEmpty()) {
                                 aiMsg.isThinking = true
-                                aiMsg.content = "thinking"
+                                aiMsg.content    = "thinking"
                             }
                             chatAdapter.notifyItemChanged(aiIndex)
                         }
@@ -471,10 +488,12 @@ class ChatFragment(private val activity: MainActiviy) {
                                     val title = NvidiaApiService.generateTitle(text, token, lang)
                                     currentConversationTitle = title
                                     saveCurrentConversation()
+                                    // Drawer actualiza com o título real gerado pela IA
                                     activity.drawerManager.loadConversations()
                                 }
                             } else {
                                 saveCurrentConversation()
+                                activity.drawerManager.loadConversations()
                             }
                         }
                         is StreamChunk.Error -> {
@@ -634,7 +653,7 @@ class ChatFragment(private val activity: MainActiviy) {
                 it.requestLayout()
                 val behavior = BottomSheetBehavior.from(it)
                 behavior.peekHeight = (screenH * 0.75f).toInt()
-                behavior.state = BottomSheetBehavior.STATE_EXPANDED
+                behavior.state      = BottomSheetBehavior.STATE_EXPANDED
             }
         }
         dialog.show()
