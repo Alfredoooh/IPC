@@ -4,12 +4,10 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.BitmapFactory
 import android.text.Editable
 import android.text.Html
 import android.text.Spanned
@@ -42,9 +40,9 @@ import java.util.Calendar
 
 class ChatFragment(private val activity: MainActiviy) {
 
-    private val binding get() = activity.binding
-    private val prefs   get() = activity.prefs
-    private val authToken get() = activity.authToken
+    private val binding     get() = activity.binding
+    private val prefs       get() = activity.prefs
+    private val authToken   get() = activity.authToken
 
     private var flashMode     = false
     private var thinkMoreMode = false
@@ -55,19 +53,19 @@ class ChatFragment(private val activity: MainActiviy) {
     private var titleGenerated   = false
     private var thinkingContent  = ""
 
-    private val chatHistory      = mutableListOf<ChatMessage>()
-    private val displayMessages  = mutableListOf<DisplayMessage>()
-    private var streamJob: Job?  = null
+    private val chatHistory     = mutableListOf<ChatMessage>()
+    private val displayMessages = mutableListOf<DisplayMessage>()
+    private var streamJob: Job? = null
     private lateinit var chatAdapter: ChatAdapter
 
-    private var sendBtnVisible      = false
-    var inputRowVisible             = true
-    private var inputRowHeight      = 0
-    private var frozenInputRowHeight= 0
-    private var inputRowHeightFrozen= false
+    private var sendBtnVisible       = false
+    var inputRowVisible              = true
+    private var inputRowHeight       = 0
+    private var frozenInputRowHeight = 0
+    private var inputRowHeightFrozen = false
     private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
-    private var sendBtnAnimator: ValueAnimator? = null
-    private var inputRowAnimator: ValueAnimator? = null
+    private var sendBtnAnimator: ValueAnimator?   = null
+    private var inputRowAnimator: ValueAnimator?  = null
     private var inputHeightAnimator: ValueAnimator? = null
 
     val newChatEnabled: Boolean
@@ -95,7 +93,6 @@ class ChatFragment(private val activity: MainActiviy) {
             }
         }
         refreshNewChatBtn()
-        updateToolbarTitle()
     }
 
     private fun setupChatRecycler() {
@@ -122,25 +119,19 @@ class ChatFragment(private val activity: MainActiviy) {
         }
         runCatching {
             val tf = Typeface.createFromAsset(activity.assets, "fonts/pattern/times_new_roman.ttf")
-            binding.emptyGreeting.typeface = Typeface.create(tf, Typeface.BOLD)
-            binding.emptySubtitle.typeface = tf
-            binding.previewTitle.typeface  = Typeface.create(tf, Typeface.BOLD)
+            binding.emptyGreeting.typeface  = Typeface.create(tf, Typeface.BOLD)
+            binding.emptySubtitle.typeface  = tf
+            binding.previewTitle.typeface   = Typeface.create(tf, Typeface.BOLD)
             binding.previewSubtitle.typeface = tf
-            binding.drawerAppName.typeface = Typeface.create(tf, Typeface.BOLD)
+            binding.drawerAppName.typeface  = Typeface.create(tf, Typeface.BOLD)
         }
-    }
-
-    // ─── Título toolbar ───────────────────────────────────────────────────────
-
-    fun updateToolbarTitle() {
-        binding.toolbarTitle.text = currentConversationTitle
     }
 
     // ─── New chat btn ─────────────────────────────────────────────────────────
 
     fun refreshNewChatBtn() {
         val enabled = newChatEnabled
-        binding.btnNewChat.alpha = if (enabled) 1f else 0.35f
+        binding.btnNewChat.alpha      = if (enabled) 1f else 0.35f
         binding.btnNewChat.isClickable = enabled
         binding.btnNewChat.isFocusable = enabled
     }
@@ -149,10 +140,10 @@ class ChatFragment(private val activity: MainActiviy) {
 
     fun syncVisibility() {
         if (displayMessages.isEmpty()) {
-            binding.emptyState.visibility = View.VISIBLE
+            binding.emptyState.visibility       = View.VISIBLE
             binding.chatRecyclerView.visibility = View.GONE
         } else {
-            binding.emptyState.visibility = View.GONE
+            binding.emptyState.visibility       = View.GONE
             binding.chatRecyclerView.visibility = View.VISIBLE
         }
     }
@@ -330,7 +321,7 @@ class ChatFragment(private val activity: MainActiviy) {
             duration = 180; interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val v = anim.animatedValue as Float
-                binding.btnSend.alpha = v
+                binding.btnSend.alpha  = v
                 binding.btnSend.scaleX = 0.7f + (v * 0.3f)
                 binding.btnSend.scaleY = 0.7f + (v * 0.3f)
             }
@@ -344,7 +335,7 @@ class ChatFragment(private val activity: MainActiviy) {
             duration = 150; interpolator = DecelerateInterpolator()
             addUpdateListener { anim ->
                 val v = anim.animatedValue as Float
-                binding.btnSend.alpha = v
+                binding.btnSend.alpha  = v
                 binding.btnSend.scaleX = 0.7f + (v * 0.3f)
                 binding.btnSend.scaleY = 0.7f + (v * 0.3f)
             }
@@ -390,7 +381,6 @@ class ChatFragment(private val activity: MainActiviy) {
         binding.chatRecyclerView.visibility = View.VISIBLE
         binding.emptyState.visibility = View.GONE
         refreshNewChatBtn()
-        updateToolbarTitle()
     }
 
     fun startNewConversation() {
@@ -408,7 +398,6 @@ class ChatFragment(private val activity: MainActiviy) {
         binding.emptyState.visibility = View.VISIBLE
         activity.closeDrawer()
         refreshNewChatBtn()
-        updateToolbarTitle()
     }
 
     // ─── Enviar mensagem ──────────────────────────────────────────────────────
@@ -428,7 +417,7 @@ class ChatFragment(private val activity: MainActiviy) {
         chatAdapter.notifyItemInserted(displayMessages.lastIndex)
         binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
 
-        val aiMsg = DisplayMessage("assistant", "", isStreaming = true)
+        val aiMsg   = DisplayMessage("assistant", "", isStreaming = true)
         displayMessages.add(aiMsg)
         val aiIndex = displayMessages.lastIndex
         chatAdapter.notifyItemInserted(aiIndex)
@@ -457,15 +446,15 @@ class ChatFragment(private val activity: MainActiviy) {
                         is StreamChunk.Token -> {
                             if (aiMsg.isThinking) {
                                 aiMsg.isThinking = false
-                                aiMsg.content = ""
+                                aiMsg.content    = ""
                             }
                             aiMsg.content += chunk.text
                             chatAdapter.notifyItemChanged(aiIndex)
                             binding.chatRecyclerView.scrollToPosition(aiIndex)
                         }
                         is StreamChunk.Done -> {
-                            aiMsg.isStreaming = false
-                            aiMsg.isThinking  = false
+                            aiMsg.isStreaming     = false
+                            aiMsg.isThinking      = false
                             if (aiMsg.content.isBlank()) aiMsg.content = chunk.fullText
                             aiMsg.thinkingContent = thinkingContent
                             chatHistory.add(ChatMessage("assistant", aiMsg.content))
@@ -475,10 +464,11 @@ class ChatFragment(private val activity: MainActiviy) {
                                 titleGenerated = true
                                 launch {
                                     val title = NvidiaApiService.generateTitle(text, token, lang)
+                                    // actualiza o título — o drawer vai reflectir na próxima abertura
                                     currentConversationTitle = title
-                                    // atualiza título na toolbar imediatamente
-                                    updateToolbarTitle()
                                     saveCurrentConversation()
+                                    // actualiza o drawer imediatamente após salvar
+                                    activity.drawerManager.loadConversations()
                                 }
                             } else {
                                 saveCurrentConversation()
@@ -487,7 +477,7 @@ class ChatFragment(private val activity: MainActiviy) {
                         is StreamChunk.Error -> {
                             aiMsg.isStreaming = false
                             aiMsg.isThinking  = false
-                            aiMsg.content = "⚠️ ${chunk.message}"
+                            aiMsg.content     = "⚠️ ${chunk.message}"
                             chatAdapter.notifyItemChanged(aiIndex)
                         }
                     }
@@ -533,10 +523,7 @@ class ChatFragment(private val activity: MainActiviy) {
                 holder.wrapper.addView(tv, FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.WRAP_CONTENT,
                     FrameLayout.LayoutParams.WRAP_CONTENT
-                ).also {
-                    it.gravity = Gravity.END
-                    it.marginStart = dp(64)
-                })
+                ).also { it.gravity = Gravity.END; it.marginStart = dp(64) })
             } else {
                 val col = LinearLayout(holder.wrapper.context).apply {
                     orientation = LinearLayout.VERTICAL
@@ -552,15 +539,13 @@ class ChatFragment(private val activity: MainActiviy) {
                             setColor(ContextCompat.getColor(activity, R.color.card_background))
                         }
                         layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
+                            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
                         ).also { it.bottomMargin = dp(8) }
                         isClickable = true; isFocusable = true
                     }
                     thinkBtn.addView(View(holder.wrapper.context).apply {
                         background = GradientDrawable().apply {
-                            shape = GradientDrawable.OVAL
-                            setColor(Color.parseColor("#FF3B30"))
+                            shape = GradientDrawable.OVAL; setColor(Color.parseColor("#FF3B30"))
                         }
                         layoutParams = LinearLayout.LayoutParams(dp(7), dp(7)).also { it.marginEnd = dp(7) }
                     })
@@ -576,30 +561,22 @@ class ChatFragment(private val activity: MainActiviy) {
                 }
 
                 when {
-                    msg.isStreaming && msg.isThinking -> {
-                        col.addView(buildThinkingSkeletonView(holder.wrapper.context))
-                    }
-                    msg.isStreaming && msg.content.isBlank() -> {
-                        col.addView(buildLoaderView(holder.wrapper.context))
-                    }
+                    msg.isStreaming && msg.isThinking -> col.addView(buildThinkingSkeletonView(holder.wrapper.context))
+                    msg.isStreaming && msg.content.isBlank() -> col.addView(buildLoaderView(holder.wrapper.context))
                     else -> {
-                        val tv = TextView(holder.wrapper.context).apply {
+                        col.addView(TextView(holder.wrapper.context).apply {
                             textSize = 15f
                             setLineSpacing(0f, 1.5f)
                             setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
                             setPadding(dp(2), dp(4), dp(8), dp(4))
                             text = parseMarkdown(msg.content)
-                        }
-                        col.addView(tv)
-                        if (msg.isStreaming) {
-                            col.addView(buildLoaderView(holder.wrapper.context))
-                        }
+                        })
+                        if (msg.isStreaming) col.addView(buildLoaderView(holder.wrapper.context))
                     }
                 }
 
                 holder.wrapper.addView(col, FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT
                 ).also { it.marginEnd = dp(16) })
             }
         }
@@ -686,49 +663,20 @@ class ChatFragment(private val activity: MainActiviy) {
             setPadding(dp(20), dp(8), dp(20), dp(16))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         })
-
-        // Flash — toggle, ícone filled quando ativo, verde
-        card.addView(buildExtrasToggleRow(
-            iconOff  = "icons/svg/flash.svg",
-            iconOn   = "icons/svg/flash_filled.svg",
-            label    = "Flash",
-            subtitle = "Respostas rápidas e diretas",
-            checked  = flashMode
-        ) {
-            flashMode = !flashMode
-            thinkMoreMode = false
-            dialog.dismiss()
-            showExtrasSheet()
+        card.addView(buildExtrasToggleRow("icons/svg/flash.svg", "icons/svg/flash_filled.svg",
+            "Flash", "Respostas rápidas e diretas", flashMode) {
+            flashMode = !flashMode; thinkMoreMode = false; dialog.dismiss(); showExtrasSheet()
         })
         card.addView(extrasDiv())
-
-        // Think More — toggle, ícone filled quando ativo, verde
-        card.addView(buildExtrasToggleRow(
-            iconOff  = "icons/svg/brain.svg",
-            iconOn   = "icons/svg/brain_filled.svg",
-            label    = "Think More",
-            subtitle = "Respostas mais detalhadas e profundas",
-            checked  = thinkMoreMode
-        ) {
-            thinkMoreMode = !thinkMoreMode
-            flashMode = false
-            dialog.dismiss()
-            showExtrasSheet()
+        card.addView(buildExtrasToggleRow("icons/svg/brain.svg", "icons/svg/brain_filled.svg",
+            "Think More", "Respostas mais detalhadas e profundas", thinkMoreMode) {
+            thinkMoreMode = !thinkMoreMode; flashMode = false; dialog.dismiss(); showExtrasSheet()
         })
         card.addView(extrasDiv())
-
-        // Sheets — switch + ícone filled quando ativo, verde
-        card.addView(buildExtrasToggleRow(
-            iconOff  = "icons/svg/sheets.svg",
-            iconOn   = "icons/svg/sheets_filled.svg",
-            label    = "Sheets",
-            subtitle = "A IA insere rascunhos HTML na conversa",
-            checked  = sheetsEnabled,
-            isSwitch = true
-        ) {
+        card.addView(buildExtrasToggleRow("icons/svg/sheets.svg", "icons/svg/sheets_filled.svg",
+            "Sheets", "A IA insere rascunhos HTML na conversa", sheetsEnabled, isSwitch = true) {
             sheetsEnabled = !sheetsEnabled
         })
-
         card.addView(View(activity).apply {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24))
         })
@@ -747,7 +695,7 @@ class ChatFragment(private val activity: MainActiviy) {
         checked: Boolean, isSwitch: Boolean = false,
         onClick: () -> Unit
     ): View {
-        val GREEN = Color.parseColor("#34C759")
+        val GREEN    = Color.parseColor("#34C759")
         val iconTint = if (checked) GREEN else ContextCompat.getColor(activity, R.color.icon_tint)
         val iconPath = if (checked) iconOn else iconOff
 
@@ -767,7 +715,6 @@ class ChatFragment(private val activity: MainActiviy) {
             layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
         })
         row.addView(iconFrame)
-
         val textCol = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -782,17 +729,15 @@ class ChatFragment(private val activity: MainActiviy) {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(2) }
         })
         row.addView(textCol)
-
         if (isSwitch) {
-            val sw = MaterialSwitch(activity).apply {
+            row.addView(MaterialSwitch(activity).apply {
                 isChecked = checked
                 setOnCheckedChangeListener { _, _ -> onClick() }
-            }
-            row.addView(sw)
+            })
         } else {
             if (checked) {
                 row.addView(ImageView(activity).apply {
-                    setImageDrawable(activity.svgDrawable("icons/svg/flash_filled.svg", 18, GREEN))
+                    setImageDrawable(activity.svgDrawable(iconOn, 18, GREEN))
                     layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
                 })
             }
@@ -827,10 +772,9 @@ class ChatFragment(private val activity: MainActiviy) {
 
     private fun buildLoaderView(ctx: Context): View {
         val dotSize = dp(8); val gap = dp(6)
-        val color = ContextCompat.getColor(activity, R.color.colorPrimary)
+        val color   = ContextCompat.getColor(activity, R.color.colorPrimary)
         val container = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 .also { it.topMargin = dp(6); it.bottomMargin = dp(4) }
         }

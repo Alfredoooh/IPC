@@ -19,11 +19,13 @@ import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.ipc.app.databinding.ActivityMainBinding
 import com.ipc.app.ui.BaseActivity
+import com.ipc.app.ui.SettingsActivity
 import java.util.Locale
 
 class MainActiviy : BaseActivity() {
@@ -88,7 +90,7 @@ class MainActiviy : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        androidx.core.splashscreen.SplashScreen.installSplashScreen(this)
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -143,7 +145,7 @@ class MainActiviy : BaseActivity() {
         currentBarMarginPx = (MARGIN_CHAT_DP * density).toInt()
         currentBarRadiusPx = RADIUS_CHAT_DP * density
 
-        chatFragment = ChatFragment(this)
+        chatFragment  = ChatFragment(this)
         drawerManager = DrawerManager(this)
 
         setupBottomBarSolid()
@@ -319,7 +321,7 @@ class MainActiviy : BaseActivity() {
         binding.drawerScrim.setOnClickListener { closeDrawer() }
         binding.drawerItemSettings.setOnClickListener {
             closeDrawer()
-            binding.root.postDelayed({ startActivity(Intent(this, com.ipc.app.ui.SettingsActivity::class.java)) }, 250)
+            binding.root.postDelayed({ startActivity(Intent(this, SettingsActivity::class.java)) }, 250)
         }
     }
 
