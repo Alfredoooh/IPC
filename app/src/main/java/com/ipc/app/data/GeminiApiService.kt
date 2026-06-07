@@ -99,34 +99,37 @@ object NvidiaApiService {
                             break
                         }
                         try {
-                            val json   = JSONObject(data)
-                            val choice = json.getJSONArray("choices").getJSONObject(0)
-                            val delta  = choice.getJSONObject("delta")
+                            val json = JSONObject(data)
+                            // Formato Gemini SSE: candidates[0].content.parts[0]
+                            val candidates = json.optJSONArray("candidates") ?: continue
+                            val candidate  = candidates.optJSONObject(0) ?: continue
+                            val content    = candidate.optJSONObject("content") ?: continue
+                            val parts      = content.optJSONArray("parts") ?: continue
 
-                            if (delta.has("reasoning_content") && !delta.isNull("reasoning_content")) {
-                                val tok = delta.getString("reasoning_content")
-                                if (tok.isNotEmpty()) trySend(StreamChunk.ThinkToken(tok))
-                            }
+                            for (i in 0 until parts.length()) {
+                                val part = parts.getJSONObject(i)
+                                val text = part.optString("text", "")
+                                if (text.isEmpty()) continue
 
-                            if (delta.has("content") && !delta.isNull("content")) {
-                                val tok = delta.getString("content")
-                                if (tok.isNotEmpty()) {
-                                    sb.append(tok)
-                                    trySend(StreamChunk.Token(tok))
+                                // thought=true → bloco de raciocínio
+                                if (part.optBoolean("thought", false)) {
+                                    if (text.isNotEmpty()) trySend(StreamChunk.ThinkToken(text))
+                                } else {
+                                    sb.append(text)
+                                    trySend(StreamChunk.Token(text))
                                 }
                             }
 
-                            val finishReason = choice.optString("finish_reason", "")
-                            if (finishReason == "stop" && !doneSent) {
+                            // Gemini sinaliza fim com finishReason
+                            val finishReason = candidate.optString("finishReason", "")
+                            if ((finishReason == "STOP" || finishReason == "MAX_TOKENS") && !doneSent) {
                                 doneSent = true
                                 trySend(StreamChunk.Done(sb.toString()))
                                 break
                             }
                         } catch (_: Exception) {}
                     }
-                    if (!doneSent) {
-                        trySend(StreamChunk.Done(sb.toString()))
-                    }
+                    if (!doneSent) trySend(StreamChunk.Done(sb.toString()))
                 } catch (e: Exception) {
                     trySend(StreamChunk.Error("Erro ao ler stream: ${e.message}"))
                 } finally {
@@ -142,31 +145,20 @@ object NvidiaApiService {
     suspend fun generateTitle(firstUserMessage: String, token: String, language: String = "pt"): String =
         withContext(Dispatchers.IO) {
             runCatching {
-                val prompt = if (language == "en")
-                    "Generate a short title (max 5 words) for a conversation that starts with: \"$firstUserMessage\". Reply with ONLY the title, no punctuation, no quotes."
-                else
-                    "Gera um título curto (máx 5 palavras) para uma conversa que começa com: \"$firstUserMessage\". Responde APENAS com o título, sem pontuação, sem aspas."
-
-                val messagesArray = JSONArray().apply {
-                    put(JSONObject().apply { put("role", "user"); put("content", prompt) })
-                }
-
                 val body = JSONObject().apply {
-                    put("messages", messagesArray)
-                    put("stream", false)
+                    put("message", firstUserMessage)
                     put("language", language)
-                    put("think", false)
                 }.toString().toRequestBody("application/json".toMediaType())
 
                 val request = Request.Builder()
-                    .url("$BASE_URL/ai/chat")
+                    .url("$BASE_URL/ai/title")
                     .addHeader("Authorization", "Bearer $token")
                     .post(body)
                     .build()
 
                 val response = client.newCall(request).execute()
                 val json = JSONObject(response.body!!.string())
-                json.optString("content", "Nova conversa").trim().take(40)
+                json.optString("title", "Nova conversa").trim().take(40)
             }.getOrDefault("Nova conversa")
         }
 

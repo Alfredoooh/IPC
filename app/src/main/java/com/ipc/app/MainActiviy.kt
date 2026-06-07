@@ -106,8 +106,9 @@ class MainActiviy : BaseActivity() {
     private var titleGenerated = false
     private var thinkingContent = ""
 
-    // guarda o shift do IME para não rever translationY do emptyState
+    // controlo do shift do IME — nunca desce o RecyclerView enquanto teclado aberto
     private var lastImeShift = 0
+    private var maxImeShift = 0
 
     private val drawerConversations = mutableListOf<Conversation>()
     private val chatHistory = mutableListOf<ChatMessage>()
@@ -173,6 +174,7 @@ class MainActiviy : BaseActivity() {
             val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
             val imeNowOpen = extraShift > 0
 
+            // bottom bar sobe/desce sempre com o teclado
             binding.bottomNavWrapper.animate()
                 .translationY(-extraShift.toFloat())
                 .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
@@ -180,36 +182,55 @@ class MainActiviy : BaseActivity() {
                 bottom = if (extraShift == 0) navInsets.bottom else 0
             )
 
-            if (imeNowOpen && !keyboardOpen) {
-                // teclado acabou de abrir
-                keyboardOpen = true
-                lastImeShift = extraShift
-                if (displayMessages.isEmpty()) {
-                    // só move emptyState para cima, nunca volta até o teclado fechar
-                    binding.emptyState.animate()
-                        .translationY(-(extraShift * 0.45f))
-                        .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-                } else {
-                    val llm = binding.chatRecyclerView.layoutManager as? LinearLayoutManager
-                    val lastVisible = llm?.findLastCompletelyVisibleItemPosition() ?: -1
-                    val lastIndex = displayMessages.lastIndex
-                    if (lastVisible < lastIndex) {
+            when {
+                imeNowOpen && !keyboardOpen -> {
+                    // teclado acabou de abrir
+                    keyboardOpen = true
+                    lastImeShift = extraShift
+                    maxImeShift  = extraShift
+                    if (displayMessages.isEmpty()) {
+                        binding.emptyState.animate()
+                            .translationY(-(extraShift * 0.45f))
+                            .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+                    } else {
+                        // RecyclerView sobe o mesmo tanto que o bottomBar
+                        binding.chatRecyclerView.animate()
+                            .translationY(-extraShift.toFloat())
+                            .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
                         binding.chatRecyclerView.post {
-                            binding.chatRecyclerView.smoothScrollToPosition(lastIndex)
+                            binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
                         }
                     }
                 }
-            } else if (imeNowOpen && keyboardOpen && extraShift != lastImeShift) {
-                // teclado já estava aberto mas o shift mudou (ex: sugestões de texto)
-                // NÃO mexemos em nada — o chat fica onde está
-                lastImeShift = extraShift
-            } else if (!imeNowOpen && keyboardOpen) {
-                // teclado fechou
-                keyboardOpen = false
-                lastImeShift = 0
-                binding.emptyState.animate()
-                    .translationY(0f)
-                    .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
+                imeNowOpen && keyboardOpen -> {
+                    // teclado já aberto — shift pode mudar (input a crescer, sugestões, etc.)
+                    // só subimos mais se o shift aumentou, NUNCA descemos enquanto teclado aberto
+                    if (extraShift > maxImeShift) {
+                        maxImeShift = extraShift
+                        if (displayMessages.isNotEmpty()) {
+                            binding.chatRecyclerView.animate()
+                                .translationY(-extraShift.toFloat())
+                                .setDuration(180).setInterpolator(DecelerateInterpolator(1.6f)).start()
+                        } else {
+                            binding.emptyState.animate()
+                                .translationY(-(extraShift * 0.45f))
+                                .setDuration(180).setInterpolator(DecelerateInterpolator(1.6f)).start()
+                        }
+                    }
+                    lastImeShift = extraShift
+                }
+                !imeNowOpen && keyboardOpen -> {
+                    // teclado fechou — volta tudo ao sítio
+                    keyboardOpen = false
+                    lastImeShift = 0
+                    maxImeShift  = 0
+                    binding.chatRecyclerView.animate()
+                        .translationY(0f)
+                        .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
+                    binding.emptyState.animate()
+                        .translationY(0f)
+                        .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
+                }
             }
             insets
         }
@@ -361,14 +382,24 @@ class MainActiviy : BaseActivity() {
                     val row = LinearLayout(this).apply {
                         orientation = LinearLayout.HORIZONTAL
                         gravity = Gravity.CENTER_VERTICAL
-                        setPadding(dp(24), 0, dp(24), 0)
+                        setPadding(dp(20), 0, dp(12), 0)
                         layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT, dp(48)
+                            LinearLayout.LayoutParams.MATCH_PARENT, dp(52)
                         )
                         val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
                         background = a.getDrawable(0); a.recycle()
                         isClickable = true; isFocusable = true
                     }
+
+                    // ícone de pin se fixada
+                    if (item.pinned) {
+                        row.addView(ImageView(this).apply {
+                            setImageDrawable(svgDrawable("icons/svg/bookmark_filled.svg", 13,
+                                ContextCompat.getColor(this@MainActiviy, R.color.colorPrimary)))
+                            layoutParams = LinearLayout.LayoutParams(dp(13), dp(13)).also { it.marginEnd = dp(6) }
+                        })
+                    }
+
                     row.addView(TextView(this).apply {
                         text = item.title
                         textSize = 14.5f
@@ -377,14 +408,208 @@ class MainActiviy : BaseActivity() {
                         maxLines = 1
                         ellipsize = android.text.TextUtils.TruncateAt.END
                     })
+
+                    // botão de eliminar à direita
+                    row.addView(ImageView(this).apply {
+                        setImageDrawable(svgDrawable("icons/svg/trash.svg", 15,
+                            Color.parseColor("#C0C0C0")))
+                        layoutParams = LinearLayout.LayoutParams(dp(36), dp(52)).also { it.marginStart = dp(4) }
+                        scaleType = ImageView.ScaleType.CENTER
+                        val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackgroundBorderless))
+                        background = a.getDrawable(0); a.recycle()
+                        isClickable = true; isFocusable = true
+                        setOnClickListener {
+                            showDeleteConfirmation(item)
+                        }
+                    })
+
                     row.setOnClickListener {
                         closeDrawer()
                         binding.root.postDelayed({ loadConversation(item) }, 250)
+                    }
+                    row.setOnLongClickListener {
+                        showConversationOptions(item)
+                        true
                     }
                     container.addView(row)
                 }
             }
         }
+    }
+
+    private fun showDeleteConfirmation(conv: Conversation) {
+        val dialog = BottomSheetDialog(this)
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
+            }
+        }
+        // handle
+        card.addView(View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
+                it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(16)
+            }
+        })
+        card.addView(ImageView(this).apply {
+            setImageDrawable(svgDrawable("icons/svg/trash.svg", 28, Color.parseColor("#FF3B30")))
+            layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).also {
+                it.gravity = Gravity.CENTER_HORIZONTAL; it.bottomMargin = dp(12)
+            }
+        })
+        card.addView(TextView(this).apply {
+            text = "Eliminar conversa?"
+            textSize = 17f; setTypeface(null, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_primary))
+            gravity = Gravity.CENTER
+            setPadding(dp(24), 0, dp(24), dp(6))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        })
+        card.addView(TextView(this).apply {
+            text = "\"${conv.title.take(40)}\" será eliminada permanentemente."
+            textSize = 14f
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
+            gravity = Gravity.CENTER
+            setPadding(dp(24), 0, dp(24), dp(24))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        })
+        // botões
+        val btnRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(16), 0, dp(16), dp(24))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        btnRow.addView(TextView(this).apply {
+            text = "Cancelar"; textSize = 15f; gravity = Gravity.CENTER
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_primary))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.card_background))
+            }
+            layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).also { it.marginEnd = dp(8) }
+            setOnClickListener { dialog.dismiss() }
+        })
+        btnRow.addView(TextView(this).apply {
+            text = "Eliminar"; textSize = 15f; gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(Color.parseColor("#FF3B30"))
+            }
+            layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).also { it.marginStart = dp(8) }
+            setOnClickListener {
+                dialog.dismiss()
+                lifecycleScope.launch {
+                    AuthApiService.deleteConversation(authToken, conv.id)
+                    if (conv.id == currentConversationId) startNewConversation()
+                    else loadDrawerConversations()
+                }
+            }
+        })
+        card.addView(btnRow)
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)
+            addView(card)
+        }
+        dialog.setContentView(root)
+        dialog.setOnShowListener {
+            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                ?.setBackgroundColor(Color.TRANSPARENT)
+        }
+        dialog.show()
+    }
+
+    private fun showConversationOptions(conv: Conversation) {
+        val dialog = BottomSheetDialog(this)
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
+            }
+        }
+        card.addView(View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
+                it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(8)
+            }
+        })
+        card.addView(TextView(this).apply {
+            text = conv.title; textSize = 15f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_primary))
+            maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+            setPadding(dp(20), dp(4), dp(20), dp(12))
+        })
+        card.addView(View(this).apply {
+            setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
+        })
+
+        fun optionRow(iconPath: String, label: String, color: Int = ContextCompat.getColor(this, R.color.text_primary), action: () -> Unit): View {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(54); setPadding(dp(20), 0, dp(20), 0)
+                val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+                background = a.getDrawable(0); a.recycle()
+                isClickable = true; isFocusable = true
+            }
+            row.addView(ImageView(this).apply {
+                setImageDrawable(svgDrawable(iconPath, 20, color))
+                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).also { it.marginEnd = dp(16) }
+            })
+            row.addView(TextView(this).apply {
+                text = label; textSize = 15f; setTextColor(color)
+            })
+            row.setOnClickListener { dialog.dismiss(); action() }
+            return row
+        }
+
+        val pinLabel  = if (conv.pinned) "Desafixar" else "Fixar"
+        val pinIcon   = if (conv.pinned) "icons/svg/bookmark_filled.svg" else "icons/svg/bookmark.svg"
+        val archLabel = if (conv.archived) "Desarquivar" else "Arquivar"
+
+        card.addView(optionRow(pinIcon, pinLabel) {
+            lifecycleScope.launch {
+                AuthApiService.pinConversation(authToken, conv.id, !conv.pinned)
+                loadDrawerConversations()
+            }
+        })
+        card.addView(optionRow("icons/svg/history.svg", archLabel) {
+            lifecycleScope.launch {
+                AuthApiService.archiveConversation(authToken, conv.id, !conv.archived)
+                if (conv.id == currentConversationId) startNewConversation()
+                else loadDrawerConversations()
+            }
+        })
+        card.addView(optionRow("icons/svg/trash.svg", "Eliminar", Color.parseColor("#FF3B30")) {
+            showDeleteConfirmation(conv)
+        })
+        card.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(20))
+        })
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)
+            addView(card)
+        }
+        dialog.setContentView(root)
+        dialog.setOnShowListener {
+            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                ?.setBackgroundColor(Color.TRANSPARENT)
+        }
+        dialog.show()
     }
 
     private fun startNewConversation() {
@@ -411,6 +636,11 @@ class MainActiviy : BaseActivity() {
 
         binding.emptyState.visibility = View.GONE
         binding.chatRecyclerView.visibility = View.VISIBLE
+
+        // garante que o RecyclerView mantém o shift do teclado ao aparecer
+        if (keyboardOpen && binding.chatRecyclerView.translationY == 0f) {
+            binding.chatRecyclerView.translationY = -maxImeShift.toFloat()
+        }
 
         chatHistory.add(ChatMessage("user", text))
         displayMessages.add(DisplayMessage("user", text))
@@ -594,12 +824,10 @@ class MainActiviy : BaseActivity() {
         override fun getItemCount() = msgs.size
     }
 
-    // loader corrigido — tamanho razoável, animação contida dentro do container
     private fun buildLoaderView(ctx: Context): View {
         val dotSize = dp(8)
         val gap     = dp(6)
         val color   = ContextCompat.getColor(this, R.color.colorPrimary)
-
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -608,12 +836,10 @@ class MainActiviy : BaseActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(6); it.bottomMargin = dp(4) }
         }
-
         val dots = (0..2).map {
             View(ctx).apply {
                 background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(color)
+                    shape = GradientDrawable.OVAL; setColor(color)
                 }
                 layoutParams = LinearLayout.LayoutParams(dotSize, dotSize).also { lp ->
                     if (it > 0) lp.marginStart = gap
@@ -621,20 +847,15 @@ class MainActiviy : BaseActivity() {
                 container.addView(this)
             }
         }
-
-        // animação: cada dot faz bounce com delay escalonado
         dots.forEachIndexed { i, dot ->
             ValueAnimator.ofFloat(0f, -dp(6).toFloat(), 0f).apply {
-                duration = 600
-                startDelay = (i * 150).toLong()
-                repeatCount = ValueAnimator.INFINITE
-                repeatMode = ValueAnimator.RESTART
+                duration = 600; startDelay = (i * 150).toLong()
+                repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.RESTART
                 interpolator = DecelerateInterpolator()
                 addUpdateListener { dot.translationY = it.animatedValue as Float }
                 start()
             }
         }
-
         return container
     }
 
@@ -642,13 +863,11 @@ class MainActiviy : BaseActivity() {
         val wrap = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
         wrap.addView(TextView(ctx).apply {
-            text = "🧠 A pensar…"
-            textSize = 14f
+            text = "🧠 A pensar…"; textSize = 14f
             setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
             setPadding(dp(2), dp(4), dp(8), dp(6))
         })
@@ -665,8 +884,7 @@ class MainActiviy : BaseActivity() {
             }
             wrap.addView(bar)
             ValueAnimator.ofFloat(0.4f, 1f, 0.4f).apply {
-                duration = 1200
-                repeatCount = ValueAnimator.INFINITE
+                duration = 1200; repeatCount = ValueAnimator.INFINITE
                 addUpdateListener { bar.alpha = it.animatedValue as Float }
                 start()
             }
@@ -710,18 +928,15 @@ class MainActiviy : BaseActivity() {
         }
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(3).toFloat()
+                shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
                 setColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
             }
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
-                it.gravity = Gravity.CENTER_HORIZONTAL
-                it.topMargin = dp(10); it.bottomMargin = dp(4)
+                it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(10); it.bottomMargin = dp(4)
             }
         })
         card.addView(TextView(this).apply {
-            text = "Processo de pensamento"
-            textSize = 16f
+            text = "Processo de pensamento"; textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_primary))
             setPadding(dp(20), dp(8), dp(20), dp(12))
@@ -736,8 +951,7 @@ class MainActiviy : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         scroll.addView(TextView(this).apply {
-            text = content
-            textSize = 13f
+            text = content; textSize = 13f
             setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
             setLineSpacing(0f, 1.5f)
             setPadding(dp(20), dp(16), dp(20), dp(24))
@@ -787,8 +1001,7 @@ class MainActiviy : BaseActivity() {
             }
         })
         card.addView(TextView(this).apply {
-            text = "Extras"
-            textSize = 13f
+            text = "Extras"; textSize = 13f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.parseColor("#8E8E93"))
             gravity = Gravity.CENTER
@@ -831,10 +1044,8 @@ class MainActiviy : BaseActivity() {
     ): View {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(60)
-            setPadding(dp(20), dp(12), dp(20), dp(12))
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(60); setPadding(dp(20), dp(12), dp(20), dp(12))
             val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
             background = a.getDrawable(0); a.recycle()
             isClickable = true; isFocusable = true
@@ -856,8 +1067,7 @@ class MainActiviy : BaseActivity() {
             text = label; textSize = 15f; setTextColor(Color.BLACK)
         })
         textCol.addView(TextView(this).apply {
-            text = subtitle; textSize = 12f
-            setTextColor(Color.parseColor("#888888"))
+            text = subtitle; textSize = 12f; setTextColor(Color.parseColor("#888888"))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(2) }
         })
         row.addView(textCol)
