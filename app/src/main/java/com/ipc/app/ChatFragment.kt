@@ -527,22 +527,16 @@ class ChatFragment(private val activity: MainActiviy) {
                             chatAdapter.notifyItemChanged(aiIndex)
                             binding.chatRecyclerView.scrollToPosition(aiIndex)
 
-                            val firstUserMsg = chatHistory.firstOrNull { it.role == "user" }?.content ?: text
-
                             if (!titleGenerated && chatHistory.size >= 2) {
                                 titleGenerated = true
-                                // título provisório imediato
-                                currentConversationTitle = firstUserMsg.take(30).trimEnd()
-                                saveCurrentConversation()
-                                activity.drawerManager.loadConversations()
-                                // título gerado pela IA em background
                                 launch {
+                                    val firstUserMsg = chatHistory.firstOrNull { it.role == "user" }?.content ?: text
                                     val generated = GeminiApiService.generateTitle(firstUserMsg, token, lang)
                                     if (generated.isNotBlank() && generated != "Nova conversa") {
                                         currentConversationTitle = generated
-                                        saveCurrentConversation()
-                                        activity.drawerManager.loadConversations()
                                     }
+                                    saveCurrentConversation()
+                                    activity.drawerManager.loadConversations()
                                 }
                             } else {
                                 saveCurrentConversation()
