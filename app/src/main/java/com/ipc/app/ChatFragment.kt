@@ -185,8 +185,7 @@ class ChatFragment(private val activity: MainActiviy) {
                     .withEndAction { binding.btnMoreWrapper.visibility = View.INVISIBLE }
                     .start()
                 newChatSlideAnimator = ValueAnimator.ofFloat(binding.btnNewChat.translationX, targetX).apply {
-                    duration = 300
-                    startDelay = 80L
+                    duration = 300; startDelay = 80L
                     interpolator = OvershootInterpolator(1.1f)
                     addUpdateListener { binding.btnNewChat.translationX = it.animatedValue as Float }
                     start()
@@ -219,44 +218,6 @@ class ChatFragment(private val activity: MainActiviy) {
         if (wh > 0 && binding.bottomBlurBg.layoutParams.height != wh) {
             binding.bottomBlurBg.layoutParams = binding.bottomBlurBg.layoutParams.also { it.height = wh }
         }
-    }
-
-    // ─── Teclado ──────────────────────────────────────────────────────────────
-
-    fun onKeyboardOpen(extraShift: Int) {
-        if (displayMessages.isEmpty()) {
-            binding.emptyState.animate()
-                .translationY(-(extraShift * 0.45f))
-                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-        } else {
-            binding.chatRecyclerView.animate()
-                .translationY(-extraShift.toFloat())
-                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-            binding.chatRecyclerView.post {
-                binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
-            }
-        }
-    }
-
-    fun onKeyboardShiftChanged(extraShift: Int) {
-        if (displayMessages.isNotEmpty()) {
-            binding.chatRecyclerView.animate()
-                .translationY(-extraShift.toFloat())
-                .setDuration(180).setInterpolator(DecelerateInterpolator(1.6f)).start()
-        } else {
-            binding.emptyState.animate()
-                .translationY(-(extraShift * 0.45f))
-                .setDuration(180).setInterpolator(DecelerateInterpolator(1.6f)).start()
-        }
-    }
-
-    fun onKeyboardClose() {
-        binding.chatRecyclerView.animate()
-            .translationY(0f)
-            .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
-        binding.emptyState.animate()
-            .translationY(0f)
-            .setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
     }
 
     // ─── Input row ────────────────────────────────────────────────────────────
@@ -308,18 +269,19 @@ class ChatFragment(private val activity: MainActiviy) {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 val hasText = !s.isNullOrBlank()
-                if (hasText && !sendBtnVisible) showSendBtn()
-                else if (!hasText && sendBtnVisible) hideSendBtn()
+                when {
+                    hasText && !sendBtnVisible -> showSendBtn()
+                    !hasText && sendBtnVisible -> hideSendBtn()
+                }
             }
         })
 
         binding.btnSend.setOnClickListener {
             val text = binding.inputMessage.text.toString().trim()
-            if (text.isNotEmpty()) {
-                binding.inputMessage.text?.clear()
-                sendChatMessage(text)
-            }
+            if (text.isNotEmpty()) { binding.inputMessage.text?.clear(); sendChatMessage(text) }
         }
+
+        binding.btnRecord.setOnClickListener { activity.showVoiceModal() }
     }
 
     fun showInputRow() {
@@ -381,35 +343,39 @@ class ChatFragment(private val activity: MainActiviy) {
     }
 
     private fun showSendBtn() {
-        sendBtnVisible = true; binding.btnSend.visibility = View.VISIBLE
+        sendBtnVisible = true
         sendBtnAnimator?.cancel()
-        sendBtnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 180; interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                val v = anim.animatedValue as Float
-                binding.btnSend.alpha  = v
-                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
-                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
-            }
-            start()
-        }
+        // Esconde record com encolhimento
+        binding.btnRecord.animate()
+            .scaleX(0.5f).scaleY(0.5f).alpha(0f)
+            .setDuration(160).setInterpolator(DecelerateInterpolator())
+            .withEndAction { binding.btnRecord.visibility = View.GONE }
+            .start()
+        // Mostra send com overshoot
+        binding.btnSend.visibility = View.VISIBLE
+        binding.btnSend.scaleX = 0.5f; binding.btnSend.scaleY = 0.5f; binding.btnSend.alpha = 0f
+        binding.btnSend.animate()
+            .scaleX(1f).scaleY(1f).alpha(1f)
+            .setDuration(200).setInterpolator(OvershootInterpolator(1.3f))
+            .start()
     }
 
     private fun hideSendBtn() {
-        sendBtnVisible = false; sendBtnAnimator?.cancel()
-        sendBtnAnimator = ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = 150; interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                val v = anim.animatedValue as Float
-                binding.btnSend.alpha  = v
-                binding.btnSend.scaleX = 0.7f + (v * 0.3f)
-                binding.btnSend.scaleY = 0.7f + (v * 0.3f)
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) { binding.btnSend.visibility = View.GONE }
-            })
-            start()
-        }
+        sendBtnVisible = false
+        sendBtnAnimator?.cancel()
+        // Esconde send com encolhimento
+        binding.btnSend.animate()
+            .scaleX(0.5f).scaleY(0.5f).alpha(0f)
+            .setDuration(160).setInterpolator(DecelerateInterpolator())
+            .withEndAction { binding.btnSend.visibility = View.GONE }
+            .start()
+        // Mostra record com overshoot
+        binding.btnRecord.visibility = View.VISIBLE
+        binding.btnRecord.scaleX = 0.5f; binding.btnRecord.scaleY = 0.5f; binding.btnRecord.alpha = 0f
+        binding.btnRecord.animate()
+            .scaleX(1f).scaleY(1f).alpha(1f)
+            .setDuration(200).setInterpolator(OvershootInterpolator(1.3f))
+            .start()
     }
 
     // ─── Conversas ────────────────────────────────────────────────────────────
@@ -473,10 +439,6 @@ class ChatFragment(private val activity: MainActiviy) {
 
         binding.emptyState.visibility       = View.GONE
         binding.chatRecyclerView.visibility = View.VISIBLE
-
-        if (activity.keyboardOpen && binding.chatRecyclerView.translationY == 0f) {
-            binding.chatRecyclerView.translationY = -activity.maxImeShift.toFloat()
-        }
 
         chatHistory.add(ChatMessage("user", text))
         displayMessages.add(DisplayMessage("user", text))

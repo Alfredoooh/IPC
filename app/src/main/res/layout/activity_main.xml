@@ -152,7 +152,6 @@
                     android:paddingStart="8dp"
                     android:paddingEnd="8dp">
 
-                    <!-- Botão menu (hamburger/side panel) -->
                     <FrameLayout
                         android:layout_width="36dp"
                         android:layout_height="36dp"
@@ -171,7 +170,6 @@
 
                     </FrameLayout>
 
-                    <!-- Botões direita: nova conversa + more -->
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -180,7 +178,6 @@
                         android:layout_centerVertical="true"
                         android:layout_alignParentEnd="true">
 
-                        <!-- Nova conversa -->
                         <FrameLayout
                             android:id="@+id/btnNewChat"
                             android:layout_width="36dp"
@@ -199,7 +196,6 @@
 
                         </FrameLayout>
 
-                        <!-- More (opções da conversa) — invisível até haver conversa -->
                         <FrameLayout
                             android:id="@+id/btnMoreWrapper"
                             android:layout_width="36dp"
@@ -226,14 +222,12 @@
 
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Gradiente que faz fade da appbar sólida para transparente, abaixo da appbar -->
         <View
             android:id="@+id/appBarGradient"
             android:layout_width="match_parent"
             android:layout_height="80dp"
             android:background="@drawable/appbar_gradient"
-            app:layout_behavior="@string/appbar_scrolling_view_behavior"
-            android:layout_marginTop="0dp" />
+            app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/chatRecyclerView"
@@ -316,7 +310,6 @@
                 android:id="@+id/emptyGreeting"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="0dp"
                 android:textSize="48sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
@@ -343,7 +336,7 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- POPUP OVERLAY appBar -->
+        <!-- POPUP OVERLAY appBar (mantido para btnMore) -->
         <FrameLayout
             android:id="@+id/popupOverlay"
             android:layout_width="match_parent"
@@ -483,7 +476,6 @@
 
         </FrameLayout>
 
-        <!-- POPUP CONV OVERLAY -->
         <FrameLayout
             android:id="@+id/convPopupOverlay"
             android:layout_width="match_parent"
@@ -544,6 +536,26 @@
                     android:scrollbars="vertical"
                     android:gravity="center_vertical" />
 
+                <!-- Botão Record — visível por defeito -->
+                <FrameLayout
+                    android:id="@+id/btnRecord"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="bottom"
+                    android:layout_marginBottom="2dp"
+                    android:background="@drawable/send_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:id="@+id/btnRecordIcon"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_gravity="center" />
+
+                </FrameLayout>
+
+                <!-- Botão Send — oculto por defeito -->
                 <FrameLayout
                     android:id="@+id/btnSend"
                     android:layout_width="36dp"
@@ -600,7 +612,7 @@
                     android:layout_height="1dp"
                     android:layout_weight="1" />
 
-                <!-- Tab Preview — abre modal full-screen -->
+                <!-- Tab Preview -->
                 <FrameLayout
                     android:id="@+id/tabPreview"
                     android:layout_width="wrap_content"
@@ -635,6 +647,25 @@
                             android:textColor="@color/text_primary" />
 
                     </LinearLayout>
+
+                </FrameLayout>
+
+                <!-- Botão Record circular à direita do preview pill -->
+                <FrameLayout
+                    android:id="@+id/btnRecordBottom"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="10dp"
+                    android:background="@drawable/add_circle_bg"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:id="@+id/btnRecordBottomIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
 
                 </FrameLayout>
 
