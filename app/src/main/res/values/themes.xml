@@ -31,4 +31,21 @@
         <item name="windowSplashScreenIconBackgroundColor">@color/splash_background_light</item>
         <item name="postSplashScreenTheme">@style/Theme.IPC</item>
     </style>
+    
+    <style name="Theme.IPC.BottomSheet" parent="Theme.Material3.DayNight.BottomSheetDialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="bottomSheetStyle">@style/IPC.BottomSheetStyle</item>
+        <item name="colorSurface">@color/dialog_background</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/card_background</item>
+        <item name="colorControlActivated">@color/colorPrimary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+    </style>
+
+    <style name="IPC.BottomSheetStyle" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">@color/dialog_background</item>
+        <item name="android:backgroundTint">@color/dialog_background</item>
+    </style>
 </resources>

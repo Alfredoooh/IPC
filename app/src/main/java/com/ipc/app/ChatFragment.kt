@@ -1,3 +1,4 @@
+// ChatFragment.kt — COMPLETO
 package com.ipc.app
 
 import android.animation.Animator
@@ -22,6 +23,7 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -205,6 +207,22 @@ class ChatFragment(private val activity: MainActiviy) {
         val wh = binding.bottomNavWrapper.height
         if (wh > 0 && binding.bottomBlurBg.layoutParams.height != wh) {
             binding.bottomBlurBg.layoutParams = binding.bottomBlurBg.layoutParams.also { it.height = wh }
+        }
+    }
+
+    // ─── Keyboard padding ─────────────────────────────────────────────────────
+    // Chamado pela MainActivity quando o IME muda de altura
+    fun applyKeyboardPadding(extraShift: Int) {
+        val rv = binding.chatRecyclerView
+        val current = rv.paddingBottom
+        // paddingBottom base é 160dp; quando teclado está aberto, adiciona extraShift
+        val basePadding = dp(160)
+        val targetPadding = basePadding + extraShift
+        if (current != targetPadding) {
+            rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, targetPadding)
+            if (displayMessages.isNotEmpty()) {
+                rv.scrollToPosition(displayMessages.lastIndex)
+            }
         }
     }
 
@@ -439,7 +457,6 @@ class ChatFragment(private val activity: MainActiviy) {
                                 titleGenerated = true
                                 launch {
                                     val firstUserMsg = chatHistory.firstOrNull { it.role == "user" }?.content ?: text
-                                    // Gera título antes de guardar
                                     val generated = GeminiApiService.generateTitle(firstUserMsg, token, lang)
                                     currentConversationTitle = if (generated.isNotBlank() && generated != "Nova conversa") generated else firstUserMsg.take(30).trimEnd()
                                     saveCurrentConversation()
@@ -540,13 +557,8 @@ class ChatFragment(private val activity: MainActiviy) {
                     msg.isStreaming && msg.isThinking -> col.addView(buildThinkingSkeletonView(holder.wrapper.context))
                     msg.isStreaming && msg.content.isBlank() -> col.addView(buildLoaderView(holder.wrapper.context))
                     else -> {
-                        col.addView(TextView(holder.wrapper.context).apply {
-                            textSize = 15f
-                            setLineSpacing(0f, 1.5f)
-                            setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
-                            setPadding(dp(2), dp(4), dp(8), dp(4))
-                            text = parseMarkdown(msg.content)
-                        })
+                        // Renderizar o conteúdo bloco a bloco (texto, tabelas, código)
+                        renderMessageContent(col, msg.content)
                         if (msg.isStreaming) col.addView(buildLoaderView(holder.wrapper.context))
                     }
                 }
@@ -560,10 +572,178 @@ class ChatFragment(private val activity: MainActiviy) {
         override fun getItemCount() = msgs.size
     }
 
+    // ─── Renderização de blocos de mensagem ───────────────────────────────────
+
+    private fun renderMessageContent(parent: LinearLayout, rawContent: String) {
+        // Remove tags <think>
+        val text = rawContent.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
+        // Divide em blocos: tabela vs texto normal
+        val blocks = splitIntoBlocks(text)
+        blocks.forEach { block ->
+            when (block.type) {
+                BlockType.TABLE -> parent.addView(buildTableView(parent.context, block.lines))
+                BlockType.TEXT  -> {
+                    val tv = TextView(parent.context).apply {
+                        textSize = 15f
+                        setLineSpacing(0f, 1.5f)
+                        setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
+                        setPadding(dp(2), dp(4), dp(8), dp(4))
+                        text = parseMarkdownBlock(block.lines.joinToString("\n"))
+                    }
+                    parent.addView(tv)
+                }
+            }
+        }
+    }
+
+    enum class BlockType { TEXT, TABLE }
+    data class ContentBlock(val type: BlockType, val lines: List<String>)
+
+    private fun splitIntoBlocks(text: String): List<ContentBlock> {
+        val result = mutableListOf<ContentBlock>()
+        val lines = text.split("\n")
+        val currentTextLines = mutableListOf<String>()
+
+        fun flushText() {
+            if (currentTextLines.isNotEmpty()) {
+                // Remove linhas vazias no início/fim do bloco de texto
+                val trimmed = currentTextLines.dropWhile { it.isBlank() }.dropLastWhile { it.isBlank() }
+                if (trimmed.isNotEmpty()) result.add(ContentBlock(BlockType.TEXT, trimmed))
+                currentTextLines.clear()
+            }
+        }
+
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            // Detectar início de tabela: linha com pipes |
+            if (isTableLine(line)) {
+                flushText()
+                val tableLines = mutableListOf<String>()
+                while (i < lines.size && (isTableLine(lines[i]) || isSeparatorLine(lines[i]))) {
+                    tableLines.add(lines[i])
+                    i++
+                }
+                if (tableLines.size >= 2) {
+                    result.add(ContentBlock(BlockType.TABLE, tableLines))
+                } else {
+                    // Não é tabela válida, trata como texto
+                    currentTextLines.addAll(tableLines)
+                }
+            } else {
+                currentTextLines.add(line)
+                i++
+            }
+        }
+        flushText()
+        return result
+    }
+
+    private fun isTableLine(line: String): Boolean {
+        val t = line.trim()
+        return t.startsWith("|") && t.endsWith("|") && t.count { it == '|' } >= 2
+    }
+
+    private fun isSeparatorLine(line: String): Boolean {
+        val t = line.trim()
+        return t.matches(Regex("\\|[-:| ]+\\|"))
+    }
+
+    // ─── Builder de tabela nativa ─────────────────────────────────────────────
+
+    private fun buildTableView(ctx: Context, lines: List<String>): View {
+        // Filtra a linha separadora (---|---) mas guarda os headers
+        val dataLines = lines.filter { !isSeparatorLine(it) }
+        if (dataLines.isEmpty()) return View(ctx)
+
+        val textPrimary   = ContextCompat.getColor(activity, R.color.text_primary)
+        val textSecondary = ContextCompat.getColor(activity, R.color.text_secondary)
+        val dividerColor  = ContextCompat.getColor(activity, R.color.divider)
+        val cardBg        = ContextCompat.getColor(activity, R.color.card_background)
+
+        // Container com scroll horizontal para tabelas largas
+        val hScroll = HorizontalScrollView(ctx).apply {
+            overScrollMode = View.OVER_SCROLL_NEVER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+        }
+
+        val table = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = dp(10).toFloat()
+                setColor(cardBg)
+            }
+            clipToOutline = true
+        }
+
+        dataLines.forEachIndexed { rowIndex, line ->
+            val cells = line.trim().removePrefix("|").removeSuffix("|").split("|").map { it.trim() }
+            val isHeader = rowIndex == 0
+
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                if (isHeader) {
+                    setBackgroundColor(
+                        // header ligeiramente mais escuro
+                        blendColors(cardBg, if (activity.isAppDarkMode) Color.WHITE else Color.BLACK, 0.06f)
+                    )
+                }
+            }
+
+            cells.forEachIndexed { colIndex, cellText ->
+                // Divisor vertical entre células
+                if (colIndex > 0) {
+                    row.addView(View(ctx).apply {
+                        setBackgroundColor(dividerColor)
+                        layoutParams = LinearLayout.LayoutParams(1, LinearLayout.LayoutParams.MATCH_PARENT)
+                    })
+                }
+                val cell = TextView(ctx).apply {
+                    text = parseInlineMarkdown(cellText)
+                    textSize = 13.5f
+                    setTextColor(if (isHeader) textPrimary else textSecondary)
+                    if (isHeader) setTypeface(typeface, Typeface.BOLD)
+                    setPadding(dp(12), dp(10), dp(12), dp(10))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).also { it.weight = 1f }
+                    minWidth = dp(80)
+                }
+                row.addView(cell)
+            }
+
+            table.addView(row)
+
+            // Divisor horizontal entre linhas (não depois da última)
+            if (rowIndex < dataLines.lastIndex) {
+                table.addView(View(ctx).apply {
+                    setBackgroundColor(dividerColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 1
+                    )
+                })
+            }
+        }
+
+        hScroll.addView(table)
+        return hScroll
+    }
+
+    private fun blendColors(base: Int, overlay: Int, ratio: Float): Int {
+        val r = (Color.red(base) * (1 - ratio) + Color.red(overlay) * ratio).toInt().coerceIn(0, 255)
+        val g = (Color.green(base) * (1 - ratio) + Color.green(overlay) * ratio).toInt().coerceIn(0, 255)
+        val b = (Color.blue(base) * (1 - ratio) + Color.blue(overlay) * ratio).toInt().coerceIn(0, 255)
+        return Color.rgb(r, g, b)
+    }
+
     // ─── Think modal ──────────────────────────────────────────────────────────
 
     private fun showThinkModal(content: String) {
-        val dialog = BottomSheetDialog(activity)
+        val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
@@ -617,7 +797,7 @@ class ChatFragment(private val activity: MainActiviy) {
 
     fun showExtrasSheet() {
         activity.hidePopup()
-        val dialog = BottomSheetDialog(activity)
+        val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
@@ -806,10 +986,10 @@ class ChatFragment(private val activity: MainActiviy) {
 
     // ─── Markdown parser ──────────────────────────────────────────────────────
 
-    private fun parseMarkdown(raw: String): Spanned {
-        val text = raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
+    // Parser para blocos de texto (sem tabelas — já separadas)
+    private fun parseMarkdownBlock(raw: String): Spanned {
         val sb = SpannableStringBuilder()
-        val lines = text.split("\n")
+        val lines = raw.split("\n")
         lines.forEachIndexed { idx, line ->
             val trimmed = line.trimStart()
             if (idx > 0) sb.append("\n")
@@ -844,11 +1024,66 @@ class ChatFragment(private val activity: MainActiviy) {
         return sb
     }
 
+    // Converte expressões LaTeX/math inline: $...$  →  texto limpo sem $
+    // e também remove \frac{a}{b} → a/b, \sqrt{x} → √x, etc.
+    private fun cleanLatex(text: String): String {
+        return text
+            // Remove delimitadores $...$
+            .replace(Regex("\\$([^$]+)\\$")) { it.groupValues[1] }
+            // \frac{a}{b} → a/b
+            .replace(Regex("\\\\frac\\{([^}]+)\\}\\{([^}]+)\\}"), "$1/$2")
+            // \sqrt{x} → √x
+            .replace(Regex("\\\\sqrt\\{([^}]+)\\}"), "√$1")
+            // \pm → ±
+            .replace("\\pm", "±")
+            // \times → ×
+            .replace("\\times", "×")
+            // \div → ÷
+            .replace("\\div", "÷")
+            // \leq → ≤
+            .replace("\\leq", "≤")
+            // \geq → ≥
+            .replace("\\geq", "≥")
+            // \neq → ≠
+            .replace("\\neq", "≠")
+            // \infty → ∞
+            .replace("\\infty", "∞")
+            // \alpha → α, \beta → β, \gamma → γ, \delta → δ, \Delta → Δ, \pi → π, \theta → θ, \lambda → λ, \mu → μ, \sigma → σ
+            .replace("\\alpha", "α").replace("\\beta", "β").replace("\\gamma", "γ")
+            .replace("\\delta", "δ").replace("\\Delta", "Δ").replace("\\pi", "π")
+            .replace("\\theta", "θ").replace("\\lambda", "λ").replace("\\mu", "μ")
+            .replace("\\sigma", "σ").replace("\\Sigma", "Σ").replace("\\omega", "ω")
+            // ^{x} → ˣ (usando superscript unicode para dígitos e letras comuns)
+            .replace(Regex("\\^\\{([^}]+)\\}")) { "^(${it.groupValues[1]})" }
+            .replace(Regex("\\^([0-9a-z])")) { "^${it.groupValues[1]}" }
+            // _{x} → subscript
+            .replace(Regex("_\\{([^}]+)\\}")) { "₍${it.groupValues[1]}₎" }
+            .replace(Regex("_([0-9])")) { subscriptDigit(it.groupValues[1]) }
+            // Backslash restantes
+            .replace(Regex("\\\\[a-zA-Z]+"), "")
+    }
+
+    private fun subscriptDigit(d: String): String = when(d) {
+        "0" -> "₀"; "1" -> "₁"; "2" -> "₂"; "3" -> "₃"; "4" -> "₄"
+        "5" -> "₅"; "6" -> "₆"; "7" -> "₇"; "8" -> "₈"; "9" -> "₉"
+        else -> "_$d"
+    }
+
+    // Inline markdown + limpeza LaTeX
+    private fun parseInlineMarkdown(line: String): Spanned {
+        val cleaned = cleanLatex(line)
+        val sb = SpannableStringBuilder()
+        appendInlineSpans(sb, cleaned)
+        return sb
+    }
+
     private fun appendInlineSpans(sb: SpannableStringBuilder, line: String) {
+        // Primeiro limpa LaTeX da linha
+        val cleaned = cleanLatex(line)
         val pattern = Regex("\\*\\*(.+?)\\*\\*|__(.+?)__|(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)|`(.+?)`")
         var lastEnd = 0
-        pattern.findAll(line).forEach { match ->
-            if (match.range.first > lastEnd) sb.append(line.substring(lastEnd, match.range.first))
+        pattern.findAll(cleaned).forEach { match ->
+            if (match.range.first > lastEnd) sb.append(cleaned.substring(lastEnd, match.range.first))
             val start = sb.length
             when {
                 match.groupValues[1].isNotEmpty() -> {
@@ -870,8 +1105,13 @@ class ChatFragment(private val activity: MainActiviy) {
             }
             lastEnd = match.range.last + 1
         }
-        if (lastEnd < line.length) sb.append(line.substring(lastEnd))
+        if (lastEnd < cleaned.length) sb.append(cleaned.substring(lastEnd))
     }
+
+    // Mantém compatibilidade com o parseMarkdown antigo (usado se precisar externamente)
+    private fun parseMarkdown(raw: String): Spanned = parseMarkdownBlock(
+        raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
+    )
 
     private fun dp(v: Int) = activity.dp(v)
 }

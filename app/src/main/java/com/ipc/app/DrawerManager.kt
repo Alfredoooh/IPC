@@ -123,7 +123,7 @@ class DrawerManager(private val activity: MainActiviy) {
     // ─── Modal: opções da conversa ────────────────────────────────────────────
 
     fun showConversationOptions(conv: Conversation) {
-        val dialog = BottomSheetDialog(activity)
+        val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -211,7 +211,7 @@ class DrawerManager(private val activity: MainActiviy) {
     // ─── Modal: confirmação de eliminação ─────────────────────────────────────
 
     fun showDeleteConfirmation(conv: Conversation) {
-        val dialog = BottomSheetDialog(activity)
+        val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
