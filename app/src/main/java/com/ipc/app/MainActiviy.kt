@@ -213,7 +213,6 @@ class MainActiviy : BaseActivity() {
             val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
             val imeNowOpen = extraShift > 0
 
-            // ── Bottom bar sobe com o teclado ──────────────────────────────
             binding.bottomNavWrapper.animate()
                 .translationY(-extraShift.toFloat())
                 .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
@@ -221,13 +220,11 @@ class MainActiviy : BaseActivity() {
                 bottom = if (extraShift == 0) navInsets.bottom else 0
             )
 
-            // ── Chat RecyclerView sobe junto com o teclado ─────────────────
             val chatTranslation = if (imeNowOpen) -extraShift.toFloat() else 0f
             binding.chatRecyclerView.animate()
                 .translationY(chatTranslation)
                 .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
 
-            // ── Empty state sobe suavemente ────────────────────────────────
             val emptyTranslation = if (imeNowOpen) -(extraShift * 0.45f) else 0f
             binding.emptyState.animate()
                 .translationY(emptyTranslation)
@@ -303,9 +300,7 @@ class MainActiviy : BaseActivity() {
         binding.popupUrlIcon.setImageDrawable(svgDrawable("icons/svg/external.svg", 20, iconTint))
         binding.popupExtrasIcon.setImageDrawable(svgDrawable("icons/svg/extras.svg", 20, iconTint))
         binding.btnBottomAddIcon.setImageDrawable(svgDrawable("icons/svg/add.svg", 18, iconTint))
-        // Record icons carregados aqui — SVG adicionado depois
-        runCatching { binding.btnRecordIcon.setImageDrawable(svgDrawable("icons/svg/record.svg", 16, iconTint)) }
-        runCatching { binding.btnRecordBottomIcon.setImageDrawable(svgDrawable("icons/svg/record.svg", 18, iconTint)) }
+        runCatching { binding.btnRecordIcon.setImageDrawable(svgDrawable("icons/svg/record.svg", 18, iconTint)) }
         binding.btnMoreWrapper.visibility = View.INVISIBLE
     }
 
@@ -386,19 +381,16 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Botão ADD — abre popup menu iOS 26 estilo ────────────────────────────
+    // ─── Botão ADD — popup menu iOS 26 ────────────────────────────────────────
 
     private var addPopup: PopupWindow? = null
 
     private fun setupBottomAddButton() {
         binding.btnBottomAdd.setOnClickListener { v -> showAddPopupMenu(v) }
-        binding.btnRecordBottom.setOnClickListener { showVoiceModal() }
     }
 
     private fun showAddPopupMenu(anchor: View) {
         if (addPopup?.isShowing == true) return
-        val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
-
         val popupWidth = dp(220)
 
         val card = LinearLayout(this).apply {
@@ -411,7 +403,8 @@ class MainActiviy : BaseActivity() {
             clipToOutline = true
         }
 
-        fun menuRow(iconPath: String, label: String, color: Int, dimmed: Boolean = false, action: () -> Unit): View {
+        fun menuRow(iconPath: String, label: String, dimmed: Boolean = false, action: () -> Unit): View {
+            val color = ContextCompat.getColor(this, R.color.text_primary)
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(50); setPadding(dp(16), 0, dp(16), 0)
@@ -430,8 +423,7 @@ class MainActiviy : BaseActivity() {
             })
             row.addView(iconFrame)
             row.addView(TextView(this).apply {
-                text = label; textSize = 15f
-                setTextColor(color)
+                text = label; textSize = 15f; setTextColor(color)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
             if (!dimmed) row.setOnClickListener { addPopup?.dismiss(); action() }
@@ -440,59 +432,40 @@ class MainActiviy : BaseActivity() {
 
         fun menuDiv() = View(this).apply {
             setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
-                it.marginStart = dp(56)
-            }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also { it.marginStart = dp(56) }
         }
 
-        card.addView(menuRow("icons/svg/camera.svg", "Câmara", ContextCompat.getColor(this, R.color.text_primary)) { openCamera() })
+        card.addView(menuRow("icons/svg/camera.svg", "Câmara") { openCamera() })
         card.addView(menuDiv())
-        card.addView(menuRow("icons/svg/download.svg", "Importar Ficheiro", ContextCompat.getColor(this, R.color.text_primary)) { })
+        card.addView(menuRow("icons/svg/download.svg", "Importar Ficheiro") { })
         card.addView(menuDiv())
-        card.addView(menuRow("icons/svg/external.svg", "URL / Link", ContextCompat.getColor(this, R.color.text_primary), dimmed = true) { })
+        card.addView(menuRow("icons/svg/external.svg", "URL / Link", dimmed = true) { })
         card.addView(menuDiv())
-        card.addView(menuRow("icons/svg/extras.svg", "Extras", ContextCompat.getColor(this, R.color.text_primary)) { chatFragment.showExtrasSheet() })
+        card.addView(menuRow("icons/svg/extras.svg", "Extras") { chatFragment.showExtrasSheet() })
 
         val popup = PopupWindow(card, popupWidth, ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
-            isOutsideTouchable = true
-            elevation = dp(12).toFloat()
-            setBackgroundDrawable(null)
-            animationStyle = 0 // animação manual abaixo
+            isOutsideTouchable = true; elevation = dp(12).toFloat()
+            setBackgroundDrawable(null); animationStyle = 0
         }
         addPopup = popup
 
-        // Mede o card para calcular posição
         card.measure(
             View.MeasureSpec.makeMeasureSpec(popupWidth, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
         val popupH = card.measuredHeight
-        val anchorLoc = IntArray(2).also { anchor.getLocationOnScreen(it) }
+        val xOff   = 0
+        val yOff   = -(popupH + anchor.height + dp(8))
 
-        // Posição: acima do botão, alinhado à esquerda
-        val xOff = 0
-        val yOff = -(popupH + anchor.height + dp(8))
-
-        // Animação iOS 26: scale de baixo para cima + fade
-        card.scaleX   = 0.85f
-        card.scaleY   = 0.85f
-        card.alpha    = 0f
-        card.pivotX   = dp(40).toFloat()
-        card.pivotY   = popupH.toFloat() // ancora no fundo (onde está o botão)
+        card.scaleX = 0.85f; card.scaleY = 0.85f; card.alpha = 0f
+        card.pivotX = dp(40).toFloat(); card.pivotY = popupH.toFloat()
 
         popup.showAsDropDown(anchor, xOff, yOff)
 
         card.animate()
             .scaleX(1f).scaleY(1f).alpha(1f)
             .setDuration(320)
-            .setInterpolator(object : android.view.animation.Interpolator {
-                // Spring suave estilo iOS
-                override fun getInterpolation(t: Float): Float {
-                    val s = 1.70158f
-                    val t2 = t - 1f
-                    return t2 * t2 * ((s + 1f) * t2 + s) + 1f
-                }
-            })
+            .setInterpolator(OvershootInterpolator(1.1f))
             .start()
     }
 
@@ -514,11 +487,11 @@ class MainActiviy : BaseActivity() {
         val dialog = BottomSheetDialog(this, R.style.PreviewModalDialog)
         voiceDialog = dialog
 
-        val screenH  = resources.displayMetrics.heightPixels
-        val topGap   = dp(120)
+        val screenH     = resources.displayMetrics.heightPixels
+        val topGap      = dp(120)
         val topColor    = ContextCompat.getColor(this, R.color.gradient_warm_top)
         val bottomColor = ContextCompat.getColor(this, R.color.gradient_warm_bottom)
-        val cornerPx = dp(24).toFloat()
+        val cornerPx    = dp(24).toFloat()
 
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -548,7 +521,6 @@ class MainActiviy : BaseActivity() {
             setPadding(dp(32), dp(60), dp(32), dp(60))
         }
 
-        // Indicador animado de gravação
         val pulseRing = View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -567,7 +539,7 @@ class MainActiviy : BaseActivity() {
             }
             layoutParams = LinearLayout.LayoutParams(dp(72), dp(72)).also {
                 it.gravity = Gravity.CENTER_HORIZONTAL
-                it.topMargin = -dp(86) // sobrepõe o pulseRing
+                it.topMargin = -dp(86)
             }
             isClickable = true; isFocusable = true
         }
@@ -593,7 +565,7 @@ class MainActiviy : BaseActivity() {
             setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_secondary))
             gravity = Gravity.CENTER; setLineSpacing(0f, 1.4f)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).also {
-                it.topMargin = dp(12); it.gravity = Gravity.CENTER_HORIZONTAL
+                it.topMargin = dp(12)
             }
         }
 
@@ -603,7 +575,6 @@ class MainActiviy : BaseActivity() {
         content.addView(transcriptTv)
         root.addView(content); root.addView(handle)
 
-        // Animação de pulso
         val pulseAnim = ValueAnimator.ofFloat(1f, 1.4f, 1f).apply {
             duration = 1200; repeatCount = ValueAnimator.INFINITE
             addUpdateListener {
@@ -613,7 +584,6 @@ class MainActiviy : BaseActivity() {
             }
         }
 
-        // Speech recognizer
         speechRecognizer?.destroy()
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -621,8 +591,6 @@ class MainActiviy : BaseActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
-
-        var finalText = ""
 
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: android.os.Bundle?) { isListening = true; pulseAnim.start(); statusTv.text = "A ouvir…" }
@@ -633,12 +601,10 @@ class MainActiviy : BaseActivity() {
             }
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { statusTv.text = "A processar…" }
-            override fun onError(error: Int) {
-                pulseAnim.cancel(); isListening = false; statusTv.text = "Erro ao ouvir. Tenta de novo."
-            }
+            override fun onError(error: Int) { pulseAnim.cancel(); isListening = false; statusTv.text = "Erro ao ouvir. Tenta de novo." }
             override fun onResults(results: android.os.Bundle?) {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                finalText = matches?.firstOrNull() ?: ""
+                val finalText = matches?.firstOrNull() ?: ""
                 transcriptTv.text = finalText
                 statusTv.text = "Concluído"
                 pulseAnim.cancel(); isListening = false
@@ -656,11 +622,8 @@ class MainActiviy : BaseActivity() {
         })
 
         micBtn.setOnClickListener {
-            if (isListening) {
-                speechRecognizer?.stopListening()
-            } else {
-                speechRecognizer?.startListening(recognizerIntent)
-            }
+            if (isListening) speechRecognizer?.stopListening()
+            else speechRecognizer?.startListening(recognizerIntent)
         }
 
         dialog.setContentView(root)
@@ -674,9 +637,7 @@ class MainActiviy : BaseActivity() {
                 beh.isDraggable = true; beh.isHideable = true
                 beh.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
                     override fun onStateChanged(v: View, s: Int) {
-                        if (s == BottomSheetBehavior.STATE_HIDDEN) {
-                            speechRecognizer?.destroy(); pulseAnim.cancel(); dialog.dismiss()
-                        }
+                        if (s == BottomSheetBehavior.STATE_HIDDEN) { speechRecognizer?.destroy(); pulseAnim.cancel(); dialog.dismiss() }
                     }
                     override fun onSlide(v: View, o: Float) {}
                 })
@@ -705,16 +666,15 @@ class MainActiviy : BaseActivity() {
         val conv = chatFragment.currentConversationSnapshot ?: return
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val redColor = Color.parseColor("#FF3B30")
-
         val popupWidth = dp(220)
+
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 cornerRadius = dp(14).toFloat()
                 setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
             }
-            elevation = dp(8).toFloat()
-            clipToOutline = true
+            elevation = dp(8).toFloat(); clipToOutline = true
         }
 
         fun popupRow(iconPath: String, label: String, color: Int, action: () -> Unit): View {
@@ -756,7 +716,6 @@ class MainActiviy : BaseActivity() {
             }
         })
         card.addView(rowDiv())
-
         card.addView(popupRow("icons/svg/share.svg", "Partilhar", iconTint) {
             val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, conv.title) }
             startActivity(Intent.createChooser(intent, "Partilhar conversa"))
@@ -781,7 +740,6 @@ class MainActiviy : BaseActivity() {
         val xOff = -(popupWidth - anchor.width)
         val yOff = if (anchorBottom + popupH + dp(8) < screenH) dp(4) else -(popupH + anchor.height + dp(4))
 
-        // Animação iOS 26
         card.scaleX = 0.85f; card.scaleY = 0.85f; card.alpha = 0f
         card.pivotX = popupWidth.toFloat(); card.pivotY = 0f
 
@@ -789,8 +747,7 @@ class MainActiviy : BaseActivity() {
 
         card.animate()
             .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(300)
-            .setInterpolator(OvershootInterpolator(1.1f))
+            .setDuration(300).setInterpolator(OvershootInterpolator(1.1f))
             .start()
     }
 
@@ -919,7 +876,7 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Utilitários UI sheets ────────────────────────────────────────────────
+    // ─── Utilitários ─────────────────────────────────────────────────────────
 
     private fun sheetHandle() = View(this).apply {
         background = GradientDrawable().apply {
@@ -930,39 +887,6 @@ class MainActiviy : BaseActivity() {
             it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(8)
         }
     }
-
-    private fun sheetDivider() = View(this).apply {
-        setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also { it.marginStart = dp(56) }
-    }
-
-    private fun sheetOptionRow(iconPath: String, label: String, iconColor: Int, alpha: Float = 1f, action: () -> Unit): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(56); setPadding(dp(20), 0, dp(20), 0)
-            val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
-            background = a.getDrawable(0); a.recycle()
-            isClickable = true; isFocusable = true; this.alpha = alpha
-        }
-        val iconFrame = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
-            background = ContextCompat.getDrawable(this@MainActiviy, R.drawable.drawer_icon_bg)
-        }
-        iconFrame.addView(ImageView(this).apply {
-            setImageDrawable(svgDrawable(iconPath, 14, iconColor))
-            layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
-        })
-        row.addView(iconFrame)
-        row.addView(TextView(this).apply {
-            text = label; textSize = 15f
-            setTextColor(ContextCompat.getColor(this@MainActiviy, R.color.text_primary))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        })
-        row.setOnClickListener { action() }
-        return row
-    }
-
-    // ─── Utilitários gerais ───────────────────────────────────────────────────
 
     fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
