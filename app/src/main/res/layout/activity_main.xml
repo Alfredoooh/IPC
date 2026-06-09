@@ -229,6 +229,7 @@
             android:background="@drawable/appbar_gradient"
             app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
+        <!-- RecyclerView ocupa o espaço disponível, não match_parent -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/chatRecyclerView"
             android:layout_width="match_parent"
@@ -493,7 +494,7 @@
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="20dp" />
 
-        <!-- BOTTOM NAV WRAPPER -->
+        <!-- BOTTOM NAV WRAPPER — fundo mais forte -->
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"
@@ -503,9 +504,9 @@
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="20dp"
-            android:elevation="4dp">
+            android:elevation="8dp">
 
-            <!-- INPUT ROW — só texto, sem botões -->
+            <!-- INPUT ROW -->
             <LinearLayout
                 android:id="@+id/inputRow"
                 android:layout_width="match_parent"
@@ -544,7 +545,6 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- Botão ADD circular -->
                 <FrameLayout
                     android:id="@+id/btnBottomAdd"
                     android:layout_width="40dp"
@@ -564,7 +564,6 @@
 
                 </FrameLayout>
 
-                <!-- Espaço flexível -->
                 <View
                     android:layout_width="0dp"
                     android:layout_height="1dp"
@@ -607,14 +606,13 @@
 
                 </FrameLayout>
 
-                <!-- FrameLayout que sobrepõe Record e Send no mesmo sítio -->
+                <!-- Record e Send sobrepostos no mesmo sítio -->
                 <FrameLayout
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_marginStart="8dp"
                     android:layout_marginEnd="10dp">
 
-                    <!-- Record — visível por defeito -->
                     <FrameLayout
                         android:id="@+id/btnRecord"
                         android:layout_width="40dp"
@@ -631,7 +629,6 @@
 
                     </FrameLayout>
 
-                    <!-- Send — oculto por defeito, aparece ao escrever -->
                     <FrameLayout
                         android:id="@+id/btnSend"
                         android:layout_width="40dp"

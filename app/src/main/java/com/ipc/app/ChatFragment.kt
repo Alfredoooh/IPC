@@ -19,7 +19,6 @@ import android.text.style.TypefaceSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
@@ -440,10 +439,9 @@ class ChatFragment(private val activity: MainActiviy) {
                                 titleGenerated = true
                                 launch {
                                     val firstUserMsg = chatHistory.firstOrNull { it.role == "user" }?.content ?: text
+                                    // Gera título antes de guardar
                                     val generated = GeminiApiService.generateTitle(firstUserMsg, token, lang)
-                                    if (generated.isNotBlank() && generated != "Nova conversa") {
-                                        currentConversationTitle = generated
-                                    }
+                                    currentConversationTitle = if (generated.isNotBlank() && generated != "Nova conversa") generated else firstUserMsg.take(30).trimEnd()
                                     saveCurrentConversation()
                                     activity.drawerManager.loadConversations()
                                 }
