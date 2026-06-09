@@ -336,7 +336,6 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- POPUP OVERLAY appBar (mantido para btnMore) -->
         <FrameLayout
             android:id="@+id/popupOverlay"
             android:layout_width="match_parent"
@@ -506,7 +505,7 @@
             android:layout_marginBottom="20dp"
             android:elevation="4dp">
 
-            <!-- INPUT ROW -->
+            <!-- INPUT ROW — só texto, sem botões -->
             <LinearLayout
                 android:id="@+id/inputRow"
                 android:layout_width="match_parent"
@@ -514,16 +513,15 @@
                 android:orientation="horizontal"
                 android:gravity="bottom"
                 android:paddingStart="18dp"
-                android:paddingEnd="10dp"
+                android:paddingEnd="18dp"
                 android:paddingTop="12dp"
                 android:paddingBottom="12dp"
                 android:minHeight="56dp">
 
                 <EditText
                     android:id="@+id/inputMessage"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:layout_gravity="center_vertical"
                     android:hint="@string/input_hint"
                     android:textSize="15sp"
@@ -535,47 +533,6 @@
                     android:maxLines="5"
                     android:scrollbars="vertical"
                     android:gravity="center_vertical" />
-
-                <!-- Botão Record — visível por defeito -->
-                <FrameLayout
-                    android:id="@+id/btnRecord"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/send_btn_bg"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:id="@+id/btnRecordIcon"
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:layout_gravity="center" />
-
-                </FrameLayout>
-
-                <!-- Botão Send — oculto por defeito -->
-                <FrameLayout
-                    android:id="@+id/btnSend"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_gravity="bottom"
-                    android:layout_marginBottom="2dp"
-                    android:background="@drawable/send_btn_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:visibility="gone"
-                    android:alpha="0">
-
-                    <ImageView
-                        android:id="@+id/btnSendIcon"
-                        android:layout_width="15dp"
-                        android:layout_height="15dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_send_arrow" />
-
-                </FrameLayout>
 
             </LinearLayout>
 
@@ -607,17 +564,17 @@
 
                 </FrameLayout>
 
+                <!-- Espaço flexível -->
                 <View
                     android:layout_width="0dp"
                     android:layout_height="1dp"
                     android:layout_weight="1" />
 
-                <!-- Tab Preview -->
+                <!-- Tab Preview pill -->
                 <FrameLayout
                     android:id="@+id/tabPreview"
                     android:layout_width="wrap_content"
                     android:layout_height="38dp"
-                    android:layout_marginEnd="10dp"
                     android:background="@drawable/tab_preview_pill_bg"
                     android:clickable="true"
                     android:focusable="true"
@@ -650,22 +607,49 @@
 
                 </FrameLayout>
 
-                <!-- Botão Record circular à direita do preview pill -->
+                <!-- FrameLayout que sobrepõe Record e Send no mesmo sítio -->
                 <FrameLayout
-                    android:id="@+id/btnRecordBottom"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:layout_marginEnd="10dp"
-                    android:background="@drawable/add_circle_bg"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="10dp">
 
-                    <ImageView
-                        android:id="@+id/btnRecordBottomIcon"
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:layout_gravity="center"
-                        android:background="?attr/selectableItemBackgroundBorderless" />
+                    <!-- Record — visível por defeito -->
+                    <FrameLayout
+                        android:id="@+id/btnRecord"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/send_btn_bg"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/btnRecordIcon"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center" />
+
+                    </FrameLayout>
+
+                    <!-- Send — oculto por defeito, aparece ao escrever -->
+                    <FrameLayout
+                        android:id="@+id/btnSend"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/send_btn_bg"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:visibility="gone"
+                        android:alpha="0">
+
+                        <ImageView
+                            android:id="@+id/btnSendIcon"
+                            android:layout_width="15dp"
+                            android:layout_height="15dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_send_arrow" />
+
+                    </FrameLayout>
 
                 </FrameLayout>
 

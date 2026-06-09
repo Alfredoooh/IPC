@@ -63,16 +63,10 @@ class ChatFragment(private val activity: MainActiviy) {
     private var streamJob: Job? = null
     private lateinit var chatAdapter: ChatAdapter
 
-    private var sendBtnVisible        = false
-    var inputRowVisible               = true
-    private var inputRowHeight        = 0
-    private var frozenInputRowHeight  = 0
-    private var inputRowHeightFrozen  = false
-    private var preDrawListener: ViewTreeObserver.OnPreDrawListener? = null
-    private var sendBtnAnimator:    ValueAnimator? = null
-    private var inputRowAnimator:   ValueAnimator? = null
-    private var inputHeightAnimator: ValueAnimator? = null
-
+    private var sendBtnVisible       = false
+    var inputRowVisible              = true
+    private var inputRowHeight       = 0
+    private var inputRowAnimator:    ValueAnimator? = null
     private var newChatSlideAnimator: ValueAnimator? = null
 
     val newChatEnabled: Boolean
@@ -108,10 +102,7 @@ class ChatFragment(private val activity: MainActiviy) {
         setupGreeting()
         setupInput()
         binding.inputRow.post {
-            if (inputRowHeight == 0) {
-                inputRowHeight       = binding.inputRow.height
-                frozenInputRowHeight = inputRowHeight
-            }
+            if (inputRowHeight == 0) inputRowHeight = binding.inputRow.height
         }
         refreshNewChatBtn()
     }
@@ -152,19 +143,17 @@ class ChatFragment(private val activity: MainActiviy) {
         }
     }
 
-    // ─── New chat btn + More btn ──────────────────────────────────────────────
+    // ─── New chat btn ─────────────────────────────────────────────────────────
 
     fun refreshNewChatBtn() {
         val hasConv = newChatEnabled
         activity.refreshMoreBtn()
-
         newChatSlideAnimator?.cancel()
 
         if (hasConv) {
             if (binding.btnNewChat.translationX != 0f) {
                 newChatSlideAnimator = ValueAnimator.ofFloat(binding.btnNewChat.translationX, 0f).apply {
-                    duration = 300
-                    interpolator = DecelerateInterpolator(1.8f)
+                    duration = 300; interpolator = DecelerateInterpolator(1.8f)
                     addUpdateListener { binding.btnNewChat.translationX = it.animatedValue as Float }
                     start()
                 }
@@ -201,7 +190,7 @@ class ChatFragment(private val activity: MainActiviy) {
         binding.btnNewChat.isFocusable = hasConv
     }
 
-    // ─── Sync visibility ──────────────────────────────────────────────────────
+    // ─── Sync ─────────────────────────────────────────────────────────────────
 
     fun syncVisibility() {
         if (displayMessages.isEmpty()) {
@@ -220,50 +209,9 @@ class ChatFragment(private val activity: MainActiviy) {
         }
     }
 
-    // ─── Input row ────────────────────────────────────────────────────────────
+    // ─── Input ────────────────────────────────────────────────────────────────
 
     private fun setupInput() {
-        binding.inputMessage.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
-            val newH = bottom - top; val oldH = oldBottom - oldTop
-            if (newH == oldH || newH <= 0 || oldH <= 0 || !inputRowVisible) return@addOnLayoutChangeListener
-            val delta = newH - oldH
-            val fromH = if (inputRowHeightFrozen) frozenInputRowHeight else binding.inputRow.height
-            if (fromH <= 0) return@addOnLayoutChangeListener
-            val toH = (fromH + delta).coerceAtLeast(1)
-            if (fromH == toH) return@addOnLayoutChangeListener
-            preDrawListener?.let { binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(it) }
-            preDrawListener = object : ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    binding.inputMessage.viewTreeObserver.removeOnPreDrawListener(this)
-                    preDrawListener = null
-                    inputRowHeightFrozen = true; frozenInputRowHeight = fromH
-                    binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = fromH }
-                    inputHeightAnimator?.cancel()
-                    inputHeightAnimator = ValueAnimator.ofInt(fromH, toH).apply {
-                        duration = 180; interpolator = DecelerateInterpolator(1.5f)
-                        addUpdateListener { anim ->
-                            val h = anim.animatedValue as Int
-                            frozenInputRowHeight = h
-                            binding.inputRow.layoutParams = binding.inputRow.layoutParams.also { it.height = h }
-                            syncBlurBgSize()
-                        }
-                        addListener(object : AnimatorListenerAdapter() {
-                            override fun onAnimationEnd(animation: Animator) {
-                                inputRowHeightFrozen = false
-                                binding.inputRow.layoutParams = binding.inputRow.layoutParams.also {
-                                    it.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                                }
-                                syncBlurBgSize()
-                            }
-                        })
-                        start()
-                    }
-                    return false
-                }
-            }
-            binding.inputMessage.viewTreeObserver.addOnPreDrawListener(preDrawListener)
-        }
-
         binding.inputMessage.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -310,7 +258,6 @@ class ChatFragment(private val activity: MainActiviy) {
                         it.height = ViewGroup.LayoutParams.WRAP_CONTENT
                     }
                     binding.inputRow.alpha = 1f
-                    frozenInputRowHeight = binding.inputRow.height
                     syncBlurBgSize()
                 }
             })
@@ -344,38 +291,38 @@ class ChatFragment(private val activity: MainActiviy) {
 
     private fun showSendBtn() {
         sendBtnVisible = true
-        sendBtnAnimator?.cancel()
-        // Esconde record com encolhimento
         binding.btnRecord.animate()
-            .scaleX(0.5f).scaleY(0.5f).alpha(0f)
-            .setDuration(160).setInterpolator(DecelerateInterpolator())
-            .withEndAction { binding.btnRecord.visibility = View.GONE }
-            .start()
-        // Mostra send com overshoot
-        binding.btnSend.visibility = View.VISIBLE
-        binding.btnSend.scaleX = 0.5f; binding.btnSend.scaleY = 0.5f; binding.btnSend.alpha = 0f
-        binding.btnSend.animate()
-            .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(200).setInterpolator(OvershootInterpolator(1.3f))
-            .start()
+            .scaleX(0.4f).scaleY(0.4f).alpha(0f)
+            .setDuration(150).setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                binding.btnRecord.visibility = View.GONE
+                binding.btnSend.visibility = View.VISIBLE
+                binding.btnSend.scaleX = 0.4f
+                binding.btnSend.scaleY = 0.4f
+                binding.btnSend.alpha  = 0f
+                binding.btnSend.animate()
+                    .scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(220).setInterpolator(OvershootInterpolator(1.4f))
+                    .start()
+            }.start()
     }
 
     private fun hideSendBtn() {
         sendBtnVisible = false
-        sendBtnAnimator?.cancel()
-        // Esconde send com encolhimento
         binding.btnSend.animate()
-            .scaleX(0.5f).scaleY(0.5f).alpha(0f)
-            .setDuration(160).setInterpolator(DecelerateInterpolator())
-            .withEndAction { binding.btnSend.visibility = View.GONE }
-            .start()
-        // Mostra record com overshoot
-        binding.btnRecord.visibility = View.VISIBLE
-        binding.btnRecord.scaleX = 0.5f; binding.btnRecord.scaleY = 0.5f; binding.btnRecord.alpha = 0f
-        binding.btnRecord.animate()
-            .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(200).setInterpolator(OvershootInterpolator(1.3f))
-            .start()
+            .scaleX(0.4f).scaleY(0.4f).alpha(0f)
+            .setDuration(150).setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                binding.btnSend.visibility = View.GONE
+                binding.btnRecord.visibility = View.VISIBLE
+                binding.btnRecord.scaleX = 0.4f
+                binding.btnRecord.scaleY = 0.4f
+                binding.btnRecord.alpha  = 0f
+                binding.btnRecord.animate()
+                    .scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(220).setInterpolator(OvershootInterpolator(1.4f))
+                    .start()
+            }.start()
     }
 
     // ─── Conversas ────────────────────────────────────────────────────────────
