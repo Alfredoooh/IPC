@@ -19,6 +19,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
@@ -198,6 +199,7 @@ class MainActiviy : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -207,45 +209,33 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
-            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-            val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
-            val imeNowOpen = extraShift > 0
+        ViewCompat.setOnApplyWindowInsetsListener(binding.rootFrame) { _, insets ->
+            val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            val navBars    = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val imeBars    = insets.getInsets(WindowInsetsCompat.Type.ime())
 
-            binding.bottomNavWrapper.animate()
-                .translationY(-extraShift.toFloat())
-                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+            val imeVisible = imeBars.bottom > navBars.bottom
+            val bottomInset = if (imeVisible) imeBars.bottom else navBars.bottom
+
+            binding.appBarLayout.updatePadding(top = statusBars.top)
+
+            // Faz o content root inteiro subir quando o teclado aparece.
+            // Isto afeta o RecyclerView, o empty state e a barra inferior ao mesmo tempo.
+            binding.coordinatorLayout.updatePadding(bottom = bottomInset)
+
+            // Garante que nada fica preso em translations antigas.
+            binding.bottomNavWrapper.translationY = 0f
+            binding.chatRecyclerView.translationY = 0f
+            binding.emptyState.translationY = 0f
+            binding.previewState.translationY = 0f
+
             binding.bottomNavWrapper.updatePadding(
-                bottom = if (extraShift == 0) navInsets.bottom else 0
+                bottom = if (imeVisible) 0 else navBars.bottom
             )
 
-            val chatTranslation = if (imeNowOpen) -extraShift.toFloat() else 0f
-            binding.chatRecyclerView.animate()
-                .translationY(chatTranslation)
-                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-
-            val emptyTranslation = if (imeNowOpen) -(extraShift * 0.45f) else 0f
-            binding.emptyState.animate()
-                .translationY(emptyTranslation)
-                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-
-            when {
-                imeNowOpen && !keyboardOpen -> {
-                    keyboardOpen = true
-                    lastImeShift = extraShift
-                    maxImeShift  = extraShift
-                }
-                imeNowOpen && keyboardOpen -> {
-                    if (extraShift > maxImeShift) maxImeShift = extraShift
-                    lastImeShift = extraShift
-                }
-                !imeNowOpen && keyboardOpen -> {
-                    keyboardOpen = false
-                    lastImeShift = 0
-                    maxImeShift  = 0
-                }
-            }
+            keyboardOpen = imeVisible
+            lastImeShift = if (imeVisible) bottomInset else 0
+            maxImeShift  = lastImeShift
             insets
         }
 
