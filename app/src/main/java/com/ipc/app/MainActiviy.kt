@@ -33,6 +33,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -74,6 +75,9 @@ class MainActiviy : BaseActivity() {
     var lastImeShift = 0
     var maxImeShift  = 0
 
+    // Último extraShift aplicado — para animação incremental suave
+    private var lastAppliedImeShift = -1
+
     val prefs     by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
     val authToken get() = prefs.getString("auth_token", "") ?: ""
 
@@ -86,7 +90,6 @@ class MainActiviy : BaseActivity() {
     val density: Float
         get() = resources.displayMetrics.density
 
-    // Expõe isAppDarkMode (protected em BaseActivity) como public
     val isDarkMode: Boolean
         get() = isAppDarkMode
 
@@ -203,38 +206,51 @@ class MainActiviy : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+
+        // adjustPan está no manifest — NÃO chamar SOFT_INPUT_ADJUST_RESIZE aqui
+        // O WindowInsets cuida do bottomNavWrapper; o sistema cuida do pan
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Status bar padding na AppBar
         ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
             val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             v.updatePadding(top = statusBars.top)
             insets
         }
 
+        // ── Listener de IME (teclado) ─────────────────────────────────────────
+        // Com adjustPan o sistema já sobe a janela — aqui só precisamos de:
+        // 1. Mover o bottomNavWrapper para ficar sempre acima do teclado
+        // 2. Ajustar o padding do RecyclerView
+        // NÃO mexemos no emptyState — ele sobe automaticamente com o adjustPan
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
             val imeNowOpen = extraShift > 0
 
-            // BottomNavWrapper sobe com o teclado
-            binding.bottomNavWrapper.animate()
-                .translationY(-extraShift.toFloat())
-                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
-            binding.bottomNavWrapper.updatePadding(
-                bottom = if (extraShift == 0) navInsets.bottom else 0
-            )
+            // Só animar se o valor mudou mesmo
+            if (extraShift != lastAppliedImeShift) {
+                lastAppliedImeShift = extraShift
 
-            // RecyclerView: usa paddingBottom em vez de translationY
-            chatFragment.applyKeyboardPadding(extraShift)
+                // BottomNavWrapper — sobe para não ficar atrás do teclado
+                binding.bottomNavWrapper.animate()
+                    .translationY(-extraShift.toFloat())
+                    .setDuration(if (imeNowOpen) 280 else 240)
+                    .setInterpolator(DecelerateInterpolator(1.6f))
+                    .start()
 
-            // EmptyState sobe levemente (efeito visual)
-            val emptyTranslation = if (imeNowOpen) -(extraShift * 0.45f) else 0f
-            binding.emptyState.animate()
-                .translationY(emptyTranslation)
-                .setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+                binding.bottomNavWrapper.updatePadding(
+                    bottom = if (extraShift == 0) navInsets.bottom else 0
+                )
+
+                // RecyclerView — ajusta paddingBottom para o conteúdo não ficar
+                // escondido atrás do bottomNavWrapper quando o teclado está aberto
+                chatFragment.applyKeyboardPadding(extraShift)
+            }
 
             when {
                 imeNowOpen && !keyboardOpen -> {
@@ -387,7 +403,7 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Botão ADD — popup menu iOS 26 ────────────────────────────────────────
+    // ─── Botão ADD ────────────────────────────────────────────────────────────
 
     private var addPopup: PopupWindow? = null
 
@@ -884,16 +900,6 @@ class MainActiviy : BaseActivity() {
     }
 
     // ─── Utilitários ─────────────────────────────────────────────────────────
-
-    private fun sheetHandle() = View(this).apply {
-        background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
-            setColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
-        }
-        layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
-            it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(8)
-        }
-    }
 
     fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager

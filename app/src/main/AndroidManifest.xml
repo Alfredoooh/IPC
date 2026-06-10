@@ -35,11 +35,13 @@
             android:theme="@style/Theme.IPC"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- adjustPan: o sistema levanta o conteúdo inteiro sem resize da janela -->
+        <!-- O WindowInsets manual trata do bottomNavWrapper e do RecyclerView    -->
         <activity
             android:name=".MainActiviy"
             android:exported="false"
             android:theme="@style/Theme.IPC"
-            android:windowSoftInputMode="adjustResize|stateHidden" />
+            android:windowSoftInputMode="adjustPan|stateHidden" />
 
         <activity
             android:name=".ui.SettingsActivity"
