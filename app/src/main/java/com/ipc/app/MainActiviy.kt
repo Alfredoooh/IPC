@@ -78,13 +78,17 @@ class MainActiviy : BaseActivity() {
     val authToken get() = prefs.getString("auth_token", "") ?: ""
 
     val activeIconColor: Int
-        get() = if (isAppDarkMode) Color.WHITE else Color.BLACK
+        get() = if (isDarkMode) Color.WHITE else Color.BLACK
     val inactiveIconColor: Int
         get() = Color.parseColor("#888888")
     val drawerWidth: Int
         get() = (resources.displayMetrics.widthPixels * 0.75f).toInt()
     val density: Float
         get() = resources.displayMetrics.density
+
+    // Expõe isAppDarkMode (protected em BaseActivity) como public
+    val isDarkMode: Boolean
+        get() = isAppDarkMode
 
     lateinit var chatFragment:  ChatFragment
     lateinit var drawerManager: DrawerManager
@@ -224,7 +228,6 @@ class MainActiviy : BaseActivity() {
             )
 
             // RecyclerView: usa paddingBottom em vez de translationY
-            // Assim o conteúdo fica sempre acessível e não se corta por baixo
             chatFragment.applyKeyboardPadding(extraShift)
 
             // EmptyState sobe levemente (efeito visual)
@@ -589,6 +592,7 @@ class MainActiviy : BaseActivity() {
 
         speechRecognizer?.destroy()
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+
         val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())

@@ -583,13 +583,14 @@ class ChatFragment(private val activity: MainActiviy) {
             when (block.type) {
                 BlockType.TABLE -> parent.addView(buildTableView(parent.context, block.lines))
                 BlockType.TEXT  -> {
+                    val spanned = parseMarkdownBlock(block.lines.joinToString("\n"))
                     val tv = TextView(parent.context).apply {
                         textSize = 15f
                         setLineSpacing(0f, 1.5f)
                         setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
                         setPadding(dp(2), dp(4), dp(8), dp(4))
-                        text = parseMarkdownBlock(block.lines.joinToString("\n"))
                     }
+                    tv.setText(spanned, TextView.BufferType.SPANNABLE)
                     parent.addView(tv)
                 }
             }
@@ -688,7 +689,7 @@ class ChatFragment(private val activity: MainActiviy) {
                 if (isHeader) {
                     setBackgroundColor(
                         // header ligeiramente mais escuro
-                        blendColors(cardBg, if (activity.isAppDarkMode) Color.WHITE else Color.BLACK, 0.06f)
+                        blendColors(cardBg, if (activity.isDarkMode) Color.WHITE else Color.BLACK, 0.06f)
                     )
                 }
             }
@@ -701,30 +702,28 @@ class ChatFragment(private val activity: MainActiviy) {
                         layoutParams = LinearLayout.LayoutParams(1, LinearLayout.LayoutParams.MATCH_PARENT)
                     })
                 }
+                val cellSpanned = parseInlineMarkdown(cellText)
                 val cell = TextView(ctx).apply {
-                    text = parseInlineMarkdown(cellText)
+                    setPadding(dp(12), dp(10), dp(12), dp(10))
                     textSize = 13.5f
                     setTextColor(if (isHeader) textPrimary else textSecondary)
-                    if (isHeader) setTypeface(typeface, Typeface.BOLD)
-                    setPadding(dp(12), dp(10), dp(12), dp(10))
+                    if (isHeader) setTypeface(null, Typeface.BOLD)
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).also { it.weight = 1f }
-                    minWidth = dp(80)
+                    )
                 }
+                cell.setText(cellSpanned, TextView.BufferType.SPANNABLE)
                 row.addView(cell)
             }
 
             table.addView(row)
 
-            // Divisor horizontal entre linhas (não depois da última)
+            // Divisor horizontal entre linhas
             if (rowIndex < dataLines.lastIndex) {
                 table.addView(View(ctx).apply {
                     setBackgroundColor(dividerColor)
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT, 1
-                    )
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
                 })
             }
         }
@@ -733,202 +732,144 @@ class ChatFragment(private val activity: MainActiviy) {
         return hScroll
     }
 
-    private fun blendColors(base: Int, overlay: Int, ratio: Float): Int {
-        val r = (Color.red(base) * (1 - ratio) + Color.red(overlay) * ratio).toInt().coerceIn(0, 255)
-        val g = (Color.green(base) * (1 - ratio) + Color.green(overlay) * ratio).toInt().coerceIn(0, 255)
-        val b = (Color.blue(base) * (1 - ratio) + Color.blue(overlay) * ratio).toInt().coerceIn(0, 255)
-        return Color.rgb(r, g, b)
-    }
-
     // ─── Think modal ──────────────────────────────────────────────────────────
 
-    private fun showThinkModal(content: String) {
+    private fun showThinkModal(thinkText: String) {
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
-        val root = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.TRANSPARENT)
-        }
+        val screenH = activity.resources.displayMetrics.heightPixels
+
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
                 setColor(ContextCompat.getColor(activity, R.color.dialog_background))
             }
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-        card.addView(sheetHandle())
-        card.addView(TextView(activity).apply {
-            text = "Processo de pensamento"; textSize = 16f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
-            setPadding(dp(20), dp(8), dp(20), dp(12))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+
+        card.addView(View(activity).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
+                setColor(ContextCompat.getColor(activity, R.color.divider))
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
+                it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(8)
+            }
         })
-        card.addView(divider())
+
+        val headerRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(20), dp(4), dp(20), dp(12))
+        }
+        headerRow.addView(ImageView(activity).apply {
+            setImageDrawable(activity.svgDrawable("icons/svg/brain_filled.svg", 18,
+                ContextCompat.getColor(activity, R.color.colorPrimary)))
+            layoutParams = LinearLayout.LayoutParams(dp(18), dp(18)).also { it.marginEnd = dp(10) }
+        })
+        headerRow.addView(TextView(activity).apply {
+            text = "Processo de raciocínio"; textSize = 15f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        card.addView(headerRow)
+        card.addView(View(activity).apply {
+            setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
+        })
+
         val scroll = ScrollView(activity).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+            )
         }
-        scroll.addView(TextView(activity).apply {
-            text = content; textSize = 13f
+        val thinkTv = TextView(activity).apply {
+            textSize = 14f
+            setLineSpacing(0f, 1.6f)
             setTextColor(ContextCompat.getColor(activity, R.color.text_secondary))
-            setLineSpacing(0f, 1.5f)
             setPadding(dp(20), dp(16), dp(20), dp(24))
-        })
+        }
+        thinkTv.setText(parseMarkdown(thinkText), TextView.BufferType.SPANNABLE)
+        scroll.addView(thinkTv)
         card.addView(scroll)
-        root.addView(card)
+
+        val root = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)
+            addView(card)
+        }
         dialog.setContentView(root)
         dialog.setOnShowListener {
             val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bs?.let {
-                it.setBackgroundColor(Color.TRANSPARENT)
-                val screenH = activity.resources.displayMetrics.heightPixels
-                it.layoutParams.height = (screenH * 0.75f).toInt()
-                it.requestLayout()
-                val behavior = BottomSheetBehavior.from(it)
-                behavior.peekHeight = (screenH * 0.75f).toInt()
-                behavior.state      = BottomSheetBehavior.STATE_EXPANDED
+            bs?.let { sheet ->
+                sheet.setBackgroundColor(Color.TRANSPARENT)
+                sheet.layoutParams.height = (screenH * 0.72f).toInt()
+                sheet.requestLayout()
+                val beh = BottomSheetBehavior.from(sheet)
+                beh.peekHeight = (screenH * 0.72f).toInt()
+                beh.state = BottomSheetBehavior.STATE_EXPANDED
             }
         }
         dialog.show()
     }
 
-    // ─── Extras sheet ─────────────────────────────────────────────────────────
+    // ─── Flash / Think toggle ─────────────────────────────────────────────────
 
-    fun showExtrasSheet() {
-        activity.hidePopup()
-        val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
-        val root = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.TRANSPARENT)
+    fun setupFlashThinkButtons() {
+        binding.btnFlash.setOnClickListener {
+            flashMode = !flashMode
+            updateFlashThinkUI()
         }
-        val card = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
-                setColor(ContextCompat.getColor(activity, R.color.dialog_background))
-            }
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        binding.btnThink.setOnClickListener {
+            thinkMoreMode = !thinkMoreMode
+            updateFlashThinkUI()
         }
-        card.addView(sheetHandle())
-        card.addView(TextView(activity).apply {
-            text = "Extras"; textSize = 13f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(activity, R.color.settings_section_label))
-            gravity = Gravity.CENTER
-            setPadding(dp(20), dp(8), dp(20), dp(16))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        })
-        card.addView(buildExtrasToggleRow("icons/svg/flash.svg", "icons/svg/flash_filled.svg",
-            "Flash", "Respostas rápidas e diretas", flashMode) {
-            flashMode = !flashMode; thinkMoreMode = false; dialog.dismiss(); showExtrasSheet()
-        })
-        card.addView(extrasDiv())
-        card.addView(buildExtrasToggleRow("icons/svg/brain.svg", "icons/svg/brain_filled.svg",
-            "Think More", "Respostas mais detalhadas e profundas", thinkMoreMode) {
-            thinkMoreMode = !thinkMoreMode; flashMode = false; dialog.dismiss(); showExtrasSheet()
-        })
-        card.addView(extrasDiv())
-        card.addView(buildExtrasToggleRow("icons/svg/sheets.svg", "icons/svg/sheets_filled.svg",
-            "Sheets", "A IA insere rascunhos HTML na conversa", sheetsEnabled, isSwitch = true) {
+    }
+
+    private fun updateFlashThinkUI() {
+        val primaryColor  = ContextCompat.getColor(activity, R.color.colorPrimary)
+        val inactiveColor = Color.parseColor("#888888")
+
+        // Flash button
+        binding.btnFlash.setImageDrawable(
+            activity.svgDrawable(
+                if (flashMode) "icons/svg/flash_filled.svg" else "icons/svg/flash.svg",
+                20,
+                if (flashMode) primaryColor else inactiveColor
+            )
+        )
+
+        // Think button
+        val thinkIcon = if (thinkMoreMode) "icons/svg/brain_filled.svg" else "icons/svg/brain.svg"
+        val thinkColor = if (thinkMoreMode) primaryColor else inactiveColor
+        binding.btnThink.setImageDrawable(activity.svgDrawable(thinkIcon, 20, thinkColor))
+
+        // Red dot indicator
+        binding.thinkDot.visibility = if (thinkMoreMode) View.VISIBLE else View.GONE
+    }
+
+    // ─── Sheets toggle ────────────────────────────────────────────────────────
+
+    fun setupSheetsButton() {
+        binding.btnSheets.setOnClickListener {
             sheetsEnabled = !sheetsEnabled
-        })
-        card.addView(View(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24))
-        })
-        root.addView(card)
-        dialog.setContentView(root)
-        dialog.setOnShowListener {
-            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-                ?.setBackgroundColor(Color.TRANSPARENT)
-        }
-        dialog.show()
-    }
-
-    private fun buildExtrasToggleRow(
-        iconOff: String, iconOn: String,
-        label: String, subtitle: String,
-        checked: Boolean, isSwitch: Boolean = false,
-        onClick: () -> Unit
-    ): View {
-        val GREEN    = Color.parseColor("#34C759")
-        val iconTint = if (checked) GREEN else ContextCompat.getColor(activity, R.color.icon_tint)
-        val iconPath = if (checked) iconOn else iconOff
-
-        val row = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(60); setPadding(dp(20), dp(12), dp(20), dp(12))
-            val a = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
-            background = a.getDrawable(0); a.recycle()
-            isClickable = true; isFocusable = true
-        }
-        val iconFrame = FrameLayout(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
-            background = ContextCompat.getDrawable(activity, R.drawable.drawer_icon_bg)
-        }
-        iconFrame.addView(ImageView(activity).apply {
-            setImageDrawable(activity.svgDrawable(iconPath, 14, iconTint))
-            layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
-        })
-        row.addView(iconFrame)
-        val textCol = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        textCol.addView(TextView(activity).apply {
-            text = label; textSize = 15f
-            setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
-        })
-        textCol.addView(TextView(activity).apply {
-            text = subtitle; textSize = 12f
-            setTextColor(ContextCompat.getColor(activity, R.color.text_secondary))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(2) }
-        })
-        row.addView(textCol)
-        if (isSwitch) {
-            row.addView(MaterialSwitch(activity).apply {
-                isChecked = checked
-                setOnCheckedChangeListener { _, _ -> onClick() }
-            })
-        } else {
-            if (checked) {
-                row.addView(ImageView(activity).apply {
-                    setImageDrawable(activity.svgDrawable(iconOn, 18, GREEN))
-                    layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
-                })
-            }
-            row.setOnClickListener { onClick() }
-        }
-        return row
-    }
-
-    // ─── Utilitários de UI ────────────────────────────────────────────────────
-
-    private fun sheetHandle() = View(activity).apply {
-        background = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
-            setColor(ContextCompat.getColor(activity, R.color.divider))
-        }
-        layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
-            it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(4)
+            val primaryColor  = ContextCompat.getColor(activity, R.color.colorPrimary)
+            val inactiveColor = Color.parseColor("#888888")
+            binding.btnSheets.setImageDrawable(
+                activity.svgDrawable(
+                    if (sheetsEnabled) "icons/svg/sheets_filled.svg" else "icons/svg/sheets.svg",
+                    20,
+                    if (sheetsEnabled) primaryColor else inactiveColor
+                )
+            )
         }
     }
 
-    private fun divider() = View(activity).apply {
-        setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
-    }
-
-    private fun extrasDiv() = View(activity).apply {
-        setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
-            it.marginStart = dp(58)
-        }
-    }
+    // ─── Loader / Skeleton ────────────────────────────────────────────────────
 
     private fun buildLoaderView(ctx: Context): View {
-        val dotSize = dp(8); val gap = dp(6)
-        val color   = ContextCompat.getColor(activity, R.color.colorPrimary)
+        val dotSize = dp(7); val gap = dp(5)
+        val color = ContextCompat.getColor(activity, R.color.text_secondary)
         val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -1112,6 +1053,13 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun parseMarkdown(raw: String): Spanned = parseMarkdownBlock(
         raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
     )
+
+    private fun blendColors(base: Int, overlay: Int, ratio: Float): Int {
+        val r = (Color.red(base)   * (1 - ratio) + Color.red(overlay)   * ratio).toInt()
+        val g = (Color.green(base) * (1 - ratio) + Color.green(overlay) * ratio).toInt()
+        val b = (Color.blue(base)  * (1 - ratio) + Color.blue(overlay)  * ratio).toInt()
+        return Color.rgb(r, g, b)
+    }
 
     private fun dp(v: Int) = activity.dp(v)
 }
