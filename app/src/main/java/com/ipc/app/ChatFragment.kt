@@ -13,8 +13,9 @@ import android.text.Spanned
 import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.style.BulletSpan
-import android.text.style.StyleSpan
 import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
+import android.text.style.SuperscriptSpan
 import android.text.style.TypefaceSpan
 import android.view.Gravity
 import android.view.View
@@ -68,6 +69,13 @@ class ChatFragment(private val activity: MainActiviy) {
     private var inputRowHeight        = 0
     private var inputRowAnimator:     ValueAnimator? = null
     private var newChatSlideAnimator: ValueAnimator? = null
+
+    // Times New Roman typeface (carregado uma vez)
+    private val timesTypeface: Typeface? by lazy {
+        runCatching {
+            Typeface.createFromAsset(activity.assets, "fonts/pattern/times_new_roman.ttf")
+        }.getOrNull()
+    }
 
     val newChatEnabled: Boolean
         get() = chatHistory.isNotEmpty() || currentConversationId.isNotEmpty()
@@ -134,7 +142,7 @@ class ChatFragment(private val activity: MainActiviy) {
             binding.emptyLogo.setImageBitmap(logoBitmap)
         }
         runCatching {
-            val tf = Typeface.createFromAsset(activity.assets, "fonts/pattern/times_new_roman.ttf")
+            val tf = timesTypeface ?: return@runCatching
             binding.emptyGreeting.typeface   = Typeface.create(tf, Typeface.BOLD)
             binding.emptySubtitle.typeface   = tf
             binding.previewTitle.typeface    = Typeface.create(tf, Typeface.BOLD)
@@ -215,8 +223,14 @@ class ChatFragment(private val activity: MainActiviy) {
         val targetPadding = basePadding + extraShift
         if (rv.paddingBottom != targetPadding) {
             rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, targetPadding)
-            if (displayMessages.isNotEmpty()) rv.scrollToPosition(displayMessages.lastIndex)
+            if (displayMessages.isNotEmpty()) smoothScroll(displayMessages.lastIndex)
         }
+    }
+
+    // ─── Scroll animado ───────────────────────────────────────────────────────
+
+    private fun smoothScroll(position: Int) {
+        binding.chatRecyclerView.smoothScrollToPosition(position)
     }
 
     // ─── Input ────────────────────────────────────────────────────────────────
@@ -356,7 +370,7 @@ class ChatFragment(private val activity: MainActiviy) {
         displayMessages.clear()
         conv.messages.forEach { displayMessages.add(DisplayMessage(it.role, it.content)) }
         chatAdapter.notifyDataSetChanged()
-        if (displayMessages.isNotEmpty()) binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
+        if (displayMessages.isNotEmpty()) smoothScroll(displayMessages.lastIndex)
         binding.chatRecyclerView.visibility = View.VISIBLE
         binding.emptyState.visibility       = View.GONE
         refreshNewChatBtn()
@@ -390,13 +404,13 @@ class ChatFragment(private val activity: MainActiviy) {
         chatHistory.add(ChatMessage("user", text))
         displayMessages.add(DisplayMessage("user", text))
         chatAdapter.notifyItemInserted(displayMessages.lastIndex)
-        binding.chatRecyclerView.scrollToPosition(displayMessages.lastIndex)
+        smoothScroll(displayMessages.lastIndex)
 
         val aiMsg   = DisplayMessage("assistant", "", isStreaming = true)
         displayMessages.add(aiMsg)
         val aiIndex = displayMessages.lastIndex
         chatAdapter.notifyItemInserted(aiIndex)
-        binding.chatRecyclerView.scrollToPosition(aiIndex)
+        smoothScroll(aiIndex)
 
         val lang         = prefs.getString("language", "pt") ?: "pt"
         val token        = authToken
@@ -425,7 +439,7 @@ class ChatFragment(private val activity: MainActiviy) {
                             }
                             aiMsg.content += chunk.text
                             chatAdapter.notifyItemChanged(aiIndex)
-                            binding.chatRecyclerView.scrollToPosition(aiIndex)
+                            smoothScroll(aiIndex)
                         }
                         is StreamChunk.Done -> {
                             aiMsg.isStreaming     = false
@@ -434,7 +448,7 @@ class ChatFragment(private val activity: MainActiviy) {
                             aiMsg.thinkingContent = thinkingContent
                             chatHistory.add(ChatMessage("assistant", aiMsg.content))
                             chatAdapter.notifyItemChanged(aiIndex)
-                            binding.chatRecyclerView.scrollToPosition(aiIndex)
+                            smoothScroll(aiIndex)
 
                             if (!titleGenerated && chatHistory.size >= 2) {
                                 titleGenerated = true
@@ -569,6 +583,8 @@ class ChatFragment(private val activity: MainActiviy) {
                         setLineSpacing(0f, 1.5f)
                         setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
                         setPadding(dp(2), dp(4), dp(8), dp(4))
+                        // Times New Roman para conteúdo de texto da IA
+                        timesTypeface?.let { typeface = it }
                     }
                     tv.setText(spanned, TextView.BufferType.SPANNABLE)
                     parent.addView(tv)
@@ -622,57 +638,82 @@ class ChatFragment(private val activity: MainActiviy) {
         return t.matches(Regex("\\|[-:| ]+\\|"))
     }
 
-    // ─── Builder de tabela nativa ─────────────────────────────────────────────
+    // ─── Builder de tabela nativa (melhorada) ─────────────────────────────────
 
     private fun buildTableView(ctx: Context, lines: List<String>): View {
         val dataLines = lines.filter { !isSeparatorLine(it) }
         if (dataLines.isEmpty()) return View(ctx)
 
+        val isDark        = activity.isDarkMode
         val textPrimary   = ContextCompat.getColor(activity, R.color.text_primary)
         val textSecondary = ContextCompat.getColor(activity, R.color.text_secondary)
-        val dividerColor  = ContextCompat.getColor(activity, R.color.divider)
+        // Divisor mais visível no modo claro
+        val dividerColor  = if (isDark)
+            Color.parseColor("#2A2A2A")
+        else
+            Color.parseColor("#CCCCCC")
         val cardBg        = ContextCompat.getColor(activity, R.color.card_background)
+        // Header com fundo bem distinto em ambos os modos
+        val headerBg      = if (isDark)
+            Color.parseColor("#2C2C2E")
+        else
+            Color.parseColor("#E0DEFF")   // lilás suave — combina com o roxo da app
+
+        // Calcular número de colunas a partir da linha com mais células
+        val colCount = dataLines.maxOfOrNull { line ->
+            line.trim().removePrefix("|").removeSuffix("|").split("|").size
+        } ?: 1
 
         val hScroll = HorizontalScrollView(ctx).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            ).also { it.topMargin = dp(10); it.bottomMargin = dp(10) }
         }
 
         val table = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadius = dp(10).toFloat(); setColor(cardBg)
+                cornerRadius = dp(12).toFloat()
+                setColor(cardBg)
+                // Borda visível no modo claro
+                if (!isDark) {
+                    setStroke(dp(1), Color.parseColor("#D0D0D0"))
+                }
             }
             clipToOutline = true
         }
 
         dataLines.forEachIndexed { rowIndex, line ->
-            val cells    = line.trim().removePrefix("|").removeSuffix("|").split("|").map { it.trim() }
+            val rawCells = line.trim().removePrefix("|").removeSuffix("|").split("|").map { it.trim() }
+            // Garantir que todas as linhas têm o mesmo número de colunas
+            val cells    = List(colCount) { idx -> rawCells.getOrElse(idx) { "" } }
             val isHeader = rowIndex == 0
 
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
-                if (isHeader) setBackgroundColor(
-                    blendColors(cardBg, if (activity.isDarkMode) Color.WHITE else Color.BLACK, 0.06f)
-                )
+                setBackgroundColor(if (isHeader) headerBg else Color.TRANSPARENT)
+                minimumHeight = dp(44)
             }
 
             cells.forEachIndexed { colIndex, cellText ->
+                // Divisor vertical entre células
                 if (colIndex > 0) {
                     row.addView(View(ctx).apply {
                         setBackgroundColor(dividerColor)
-                        layoutParams = LinearLayout.LayoutParams(1, LinearLayout.LayoutParams.MATCH_PARENT)
+                        layoutParams = LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT)
                     })
                 }
                 val cell = TextView(ctx).apply {
                     setPadding(dp(12), dp(10), dp(12), dp(10))
                     textSize = 13.5f
                     setTextColor(if (isHeader) textPrimary else textSecondary)
-                    if (isHeader) setTypeface(null, Typeface.BOLD)
+                    if (isHeader) setTypeface(timesTypeface ?: typeface, Typeface.BOLD)
+                    else timesTypeface?.let { typeface = it }
+                    gravity = Gravity.CENTER_VERTICAL
+                    // Todas as colunas com peso igual — distribuição uniforme
                     layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                        0, LinearLayout.LayoutParams.MATCH_PARENT, 1f
                     )
                 }
                 cell.setText(parseInlineMarkdown(cellText), TextView.BufferType.SPANNABLE)
@@ -683,7 +724,7 @@ class ChatFragment(private val activity: MainActiviy) {
             if (rowIndex < dataLines.lastIndex) {
                 table.addView(View(ctx).apply {
                     setBackgroundColor(dividerColor)
-                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
                 })
             }
         }
@@ -745,6 +786,7 @@ class ChatFragment(private val activity: MainActiviy) {
             textSize = 14f; setLineSpacing(0f, 1.6f)
             setTextColor(ContextCompat.getColor(activity, R.color.text_secondary))
             setPadding(dp(20), dp(16), dp(20), dp(24))
+            timesTypeface?.let { typeface = it }
         }
         thinkTv.setText(parseMarkdown(thinkText), TextView.BufferType.SPANNABLE)
         scroll.addView(thinkTv)
@@ -1000,26 +1042,58 @@ class ChatFragment(private val activity: MainActiviy) {
         return sb
     }
 
+    // ─── LaTeX / expressões matemáticas ──────────────────────────────────────
+
+    /**
+     * Converte notação LaTeX/Markdown em texto Unicode legível com
+     * superscripts reais via SuperscriptSpan (sem "x^2", usa x²).
+     */
     private fun cleanLatex(text: String): String {
         return text
-            .replace(Regex("\\$([^$]+)\\$")) { it.groupValues[1] }
-            .replace(Regex("\\\\frac\\{([^}]+)\\}\\{([^}]+)\\}"), "$1/$2")
-            .replace(Regex("\\\\sqrt\\{([^}]+)\\}"), "√$1")
-            .replace("\\pm", "±").replace("\\times", "×").replace("\\div", "÷")
-            .replace("\\leq", "≤").replace("\\geq", "≥").replace("\\neq", "≠")
-            .replace("\\infty", "∞")
+            // Remover delimitadores $…$ e \(...\) mas manter o conteúdo
+            .replace(Regex("\\$\\$([^$]+)\\$\\$")) { it.groupValues[1] }
+            .replace(Regex("\\$([^$\n]+)\\$")) { it.groupValues[1] }
+            .replace(Regex("\\\\\\((.+?)\\\\\\)")) { it.groupValues[1] }
+            // Frações → a/b
+            .replace(Regex("\\\\frac\\{([^}]+)\\}\\{([^}]+)\\}"), "($1)/($2)")
+            // Raiz quadrada
+            .replace(Regex("\\\\sqrt\\{([^}]+)\\}"), "√($1)")
+            .replace(Regex("\\\\sqrt\\s+(\\S+)"), "√$1")
+            // Operadores
+            .replace("\\pm", "±").replace("\\mp", "∓")
+            .replace("\\times", "×").replace("\\cdot", "·").replace("\\div", "÷")
+            .replace("\\leq", "≤").replace("\\geq", "≥")
+            .replace("\\neq", "≠").replace("\\approx", "≈")
+            .replace("\\infty", "∞").replace("\\partial", "∂")
+            // Letras gregas
             .replace("\\alpha", "α").replace("\\beta", "β").replace("\\gamma", "γ")
-            .replace("\\delta", "δ").replace("\\Delta", "Δ").replace("\\pi", "π")
-            .replace("\\theta", "θ").replace("\\lambda", "λ").replace("\\mu", "μ")
-            .replace("\\sigma", "σ").replace("\\Sigma", "Σ").replace("\\omega", "ω")
-            .replace(Regex("\\^\\{([^}]+)\\}")) { "^(${it.groupValues[1]})" }
-            .replace(Regex("\\^([0-9a-z])")) { "^${it.groupValues[1]}" }
-            .replace(Regex("_\\{([^}]+)\\}")) { "₍${it.groupValues[1]}₎" }
+            .replace("\\delta", "δ").replace("\\Delta", "Δ").replace("\\epsilon", "ε")
+            .replace("\\pi", "π").replace("\\theta", "θ").replace("\\lambda", "λ")
+            .replace("\\mu", "μ").replace("\\sigma", "σ").replace("\\Sigma", "Σ")
+            .replace("\\omega", "Ω").replace("\\phi", "φ").replace("\\psi", "ψ")
+            // Superscripts: ^{...} e ^x → marcador especial §SUP§...§/SUP§
+            .replace(Regex("\\^\\{([^}]+)\\}")) { "§SUP§${it.groupValues[1]}§/SUP§" }
+            .replace(Regex("\\^([0-9+\\-a-zA-Z])")) { "§SUP§${it.groupValues[1]}§/SUP§" }
+            // Subscripts: _{...} e _x → Unicode subscript quando possível
+            .replace(Regex("_\\{([^}]+)\\}")) { toSubscriptString(it.groupValues[1]) }
             .replace(Regex("_([0-9])")) { subscriptDigit(it.groupValues[1]) }
+            // Remover comandos LaTeX restantes
+            .replace(Regex("\\\\[a-zA-Z]+\\{([^}]*)\\}")) { it.groupValues[1] }
             .replace(Regex("\\\\[a-zA-Z]+"), "")
+            .replace("{", "").replace("}", "")
     }
 
-    private fun subscriptDigit(d: String): String = when(d) {
+    private fun toSubscriptString(s: String): String =
+        s.map { c ->
+            when (c) {
+                '0' -> '₀'; '1' -> '₁'; '2' -> '₂'; '3' -> '₃'; '4' -> '₄'
+                '5' -> '₅'; '6' -> '₆'; '7' -> '₇'; '8' -> '₈'; '9' -> '₉'
+                '+' -> '₊'; '-' -> '₋'; 'a' -> 'ₐ'; 'e' -> 'ₑ'; 'i' -> 'ᵢ'
+                'o' -> 'ₒ'; 'u' -> 'ᵤ'; 'n' -> 'ₙ'; else -> c
+            }
+        }.joinToString("")
+
+    private fun subscriptDigit(d: String): String = when (d) {
         "0" -> "₀"; "1" -> "₁"; "2" -> "₂"; "3" -> "₃"; "4" -> "₄"
         "5" -> "₅"; "6" -> "₆"; "7" -> "₇"; "8" -> "₈"; "9" -> "₉"
         else -> "_$d"
@@ -1031,9 +1105,20 @@ class ChatFragment(private val activity: MainActiviy) {
         return sb
     }
 
-    private fun appendInlineSpans(sb: SpannableStringBuilder, line: String) {
-        val cleaned = cleanLatex(line)
-        val pattern = Regex("\\*\\*(.+?)\\*\\*|__(.+?)__|(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)|`(.+?)`")
+    /**
+     * Processa o texto já limpo pelo cleanLatex e aplica spans:
+     * bold, italic, monospace e SuperscriptSpan para §SUP§…§/SUP§
+     */
+    private fun appendInlineSpans(sb: SpannableStringBuilder, rawLine: String) {
+        val cleaned = cleanLatex(rawLine)
+        // Padrão expandido: inclui marcador de superscript
+        val pattern = Regex(
+            "\\*\\*(.+?)\\*\\*" +               // bold **…**
+            "|__(.+?)__" +                       // bold __…__
+            "|(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)" + // italic *…*
+            "|`(.+?)`" +                         // code `…`
+            "|§SUP§(.+?)§/SUP§"                  // superscript
+        )
         var lastEnd = 0
         pattern.findAll(cleaned).forEach { match ->
             if (match.range.first > lastEnd) sb.append(cleaned.substring(lastEnd, match.range.first))
@@ -1054,6 +1139,13 @@ class ChatFragment(private val activity: MainActiviy) {
                 match.groupValues[4].isNotEmpty() -> {
                     sb.append(match.groupValues[4])
                     sb.setSpan(TypefaceSpan("monospace"), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                match.groupValues[5].isNotEmpty() -> {
+                    // Superscript real — tamanho reduzido + elevado
+                    val supText = match.groupValues[5]
+                    sb.append(supText)
+                    sb.setSpan(SuperscriptSpan(), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(RelativeSizeSpan(0.65f), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
             }
             lastEnd = match.range.last + 1
