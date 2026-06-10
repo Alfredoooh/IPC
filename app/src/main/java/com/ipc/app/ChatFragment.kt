@@ -1,4 +1,3 @@
-// ChatFragment.kt — COMPLETO
 package com.ipc.app
 
 import android.animation.Animator
@@ -64,10 +63,10 @@ class ChatFragment(private val activity: MainActiviy) {
     private var streamJob: Job? = null
     private lateinit var chatAdapter: ChatAdapter
 
-    private var sendBtnVisible       = false
-    var inputRowVisible              = true
-    private var inputRowHeight       = 0
-    private var inputRowAnimator:    ValueAnimator? = null
+    private var sendBtnVisible        = false
+    var inputRowVisible               = true
+    private var inputRowHeight        = 0
+    private var inputRowAnimator:     ValueAnimator? = null
     private var newChatSlideAnimator: ValueAnimator? = null
 
     val newChatEnabled: Boolean
@@ -210,19 +209,13 @@ class ChatFragment(private val activity: MainActiviy) {
         }
     }
 
-    // ─── Keyboard padding ─────────────────────────────────────────────────────
-    // Chamado pela MainActivity quando o IME muda de altura
     fun applyKeyboardPadding(extraShift: Int) {
         val rv = binding.chatRecyclerView
-        val current = rv.paddingBottom
-        // paddingBottom base é 160dp; quando teclado está aberto, adiciona extraShift
-        val basePadding = dp(160)
+        val basePadding   = dp(160)
         val targetPadding = basePadding + extraShift
-        if (current != targetPadding) {
+        if (rv.paddingBottom != targetPadding) {
             rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, targetPadding)
-            if (displayMessages.isNotEmpty()) {
-                rv.scrollToPosition(displayMessages.lastIndex)
-            }
+            if (displayMessages.isNotEmpty()) rv.scrollToPosition(displayMessages.lastIndex)
         }
     }
 
@@ -240,12 +233,10 @@ class ChatFragment(private val activity: MainActiviy) {
                 }
             }
         })
-
         binding.btnSend.setOnClickListener {
             val text = binding.inputMessage.text.toString().trim()
             if (text.isNotEmpty()) { binding.inputMessage.text?.clear(); sendChatMessage(text) }
         }
-
         binding.btnRecord.setOnClickListener { activity.showVoiceModal() }
     }
 
@@ -314,13 +305,9 @@ class ChatFragment(private val activity: MainActiviy) {
             .withEndAction {
                 binding.btnRecord.visibility = View.GONE
                 binding.btnSend.visibility = View.VISIBLE
-                binding.btnSend.scaleX = 0.4f
-                binding.btnSend.scaleY = 0.4f
-                binding.btnSend.alpha  = 0f
-                binding.btnSend.animate()
-                    .scaleX(1f).scaleY(1f).alpha(1f)
-                    .setDuration(220).setInterpolator(OvershootInterpolator(1.4f))
-                    .start()
+                binding.btnSend.scaleX = 0.4f; binding.btnSend.scaleY = 0.4f; binding.btnSend.alpha = 0f
+                binding.btnSend.animate().scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(220).setInterpolator(OvershootInterpolator(1.4f)).start()
             }.start()
     }
 
@@ -332,13 +319,9 @@ class ChatFragment(private val activity: MainActiviy) {
             .withEndAction {
                 binding.btnSend.visibility = View.GONE
                 binding.btnRecord.visibility = View.VISIBLE
-                binding.btnRecord.scaleX = 0.4f
-                binding.btnRecord.scaleY = 0.4f
-                binding.btnRecord.alpha  = 0f
-                binding.btnRecord.animate()
-                    .scaleX(1f).scaleY(1f).alpha(1f)
-                    .setDuration(220).setInterpolator(OvershootInterpolator(1.4f))
-                    .start()
+                binding.btnRecord.scaleX = 0.4f; binding.btnRecord.scaleY = 0.4f; binding.btnRecord.alpha = 0f
+                binding.btnRecord.animate().scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(220).setInterpolator(OvershootInterpolator(1.4f)).start()
             }.start()
     }
 
@@ -557,7 +540,6 @@ class ChatFragment(private val activity: MainActiviy) {
                     msg.isStreaming && msg.isThinking -> col.addView(buildThinkingSkeletonView(holder.wrapper.context))
                     msg.isStreaming && msg.content.isBlank() -> col.addView(buildLoaderView(holder.wrapper.context))
                     else -> {
-                        // Renderizar o conteúdo bloco a bloco (texto, tabelas, código)
                         renderMessageContent(col, msg.content)
                         if (msg.isStreaming) col.addView(buildLoaderView(holder.wrapper.context))
                     }
@@ -575,9 +557,7 @@ class ChatFragment(private val activity: MainActiviy) {
     // ─── Renderização de blocos de mensagem ───────────────────────────────────
 
     private fun renderMessageContent(parent: LinearLayout, rawContent: String) {
-        // Remove tags <think>
         val text = rawContent.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
-        // Divide em blocos: tabela vs texto normal
         val blocks = splitIntoBlocks(text)
         blocks.forEach { block ->
             when (block.type) {
@@ -607,7 +587,6 @@ class ChatFragment(private val activity: MainActiviy) {
 
         fun flushText() {
             if (currentTextLines.isNotEmpty()) {
-                // Remove linhas vazias no início/fim do bloco de texto
                 val trimmed = currentTextLines.dropWhile { it.isBlank() }.dropLastWhile { it.isBlank() }
                 if (trimmed.isNotEmpty()) result.add(ContentBlock(BlockType.TEXT, trimmed))
                 currentTextLines.clear()
@@ -617,23 +596,16 @@ class ChatFragment(private val activity: MainActiviy) {
         var i = 0
         while (i < lines.size) {
             val line = lines[i]
-            // Detectar início de tabela: linha com pipes |
             if (isTableLine(line)) {
                 flushText()
                 val tableLines = mutableListOf<String>()
                 while (i < lines.size && (isTableLine(lines[i]) || isSeparatorLine(lines[i]))) {
-                    tableLines.add(lines[i])
-                    i++
+                    tableLines.add(lines[i]); i++
                 }
-                if (tableLines.size >= 2) {
-                    result.add(ContentBlock(BlockType.TABLE, tableLines))
-                } else {
-                    // Não é tabela válida, trata como texto
-                    currentTextLines.addAll(tableLines)
-                }
+                if (tableLines.size >= 2) result.add(ContentBlock(BlockType.TABLE, tableLines))
+                else currentTextLines.addAll(tableLines)
             } else {
-                currentTextLines.add(line)
-                i++
+                currentTextLines.add(line); i++
             }
         }
         flushText()
@@ -653,7 +625,6 @@ class ChatFragment(private val activity: MainActiviy) {
     // ─── Builder de tabela nativa ─────────────────────────────────────────────
 
     private fun buildTableView(ctx: Context, lines: List<String>): View {
-        // Filtra a linha separadora (---|---) mas guarda os headers
         val dataLines = lines.filter { !isSeparatorLine(it) }
         if (dataLines.isEmpty()) return View(ctx)
 
@@ -662,64 +633,53 @@ class ChatFragment(private val activity: MainActiviy) {
         val dividerColor  = ContextCompat.getColor(activity, R.color.divider)
         val cardBg        = ContextCompat.getColor(activity, R.color.card_background)
 
-        // Container com scroll horizontal para tabelas largas
         val hScroll = HorizontalScrollView(ctx).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
         }
 
         val table = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadius = dp(10).toFloat()
-                setColor(cardBg)
+                cornerRadius = dp(10).toFloat(); setColor(cardBg)
             }
             clipToOutline = true
         }
 
         dataLines.forEachIndexed { rowIndex, line ->
-            val cells = line.trim().removePrefix("|").removeSuffix("|").split("|").map { it.trim() }
+            val cells    = line.trim().removePrefix("|").removeSuffix("|").split("|").map { it.trim() }
             val isHeader = rowIndex == 0
 
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
-                if (isHeader) {
-                    setBackgroundColor(
-                        // header ligeiramente mais escuro
-                        blendColors(cardBg, if (activity.isDarkMode) Color.WHITE else Color.BLACK, 0.06f)
-                    )
-                }
+                if (isHeader) setBackgroundColor(
+                    blendColors(cardBg, if (activity.isDarkMode) Color.WHITE else Color.BLACK, 0.06f)
+                )
             }
 
             cells.forEachIndexed { colIndex, cellText ->
-                // Divisor vertical entre células
                 if (colIndex > 0) {
                     row.addView(View(ctx).apply {
                         setBackgroundColor(dividerColor)
                         layoutParams = LinearLayout.LayoutParams(1, LinearLayout.LayoutParams.MATCH_PARENT)
                     })
                 }
-                val cellSpanned = parseInlineMarkdown(cellText)
                 val cell = TextView(ctx).apply {
                     setPadding(dp(12), dp(10), dp(12), dp(10))
                     textSize = 13.5f
                     setTextColor(if (isHeader) textPrimary else textSecondary)
                     if (isHeader) setTypeface(null, Typeface.BOLD)
                     layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
                     )
                 }
-                cell.setText(cellSpanned, TextView.BufferType.SPANNABLE)
+                cell.setText(parseInlineMarkdown(cellText), TextView.BufferType.SPANNABLE)
                 row.addView(cell)
             }
 
             table.addView(row)
-
-            // Divisor horizontal entre linhas
             if (rowIndex < dataLines.lastIndex) {
                 table.addView(View(ctx).apply {
                     setBackgroundColor(dividerColor)
@@ -735,7 +695,7 @@ class ChatFragment(private val activity: MainActiviy) {
     // ─── Think modal ──────────────────────────────────────────────────────────
 
     private fun showThinkModal(thinkText: String) {
-        val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
+        val dialog  = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         val screenH = activity.resources.displayMetrics.heightPixels
 
         val card = LinearLayout(activity).apply {
@@ -779,13 +739,10 @@ class ChatFragment(private val activity: MainActiviy) {
 
         val scroll = ScrollView(activity).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
-            )
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val thinkTv = TextView(activity).apply {
-            textSize = 14f
-            setLineSpacing(0f, 1.6f)
+            textSize = 14f; setLineSpacing(0f, 1.6f)
             setTextColor(ContextCompat.getColor(activity, R.color.text_secondary))
             setPadding(dp(20), dp(16), dp(20), dp(24))
         }
@@ -803,8 +760,7 @@ class ChatFragment(private val activity: MainActiviy) {
             val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
             bs?.let { sheet ->
                 sheet.setBackgroundColor(Color.TRANSPARENT)
-                sheet.layoutParams.height = (screenH * 0.72f).toInt()
-                sheet.requestLayout()
+                sheet.layoutParams.height = (screenH * 0.72f).toInt(); sheet.requestLayout()
                 val beh = BottomSheetBehavior.from(sheet)
                 beh.peekHeight = (screenH * 0.72f).toInt()
                 beh.state = BottomSheetBehavior.STATE_EXPANDED
@@ -813,55 +769,135 @@ class ChatFragment(private val activity: MainActiviy) {
         dialog.show()
     }
 
-    // ─── Flash / Think toggle ─────────────────────────────────────────────────
+    // ─── Extras sheet ─────────────────────────────────────────────────────────
 
-    fun setupFlashThinkButtons() {
-        binding.btnFlash.setOnClickListener {
-            flashMode = !flashMode
-            updateFlashThinkUI()
+    fun showExtrasSheet() {
+        activity.hidePopup()
+        val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
+        val root = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)
         }
-        binding.btnThink.setOnClickListener {
-            thinkMoreMode = !thinkMoreMode
-            updateFlashThinkUI()
+        val card = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
+                setColor(ContextCompat.getColor(activity, R.color.dialog_background))
+            }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-    }
-
-    private fun updateFlashThinkUI() {
-        val primaryColor  = ContextCompat.getColor(activity, R.color.colorPrimary)
-        val inactiveColor = Color.parseColor("#888888")
-
-        // Flash button
-        binding.btnFlash.setImageDrawable(
-            activity.svgDrawable(
-                if (flashMode) "icons/svg/flash_filled.svg" else "icons/svg/flash.svg",
-                20,
-                if (flashMode) primaryColor else inactiveColor
-            )
-        )
-
-        // Think button
-        val thinkIcon = if (thinkMoreMode) "icons/svg/brain_filled.svg" else "icons/svg/brain.svg"
-        val thinkColor = if (thinkMoreMode) primaryColor else inactiveColor
-        binding.btnThink.setImageDrawable(activity.svgDrawable(thinkIcon, 20, thinkColor))
-
-        // Red dot indicator
-        binding.thinkDot.visibility = if (thinkMoreMode) View.VISIBLE else View.GONE
-    }
-
-    // ─── Sheets toggle ────────────────────────────────────────────────────────
-
-    fun setupSheetsButton() {
-        binding.btnSheets.setOnClickListener {
+        card.addView(sheetHandle())
+        card.addView(TextView(activity).apply {
+            text = "Extras"; textSize = 13f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(activity, R.color.settings_section_label))
+            gravity = Gravity.CENTER
+            setPadding(dp(20), dp(8), dp(20), dp(16))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        })
+        card.addView(buildExtrasToggleRow("icons/svg/flash.svg", "icons/svg/flash_filled.svg",
+            "Flash", "Respostas rápidas e diretas", flashMode) {
+            flashMode = !flashMode; thinkMoreMode = false; dialog.dismiss(); showExtrasSheet()
+        })
+        card.addView(extrasDiv())
+        card.addView(buildExtrasToggleRow("icons/svg/brain.svg", "icons/svg/brain_filled.svg",
+            "Think More", "Respostas mais detalhadas e profundas", thinkMoreMode) {
+            thinkMoreMode = !thinkMoreMode; flashMode = false; dialog.dismiss(); showExtrasSheet()
+        })
+        card.addView(extrasDiv())
+        card.addView(buildExtrasToggleRow("icons/svg/sheets.svg", "icons/svg/sheets_filled.svg",
+            "Sheets", "A IA insere rascunhos HTML na conversa", sheetsEnabled, isSwitch = true) {
             sheetsEnabled = !sheetsEnabled
-            val primaryColor  = ContextCompat.getColor(activity, R.color.colorPrimary)
-            val inactiveColor = Color.parseColor("#888888")
-            binding.btnSheets.setImageDrawable(
-                activity.svgDrawable(
-                    if (sheetsEnabled) "icons/svg/sheets_filled.svg" else "icons/svg/sheets.svg",
-                    20,
-                    if (sheetsEnabled) primaryColor else inactiveColor
-                )
-            )
+        })
+        card.addView(View(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24))
+        })
+        root.addView(card)
+        dialog.setContentView(root)
+        dialog.setOnShowListener {
+            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                ?.setBackgroundColor(Color.TRANSPARENT)
+        }
+        dialog.show()
+    }
+
+    private fun buildExtrasToggleRow(
+        iconOff: String, iconOn: String,
+        label: String, subtitle: String,
+        checked: Boolean, isSwitch: Boolean = false,
+        onClick: () -> Unit
+    ): View {
+        val GREEN    = Color.parseColor("#34C759")
+        val iconTint = if (checked) GREEN else ContextCompat.getColor(activity, R.color.icon_tint)
+        val iconPath = if (checked) iconOn else iconOff
+
+        val row = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(60); setPadding(dp(20), dp(12), dp(20), dp(12))
+            val a = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+            background = a.getDrawable(0); a.recycle()
+            isClickable = true; isFocusable = true
+        }
+        val iconFrame = FrameLayout(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
+            background = ContextCompat.getDrawable(activity, R.drawable.drawer_icon_bg)
+        }
+        iconFrame.addView(ImageView(activity).apply {
+            setImageDrawable(activity.svgDrawable(iconPath, 14, iconTint))
+            layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
+        })
+        row.addView(iconFrame)
+
+        val textCol = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        textCol.addView(TextView(activity).apply {
+            text = label; textSize = 15f
+            setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
+        })
+        textCol.addView(TextView(activity).apply {
+            text = subtitle; textSize = 12.5f
+            setTextColor(ContextCompat.getColor(activity, R.color.text_secondary))
+        })
+        row.addView(textCol)
+
+        if (isSwitch) {
+            val sw = MaterialSwitch(activity).apply {
+                isChecked = checked
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                setOnCheckedChangeListener { _, _ -> onClick() }
+            }
+            row.addView(sw)
+        } else {
+            val dot = View(activity).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(if (checked) GREEN else Color.TRANSPARENT)
+                }
+                layoutParams = LinearLayout.LayoutParams(dp(8), dp(8))
+            }
+            row.addView(dot)
+            row.setOnClickListener { onClick() }
+        }
+
+        return row
+    }
+
+    private fun extrasDiv() = View(activity).apply {
+        setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
+            it.marginStart = dp(60)
+        }
+    }
+
+    private fun sheetHandle() = View(activity).apply {
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
+            setColor(ContextCompat.getColor(activity, R.color.divider))
+        }
+        layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
+            it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(8)
         }
     }
 
@@ -927,7 +963,6 @@ class ChatFragment(private val activity: MainActiviy) {
 
     // ─── Markdown parser ──────────────────────────────────────────────────────
 
-    // Parser para blocos de texto (sem tabelas — já separadas)
     private fun parseMarkdownBlock(raw: String): Spanned {
         val sb = SpannableStringBuilder()
         val lines = raw.split("\n")
@@ -965,42 +1000,22 @@ class ChatFragment(private val activity: MainActiviy) {
         return sb
     }
 
-    // Converte expressões LaTeX/math inline: $...$  →  texto limpo sem $
-    // e também remove \frac{a}{b} → a/b, \sqrt{x} → √x, etc.
     private fun cleanLatex(text: String): String {
         return text
-            // Remove delimitadores $...$
             .replace(Regex("\\$([^$]+)\\$")) { it.groupValues[1] }
-            // \frac{a}{b} → a/b
             .replace(Regex("\\\\frac\\{([^}]+)\\}\\{([^}]+)\\}"), "$1/$2")
-            // \sqrt{x} → √x
             .replace(Regex("\\\\sqrt\\{([^}]+)\\}"), "√$1")
-            // \pm → ±
-            .replace("\\pm", "±")
-            // \times → ×
-            .replace("\\times", "×")
-            // \div → ÷
-            .replace("\\div", "÷")
-            // \leq → ≤
-            .replace("\\leq", "≤")
-            // \geq → ≥
-            .replace("\\geq", "≥")
-            // \neq → ≠
-            .replace("\\neq", "≠")
-            // \infty → ∞
+            .replace("\\pm", "±").replace("\\times", "×").replace("\\div", "÷")
+            .replace("\\leq", "≤").replace("\\geq", "≥").replace("\\neq", "≠")
             .replace("\\infty", "∞")
-            // \alpha → α, \beta → β, \gamma → γ, \delta → δ, \Delta → Δ, \pi → π, \theta → θ, \lambda → λ, \mu → μ, \sigma → σ
             .replace("\\alpha", "α").replace("\\beta", "β").replace("\\gamma", "γ")
             .replace("\\delta", "δ").replace("\\Delta", "Δ").replace("\\pi", "π")
             .replace("\\theta", "θ").replace("\\lambda", "λ").replace("\\mu", "μ")
             .replace("\\sigma", "σ").replace("\\Sigma", "Σ").replace("\\omega", "ω")
-            // ^{x} → ˣ (usando superscript unicode para dígitos e letras comuns)
             .replace(Regex("\\^\\{([^}]+)\\}")) { "^(${it.groupValues[1]})" }
             .replace(Regex("\\^([0-9a-z])")) { "^${it.groupValues[1]}" }
-            // _{x} → subscript
             .replace(Regex("_\\{([^}]+)\\}")) { "₍${it.groupValues[1]}₎" }
             .replace(Regex("_([0-9])")) { subscriptDigit(it.groupValues[1]) }
-            // Backslash restantes
             .replace(Regex("\\\\[a-zA-Z]+"), "")
     }
 
@@ -1010,16 +1025,13 @@ class ChatFragment(private val activity: MainActiviy) {
         else -> "_$d"
     }
 
-    // Inline markdown + limpeza LaTeX
     private fun parseInlineMarkdown(line: String): Spanned {
-        val cleaned = cleanLatex(line)
         val sb = SpannableStringBuilder()
-        appendInlineSpans(sb, cleaned)
+        appendInlineSpans(sb, cleanLatex(line))
         return sb
     }
 
     private fun appendInlineSpans(sb: SpannableStringBuilder, line: String) {
-        // Primeiro limpa LaTeX da linha
         val cleaned = cleanLatex(line)
         val pattern = Regex("\\*\\*(.+?)\\*\\*|__(.+?)__|(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)|`(.+?)`")
         var lastEnd = 0
@@ -1049,7 +1061,6 @@ class ChatFragment(private val activity: MainActiviy) {
         if (lastEnd < cleaned.length) sb.append(cleaned.substring(lastEnd))
     }
 
-    // Mantém compatibilidade com o parseMarkdown antigo (usado se precisar externamente)
     private fun parseMarkdown(raw: String): Spanned = parseMarkdownBlock(
         raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
     )
