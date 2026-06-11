@@ -18,8 +18,6 @@ import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.caverock.androidsvg.SVG
 import com.ipc.app.MainActiviy
@@ -77,7 +75,7 @@ class RegisterActivity : BaseActivity() {
         setupBackBtn()
         setupGoogleBtn()
         setupActions()
-        setupKeyboardScroll()
+        // NADA de setupKeyboardScroll – removido
     }
 
     private fun applyFonts() {
@@ -153,33 +151,6 @@ class RegisterActivity : BaseActivity() {
             }
         }
         goLogin.setOnClickListener { finish() }
-    }
-
-    private fun setupKeyboardScroll() {
-        val rootView = findViewById<View>(android.R.id.content)
-        var lastImeHeight = 0
-        ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
-            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val navHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val bottomPad = if (imeHeight > 0) (imeHeight - navHeight).coerceAtLeast(0) else 0
-
-            if (imeHeight != lastImeHeight) {
-                lastImeHeight = imeHeight
-                scrollView.animate()
-                    .translationY(if (imeHeight > 0) -(imeHeight - navHeight).toFloat() * 0.35f else 0f)
-                    .setDuration(280)
-                    .setInterpolator(DecelerateInterpolator(2f))
-                    .start()
-            }
-
-            scrollView.setPadding(
-                scrollView.paddingLeft,
-                scrollView.paddingTop,
-                scrollView.paddingRight,
-                bottomPad
-            )
-            insets
-        }
     }
 
     private fun doRegister(name: String, email: String, password: String) {

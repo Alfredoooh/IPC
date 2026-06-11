@@ -11,7 +11,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
-import android.view.animation.DecelerateInterpolator   // <-- ESSA PORRA FALTOU
+import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -20,8 +20,6 @@ import android.widget.TextView
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.caverock.androidsvg.SVG
 import com.ipc.app.MainActiviy
@@ -79,7 +77,7 @@ class LoginActivity : BaseActivity() {
         setupPasswordToggle()
         setupGoogleBtn()
         setupActions()
-        setupKeyboardScroll()
+        // NADA de setupKeyboardScroll – o sistema + ScrollView cuidam de tudo
     }
 
     private fun applyFonts() {
@@ -142,25 +140,6 @@ class LoginActivity : BaseActivity() {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
         forgotPassword.setOnClickListener {}
-    }
-
-    private fun setupKeyboardScroll() {
-        val rootView = findViewById<View>(android.R.id.content)
-        ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
-            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val navHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val bottomPad = (imeHeight - navHeight).coerceAtLeast(0)
-
-            // 🔧 Apenas padding inferior, SEM translationY.
-            // Isso evita o movimento excessivo quando o sistema já usa adjustResize.
-            scrollView.setPadding(
-                scrollView.paddingLeft,
-                scrollView.paddingTop,
-                scrollView.paddingRight,
-                bottomPad
-            )
-            insets
-        }
     }
 
     private fun doLogin(email: String, password: String) {
