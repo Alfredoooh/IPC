@@ -11,7 +11,6 @@ import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
-import android.view.ViewTreeObserver
 import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -123,7 +122,6 @@ class LoginActivity : BaseActivity() {
             val bmp = assets.open("icons/png/google.png").use { BitmapFactory.decodeStream(it) }
             googleIcon.setImageBitmap(bmp)
         }
-        // Inativo até Firebase ser integrado
         googleBtn.isClickable = false
         googleBtn.isFocusable = false
         googleBtn.alpha = 0.5f
@@ -148,24 +146,27 @@ class LoginActivity : BaseActivity() {
 
     private fun setupKeyboardScroll() {
         val rootView = findViewById<View>(android.R.id.content)
+        var lastImeHeight = 0
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
             val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val navHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val bottomPad = if (imeHeight > 0) imeHeight - navHeight else 0
+            val bottomPad = if (imeHeight > 0) (imeHeight - navHeight).coerceAtLeast(0) else 0
+
+            if (imeHeight != lastImeHeight) {
+                lastImeHeight = imeHeight
+                scrollView.animate()
+                    .translationY(if (imeHeight > 0) -(imeHeight - navHeight).toFloat() * 0.35f else 0f)
+                    .setDuration(280)
+                    .setInterpolator(DecelerateInterpolator(2f))
+                    .start()
+            }
+
             scrollView.setPadding(
                 scrollView.paddingLeft,
                 scrollView.paddingTop,
                 scrollView.paddingRight,
                 bottomPad
             )
-            if (imeHeight > 0) {
-                val focused = currentFocus
-                if (focused != null) {
-                    scrollView.post {
-                        scrollView.smoothScrollTo(0, focused.bottom)
-                    }
-                }
-            }
             insets
         }
     }
