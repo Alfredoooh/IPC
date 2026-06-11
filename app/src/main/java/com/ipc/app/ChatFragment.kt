@@ -459,7 +459,8 @@ class ChatFragment(private val activity: MainActiviy) {
                                     val firstUserMsg = chatHistory.firstOrNull { it.role == "user" }?.content ?: text
                                     val generated = GeminiApiService.generateTitle(firstUserMsg, token, lang)
                                     // Só usa o gerado pela IA — nunca a primeira mensagem do utilizador
-                                    currentConversationTitle = if (generated.isNotBlank()) generated else "Conversa ${System.currentTimeMillis() % 10000}"
+                                    currentConversationTitle = if (generated.isNotBlank()) generated else
+    firstUserMsg.trim().split("\\s+".toRegex()).take(4).joinToString(" ").take(40)
                                     saveCurrentConversation()
                                     activity.drawerManager.loadConversations()
                                 }
