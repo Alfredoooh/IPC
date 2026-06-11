@@ -157,7 +157,7 @@ object GeminiApiService {
 
                     val response = client.newCall(request).execute()
                     if (response.isSuccessful) {
-                        val json = JSONObject(response.body!!.string())
+                        val json  = JSONObject(response.body!!.string())
                         val title = json.optString("title", "").trim().take(40)
                         if (title.isNotBlank() && !title.equals("Nova conversa", ignoreCase = true)) {
                             return@withContext title

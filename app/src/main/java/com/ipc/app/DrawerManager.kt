@@ -1,3 +1,4 @@
+// DrawerManager.kt
 package com.ipc.app
 
 import android.graphics.Color
@@ -6,6 +7,7 @@ import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -123,7 +125,9 @@ class DrawerManager(private val activity: MainActiviy) {
     // ─── Modal: opções da conversa ────────────────────────────────────────────
 
     fun showConversationOptions(conv: Conversation) {
+        activity.hideKeyboard()
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -144,7 +148,6 @@ class DrawerManager(private val activity: MainActiviy) {
         val iconTint = ContextCompat.getColor(activity, R.color.icon_tint)
         val redColor = Color.parseColor("#FF3B30")
 
-        // Fixar / Desafixar
         val pinLabel = if (conv.pinned) "Desafixar conversa" else "Fixar conversa"
         val pinIcon  = if (conv.pinned) "icons/svg/pin_filled.svg" else "icons/svg/pin.svg"
         card.addView(optionRow(pinIcon, pinLabel, iconTint) {
@@ -156,14 +159,12 @@ class DrawerManager(private val activity: MainActiviy) {
         })
         card.addView(rowDivider())
 
-        // Partilhar
         card.addView(optionRow("icons/svg/share.svg", "Partilhar conversa", iconTint) {
             dialog.dismiss()
             shareConversation(conv)
         })
         card.addView(rowDivider())
 
-        // Arquivar / Desarquivar — usa bookmark.svg (history.svg é para histórico)
         val archLabel = if (conv.archived) "Desarquivar conversa" else "Arquivar conversa"
         val archIcon  = if (conv.archived) "icons/svg/bookmark_filled.svg" else "icons/svg/bookmark.svg"
         card.addView(optionRow(archIcon, archLabel, iconTint) {
@@ -176,7 +177,6 @@ class DrawerManager(private val activity: MainActiviy) {
         })
         card.addView(rowDivider())
 
-        // Eliminar
         card.addView(optionRow("icons/svg/trash.svg", "Eliminar conversa", redColor) {
             dialog.dismiss()
             showDeleteConfirmation(conv)
@@ -211,7 +211,9 @@ class DrawerManager(private val activity: MainActiviy) {
     // ─── Modal: confirmação de eliminação ─────────────────────────────────────
 
     fun showDeleteConfirmation(conv: Conversation) {
+        activity.hideKeyboard()
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {

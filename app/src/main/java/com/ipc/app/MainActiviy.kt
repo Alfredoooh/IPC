@@ -1,3 +1,4 @@
+// MainActiviy.kt
 package com.ipc.app
 
 import android.Manifest
@@ -72,8 +73,9 @@ class MainActiviy : BaseActivity() {
     var currentBarMarginPx: Int   = -1
     var currentBarRadiusPx: Float = -1f
 
-    private var navBarHeight     = 0
-    private var lastImeHeight    = 0
+    private var navBarHeight  = 0
+    private var lastImeHeight = 0
+    private var currentImeShift = 0
 
     val prefs     by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
     val authToken get() = prefs.getString("auth_token", "") ?: ""
@@ -99,22 +101,25 @@ class MainActiviy : BaseActivity() {
 
     fun showPreviewModal() {
         if (previewDialog?.isShowing == true) return
+        hideKeyboard()
 
         val dialog = BottomSheetDialog(this, R.style.PreviewModalDialog)
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         previewDialog = dialog
 
-        val screenH     = resources.displayMetrics.heightPixels
-        val topGap      = dp(40)
-        val topColor    = ContextCompat.getColor(this, R.color.gradient_warm_top)
-        val bottomColor = ContextCompat.getColor(this, R.color.gradient_warm_bottom)
-        val cornerPx    = dp(24).toFloat()
+        val screenH  = resources.displayMetrics.heightPixels
+        val topGap   = dp(40)
+        val cornerPx = dp(24).toFloat()
 
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadii = floatArrayOf(cornerPx, cornerPx, cornerPx, cornerPx, 0f, 0f, 0f, 0f)
-                colors = intArrayOf(topColor, bottomColor)
+                colors = intArrayOf(
+                    ContextCompat.getColor(this@MainActiviy, R.color.gradient_warm_top),
+                    ContextCompat.getColor(this@MainActiviy, R.color.gradient_warm_bottom)
+                )
                 gradientType = GradientDrawable.LINEAR_GRADIENT
                 orientation = GradientDrawable.Orientation.TOP_BOTTOM
             }
@@ -206,56 +211,57 @@ class MainActiviy : BaseActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        // Edge-to-edge: app desenha por baixo das system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Status bar padding na AppBar
         ViewCompat.setOnApplyWindowInsetsListener(binding.appBarLayout) { v, insets ->
             val statusBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             v.updatePadding(top = statusBars.top)
             insets
         }
 
-        // Capturar altura da nav bar uma vez
         ViewCompat.setOnApplyWindowInsetsListener(binding.rootFrame) { v, insets ->
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             if (navBarHeight == 0 && nav.bottom > 0) navBarHeight = nav.bottom
             insets
         }
 
-        // ── Listener de IME — só move o bottomNavWrapper ──────────────────────
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            val imeHeight   = ime.bottom
-            val imeNowOpen  = imeHeight > 0
-            // deslocamento real = altura IME − nav bar (já contada no padding do sistema)
+            val imeHeight  = ime.bottom
+            val imeNowOpen = imeHeight > 0
             val shift = (imeHeight - nav.bottom).coerceAtLeast(0)
 
             if (shift != lastImeHeight) {
-                lastImeHeight = shift
-                keyboardOpen  = imeNowOpen
+                lastImeHeight  = shift
+                currentImeShift = shift
+                keyboardOpen   = imeNowOpen
 
                 val dur    = if (imeNowOpen) 260L else 220L
                 val interp = DecelerateInterpolator(1.6f)
 
-                // Sobe apenas o bottomNavWrapper — inputRow está dentro dele, sobe junto
                 binding.bottomNavWrapper.animate()
                     .translationY(-shift.toFloat())
-                    .setDuration(dur)
-                    .setInterpolator(interp)
-                    .start()
+                    .setDuration(dur).setInterpolator(interp).start()
 
-                // RecyclerView: padding bottom para não ficar atrás do teclado
+                addPopup?.let { popup ->
+                    if (popup.isShowing) {
+                        popup.dismiss()
+                        binding.btnBottomAdd.postDelayed({ showAddPopupMenu(binding.btnBottomAdd) }, dur + 20)
+                    }
+                }
+
                 chatFragment.applyKeyboardPadding(shift)
             }
-
             insets
         }
+
+        binding.appBarLayout.stateListAnimator = null
+        binding.appBarLayout.elevation = dp(4).toFloat()
 
         binding.drawerContainer.layoutParams = binding.drawerContainer.layoutParams.also {
             it.width = drawerWidth
@@ -283,6 +289,7 @@ class MainActiviy : BaseActivity() {
 
     private fun setupAppBarSolid() {
         binding.appBarLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.appbar_solid))
+        binding.appBarGradient.visibility = View.VISIBLE
         binding.appBarGradient.layoutParams = binding.appBarGradient.layoutParams.also { it.height = dp(80) }
     }
 
@@ -389,17 +396,37 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Botão ADD ────────────────────────────────────────────────────────────
+    // ─── Botão ADD (popup com blur total) ─────────────────────────────────────
 
     private var addPopup: PopupWindow? = null
+    private var addBlurOverlay: View? = null
 
     private fun setupBottomAddButton() {
         binding.btnBottomAdd.setOnClickListener { v -> showAddPopupMenu(v) }
     }
 
-    private fun showAddPopupMenu(anchor: View) {
+    fun showAddPopupMenu(anchor: View) {
         if (addPopup?.isShowing == true) return
+        // Fechar teclado SEMPRE antes de mostrar popup
+        hideKeyboard()
         val popupWidth = dp(220)
+        val iconSizeDp = 20
+        val iconTint   = ContextCompat.getColor(this, R.color.icon_tint)
+
+        // Overlay blur no rootFrame para cobrir tela TODA (status bar + nav bar)
+        val overlay = View(this).apply {
+            setBackgroundColor(Color.parseColor("#88000000"))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            alpha = 0f
+            isClickable = true; isFocusable = true
+            setOnClickListener { addPopup?.dismiss() }
+        }
+        binding.rootFrame.addView(overlay)
+        addBlurOverlay = overlay
+        overlay.animate().alpha(1f).setDuration(200).start()
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -415,19 +442,19 @@ class MainActiviy : BaseActivity() {
             val color = ContextCompat.getColor(this, R.color.text_primary)
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(50); setPadding(dp(16), 0, dp(16), 0)
+                minimumHeight = dp(52); setPadding(dp(16), 0, dp(16), 0)
                 val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
                 background = a.getDrawable(0); a.recycle()
                 isClickable = !dimmed; isFocusable = !dimmed
                 alpha = if (dimmed) 0.38f else 1f
             }
             val iconFrame = FrameLayout(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).also { it.marginEnd = dp(12) }
+                layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
                 background = ContextCompat.getDrawable(this@MainActiviy, R.drawable.drawer_icon_bg)
             }
             iconFrame.addView(ImageView(this).apply {
-                setImageDrawable(svgDrawable(iconPath, 13, color))
-                layoutParams = FrameLayout.LayoutParams(dp(13), dp(13), Gravity.CENTER)
+                setImageDrawable(svgDrawable(iconPath, iconSizeDp, iconTint))
+                layoutParams = FrameLayout.LayoutParams(dp(iconSizeDp), dp(iconSizeDp), Gravity.CENTER)
             })
             row.addView(iconFrame)
             row.addView(TextView(this).apply {
@@ -440,7 +467,7 @@ class MainActiviy : BaseActivity() {
 
         fun menuDiv() = View(this).apply {
             setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also { it.marginStart = dp(56) }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also { it.marginStart = dp(62) }
         }
 
         card.addView(menuRow("icons/svg/camera.svg", "Câmara") { openCamera() })
@@ -454,6 +481,11 @@ class MainActiviy : BaseActivity() {
         val popup = PopupWindow(card, popupWidth, ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
             isOutsideTouchable = true; elevation = dp(12).toFloat()
             setBackgroundDrawable(null); animationStyle = 0
+            setOnDismissListener {
+                addBlurOverlay?.animate()?.alpha(0f)?.setDuration(180)
+                    ?.withEndAction { binding.rootFrame.removeView(addBlurOverlay); addBlurOverlay = null }
+                    ?.start()
+            }
         }
         addPopup = popup
 
@@ -462,8 +494,10 @@ class MainActiviy : BaseActivity() {
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
         val popupH = card.measuredHeight
-        val xOff   = 0
-        val yOff   = -(popupH + anchor.height + dp(8))
+
+        val anchorLoc = IntArray(2).also { anchor.getLocationOnScreen(it) }
+        val yOff = -(popupH + anchor.height + dp(8))
+        val xOff = 0
 
         card.scaleX = 0.85f; card.scaleY = 0.85f; card.alpha = 0f
         card.pivotX = dp(40).toFloat(); card.pivotY = popupH.toFloat()
@@ -472,9 +506,7 @@ class MainActiviy : BaseActivity() {
 
         card.animate()
             .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(320)
-            .setInterpolator(OvershootInterpolator(1.1f))
-            .start()
+            .setDuration(320).setInterpolator(OvershootInterpolator(1.1f)).start()
     }
 
     // ─── Modal de voz ─────────────────────────────────────────────────────────
@@ -485,6 +517,7 @@ class MainActiviy : BaseActivity() {
 
     fun showVoiceModal() {
         if (voiceDialog?.isShowing == true) return
+        hideKeyboard()
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
@@ -493,20 +526,22 @@ class MainActiviy : BaseActivity() {
         }
 
         val dialog = BottomSheetDialog(this, R.style.PreviewModalDialog)
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         voiceDialog = dialog
 
-        val screenH     = resources.displayMetrics.heightPixels
-        val topGap      = dp(120)
-        val topColor    = ContextCompat.getColor(this, R.color.gradient_warm_top)
-        val bottomColor = ContextCompat.getColor(this, R.color.gradient_warm_bottom)
-        val cornerPx    = dp(24).toFloat()
+        val screenH  = resources.displayMetrics.heightPixels
+        val topGap   = dp(120)
+        val cornerPx = dp(24).toFloat()
 
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadii = floatArrayOf(cornerPx, cornerPx, cornerPx, cornerPx, 0f, 0f, 0f, 0f)
-                colors = intArrayOf(topColor, bottomColor)
+                colors = intArrayOf(
+                    ContextCompat.getColor(this@MainActiviy, R.color.gradient_warm_top),
+                    ContextCompat.getColor(this@MainActiviy, R.color.gradient_warm_bottom)
+                )
                 gradientType = GradientDrawable.LINEAR_GRADIENT
                 orientation = GradientDrawable.Orientation.TOP_BOTTOM
             }
@@ -657,9 +692,10 @@ class MainActiviy : BaseActivity() {
         dialog.show()
     }
 
-    // ─── PopupMenu btnMore ────────────────────────────────────────────────────
+    // ─── PopupMenu btnMore (com blur total) ───────────────────────────────────
 
     private var morePopup: PopupWindow? = null
+    private var moreBlurOverlay: View? = null
 
     private fun setupPopupMenu() {
         binding.btnMore.setOnClickListener { v -> showMorePopup(v) }
@@ -672,10 +708,28 @@ class MainActiviy : BaseActivity() {
 
     private fun showMorePopup(anchor: View) {
         if (morePopup?.isShowing == true) return
+        // Fechar teclado SEMPRE antes de mostrar popup
+        hideKeyboard()
         val conv = chatFragment.currentConversationSnapshot ?: return
-        val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
-        val redColor = Color.parseColor("#FF3B30")
+        val iconTint   = ContextCompat.getColor(this, R.color.icon_tint)
+        val redColor   = Color.parseColor("#FF3B30")
         val popupWidth = dp(220)
+        val iconSizeDp = 20
+
+        // Overlay blur no rootFrame para cobrir tela TODA
+        val overlay = View(this).apply {
+            setBackgroundColor(Color.parseColor("#88000000"))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            alpha = 0f
+            isClickable = true; isFocusable = true
+            setOnClickListener { morePopup?.dismiss() }
+        }
+        binding.rootFrame.addView(overlay)
+        moreBlurOverlay = overlay
+        overlay.animate().alpha(1f).setDuration(200).start()
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -694,10 +748,15 @@ class MainActiviy : BaseActivity() {
                 background = a.getDrawable(0); a.recycle()
                 isClickable = true; isFocusable = true
             }
-            row.addView(ImageView(this).apply {
-                setImageDrawable(svgDrawable(iconPath, 20, color))
-                layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).also { it.marginEnd = dp(14) }
+            val iconFrame = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
+                background = ContextCompat.getDrawable(this@MainActiviy, R.drawable.drawer_icon_bg)
+            }
+            iconFrame.addView(ImageView(this).apply {
+                setImageDrawable(svgDrawable(iconPath, iconSizeDp, color))
+                layoutParams = FrameLayout.LayoutParams(dp(iconSizeDp), dp(iconSizeDp), Gravity.CENTER)
             })
+            row.addView(iconFrame)
             row.addView(TextView(this).apply { text = label; textSize = 15f; setTextColor(color) })
             row.setOnClickListener { morePopup?.dismiss(); action() }
             return row
@@ -705,7 +764,7 @@ class MainActiviy : BaseActivity() {
 
         fun rowDiv() = View(this).apply {
             setBackgroundColor(ContextCompat.getColor(this@MainActiviy, R.color.divider))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also { it.marginStart = dp(50) }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also { it.marginStart = dp(62) }
         }
 
         val pinLabel = if (conv.pinned) "Desafixar conversa" else "Fixar conversa"
@@ -735,6 +794,11 @@ class MainActiviy : BaseActivity() {
         val popup = PopupWindow(card, popupWidth, ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
             isOutsideTouchable = true; elevation = dp(8).toFloat()
             setBackgroundDrawable(null); animationStyle = 0
+            setOnDismissListener {
+                moreBlurOverlay?.animate()?.alpha(0f)?.setDuration(180)
+                    ?.withEndAction { binding.rootFrame.removeView(moreBlurOverlay); moreBlurOverlay = null }
+                    ?.start()
+            }
         }
         morePopup = popup
 
@@ -743,11 +807,8 @@ class MainActiviy : BaseActivity() {
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
         val popupH = card.measuredHeight
-        val anchorLoc = IntArray(2).also { anchor.getLocationOnScreen(it) }
-        val anchorBottom = anchorLoc[1] + anchor.height
-        val screenH = resources.displayMetrics.heightPixels
         val xOff = -(popupWidth - anchor.width)
-        val yOff = if (anchorBottom + popupH + dp(8) < screenH) dp(4) else -(popupH + anchor.height + dp(4))
+        val yOff = -(popupH + anchor.height + dp(4))
 
         card.scaleX = 0.85f; card.scaleY = 0.85f; card.alpha = 0f
         card.pivotX = popupWidth.toFloat(); card.pivotY = 0f
@@ -756,8 +817,7 @@ class MainActiviy : BaseActivity() {
 
         card.animate()
             .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(300).setInterpolator(OvershootInterpolator(1.1f))
-            .start()
+            .setDuration(300).setInterpolator(OvershootInterpolator(1.1f)).start()
     }
 
     fun showConvOptionsSheet() {
@@ -768,8 +828,9 @@ class MainActiviy : BaseActivity() {
     fun showPopup() {
         if (popupVisible) return
         popupVisible = true
-        binding.inputMessage.isEnabled = false; binding.inputMessage.isFocusable = false
+        // Fechar teclado SEMPRE antes
         hideKeyboard()
+        binding.inputMessage.isEnabled = false; binding.inputMessage.isFocusable = false
         binding.popupOverlay.visibility = View.VISIBLE; binding.popupOverlay.alpha = 0f
         binding.popupMenu.post {
             binding.popupMenu.pivotX = binding.popupMenu.width.toFloat(); binding.popupMenu.pivotY = 0f
