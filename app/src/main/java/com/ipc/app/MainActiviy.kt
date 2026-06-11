@@ -32,8 +32,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -72,10 +72,8 @@ class MainActiviy : BaseActivity() {
     var currentBarMarginPx: Int   = -1
     var currentBarRadiusPx: Float = -1f
 
-    var lastImeShift = 0
-    var maxImeShift  = 0
-
-    private var lastAppliedImeShift = -1
+    private var navBarHeight     = 0
+    private var lastImeHeight    = 0
 
     val prefs     by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
     val authToken get() = prefs.getString("auth_token", "") ?: ""
@@ -105,11 +103,11 @@ class MainActiviy : BaseActivity() {
         val dialog = BottomSheetDialog(this, R.style.PreviewModalDialog)
         previewDialog = dialog
 
-        val screenH  = resources.displayMetrics.heightPixels
-        val topGap   = dp(40)
+        val screenH     = resources.displayMetrics.heightPixels
+        val topGap      = dp(40)
         val topColor    = ContextCompat.getColor(this, R.color.gradient_warm_top)
         val bottomColor = ContextCompat.getColor(this, R.color.gradient_warm_bottom)
-        val cornerPx = dp(24).toFloat()
+        val cornerPx    = dp(24).toFloat()
 
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -173,7 +171,9 @@ class MainActiviy : BaseActivity() {
                 beh.peekHeight = screenH - topGap; beh.state = BottomSheetBehavior.STATE_EXPANDED
                 beh.isDraggable = true; beh.isHideable = true
                 beh.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
-                    override fun onStateChanged(v: View, newState: Int) { if (newState == BottomSheetBehavior.STATE_HIDDEN) dialog.dismiss() }
+                    override fun onStateChanged(v: View, newState: Int) {
+                        if (newState == BottomSheetBehavior.STATE_HIDDEN) dialog.dismiss()
+                    }
                     override fun onSlide(v: View, offset: Float) {}
                 })
             }
@@ -206,7 +206,9 @@ class MainActiviy : BaseActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
+        // Edge-to-edge: app desenha por baixo das system bars
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -218,66 +220,40 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
-        // ── Listener de IME ───────────────────────────────────────────────────
+        // Capturar altura da nav bar uma vez
+        ViewCompat.setOnApplyWindowInsetsListener(binding.rootFrame) { v, insets ->
+            val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            if (navBarHeight == 0 && nav.bottom > 0) navBarHeight = nav.bottom
+            insets
+        }
+
+        // ── Listener de IME — só move o bottomNavWrapper ──────────────────────
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
-            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-            val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
-            val imeNowOpen = extraShift > 0
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val imeHeight   = ime.bottom
+            val imeNowOpen  = imeHeight > 0
+            // deslocamento real = altura IME − nav bar (já contada no padding do sistema)
+            val shift = (imeHeight - nav.bottom).coerceAtLeast(0)
 
-            if (extraShift != lastAppliedImeShift) {
-                lastAppliedImeShift = extraShift
+            if (shift != lastImeHeight) {
+                lastImeHeight = shift
+                keyboardOpen  = imeNowOpen
 
-                val dur    = if (imeNowOpen) 280L else 240L
+                val dur    = if (imeNowOpen) 260L else 220L
                 val interp = DecelerateInterpolator(1.6f)
 
-                // BottomNavWrapper sobe
+                // Sobe apenas o bottomNavWrapper — inputRow está dentro dele, sobe junto
                 binding.bottomNavWrapper.animate()
-                    .translationY(-extraShift.toFloat())
+                    .translationY(-shift.toFloat())
                     .setDuration(dur)
                     .setInterpolator(interp)
                     .start()
 
-                binding.bottomNavWrapper.updatePadding(
-                    bottom = if (extraShift == 0) navInsets.bottom else 0
-                )
-
-                // emptyState sobe junto (greeting fica visível ao digitar)
-                binding.emptyState.animate()
-                    .translationY(-extraShift.toFloat())
-                    .setDuration(dur)
-                    .setInterpolator(interp)
-                    .start()
-
-                // inputRow sobe — não fica atrás do teclado
-                if (chatFragment.inputRowVisible) {
-                    binding.inputRow.animate()
-                        .translationY(-extraShift.toFloat())
-                        .setDuration(dur)
-                        .setInterpolator(interp)
-                        .start()
-                }
-
-                // RecyclerView padding
-                chatFragment.applyKeyboardPadding(extraShift)
+                // RecyclerView: padding bottom para não ficar atrás do teclado
+                chatFragment.applyKeyboardPadding(shift)
             }
 
-            when {
-                imeNowOpen && !keyboardOpen -> {
-                    keyboardOpen = true
-                    lastImeShift = extraShift
-                    maxImeShift  = extraShift
-                }
-                imeNowOpen && keyboardOpen -> {
-                    if (extraShift > maxImeShift) maxImeShift = extraShift
-                    lastImeShift = extraShift
-                }
-                !imeNowOpen && keyboardOpen -> {
-                    keyboardOpen = false
-                    lastImeShift = 0
-                    maxImeShift  = 0
-                }
-            }
             insets
         }
 
@@ -398,7 +374,7 @@ class MainActiviy : BaseActivity() {
                 val radius = fromRadius + (targetRadius - fromRadius) * f
                 currentBarMarginPx = margin; currentBarRadiusPx = radius
                 wrapperBg.cornerRadius = radius
-                (binding.bottomNavWrapper.layoutParams as? android.widget.FrameLayout.LayoutParams)?.let {
+                (binding.bottomNavWrapper.layoutParams as? FrameLayout.LayoutParams)?.let {
                     it.marginStart = margin; it.marginEnd = margin; it.bottomMargin = bottomMargin
                     binding.bottomNavWrapper.layoutParams = it
                 }

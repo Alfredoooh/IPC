@@ -1,243 +1,88 @@
-package com.ipc.app.data
+Agora o Worker — precisa de usar o `systemPrompt` do body quando presente:
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.IOException
-import java.util.concurrent.TimeUnit
+```javascript
+// worker.js — só a função handleAiChat e buildSystemInstruction alteradas
+// Substitui as duas funções existentes no worker
 
-data class ChatMessage(val role: String, val content: String)
-
-sealed class StreamChunk {
-    data class ThinkToken(val text: String) : StreamChunk()
-    data class Token(val text: String) : StreamChunk()
-    data class Done(val fullText: String) : StreamChunk()
-    data class Error(val message: String) : StreamChunk()
+function buildSystemInstruction(language, customSystemPrompt) {
+  // Se vier systemPrompt do body, usa-o directamente
+  if (customSystemPrompt && customSystemPrompt.trim().length > 0) {
+    return customSystemPrompt;
+  }
+  return language === "en"
+    ? "You are a helpful AI assistant. Always respond in English. Be concise and direct. When the user asks for a table, use markdown table format. When providing code, always wrap it in fenced code blocks with the language identifier."
+    : "Es um assistente de IA util. Responde sempre em portugues europeu. Se conciso e direto. Quando o utilizador pedir uma tabela, usa formato de tabela markdown. Quando deres codigo, coloca-o sempre em blocos com o identificador de linguagem.";
 }
 
-object GeminiApiService {
+async function geminiGenerate(apiKey, messages, language, stream, thinkingBudget, customSystemPrompt) {
+  const systemText = buildSystemInstruction(language, customSystemPrompt);
+  const contents   = buildGeminiContents(messages);
 
-    private const val BASE_URL = "https://ipc.alfredopjonas.workers.dev"
+  const generationConfig = {
+    maxOutputTokens: 16384,
+    temperature: 1,
+    topP: 0.95,
+  };
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(180, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
+  const thinkingConfig = thinkingBudget > 0
+    ? { thinkingConfig: { thinkingBudget: thinkingBudget } }
+    : { thinkingConfig: { thinkingBudget: 0 } };
 
-    fun streamChat(
-        messages: List<ChatMessage>,
-        systemPrompt: String = buildSystemPrompt(),
-        token: String = "",
-        think: Boolean = false
-    ): Flow<StreamChunk> = callbackFlow {
+  const bodyObj = {
+    system_instruction: { parts: [{ text: systemText }] },
+    contents: contents,
+    generationConfig: Object.assign({}, generationConfig, thinkingConfig),
+  };
 
-        val messagesArray = JSONArray().apply {
-            messages.forEach { msg ->
-                put(JSONObject().apply {
-                    put("role", msg.role)
-                    put("content", msg.content)
-                })
-            }
-        }
+  const endpoint = stream
+    ? GEMINI_BASE + "/" + GEMINI_MODEL + ":streamGenerateContent?alt=sse&key=" + apiKey
+    : GEMINI_BASE + "/" + GEMINI_MODEL + ":generateContent?key=" + apiKey;
 
-        val body = JSONObject().apply {
-            put("messages", messagesArray)
-            put("stream", true)
-            put("language", if (systemPrompt.contains("English")) "en" else "pt")
-            put("think", think)
-        }.toString().toRequestBody("application/json".toMediaType())
+  return fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bodyObj),
+  });
+}
 
-        val request = Request.Builder()
-            .url("$BASE_URL/ai/chat")
-            .addHeader("Authorization", "Bearer $token")
-            .addHeader("Accept", "text/event-stream")
-            .post(body)
-            .build()
+async function handleAiChat(request, env) {
+  const payload = await getAuthUser(request, env);
+  if (!payload) return error("Não autenticado", 401);
+  const body = await request.json().catch(function() { return null; });
+  if (!body || !body.messages) return error("Messages obrigatório");
 
-        val call = client.newCall(request)
+  const messages          = body.messages;
+  const stream            = body.stream !== undefined ? body.stream : false;
+  const language          = body.language || "pt";
+  const thinkingBudget    = body.think ? 8000 : 0;
+  const customSystemPrompt = body.systemPrompt || "";
 
-        call.enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                trySend(StreamChunk.Error("Erro de rede: ${e.message}"))
-                close()
-            }
+  const gemRes = await geminiGenerate(env.GEMINI_API_KEY, messages, language, stream, thinkingBudget, customSystemPrompt);
 
-            override fun onResponse(call: Call, response: Response) {
-                if (!response.isSuccessful) {
-                    trySend(StreamChunk.Error("Erro ${response.code}: verifica a tua ligação"))
-                    close()
-                    return
-                }
-                val sb = StringBuilder()
-                var doneSent = false
-                try {
-                    val reader = BufferedReader(response.body!!.charStream())
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        val l = line!!.trim()
-                        if (!l.startsWith("data: ")) continue
-                        val data = l.removePrefix("data: ").trim()
-                        if (data == "[DONE]") {
-                            if (!doneSent) {
-                                doneSent = true
-                                trySend(StreamChunk.Done(sb.toString()))
-                            }
-                            break
-                        }
-                        try {
-                            val json = JSONObject(data)
-                            val candidates = json.optJSONArray("candidates") ?: continue
-                            val candidate  = candidates.optJSONObject(0) ?: continue
-                            val content    = candidate.optJSONObject("content") ?: continue
-                            val parts      = content.optJSONArray("parts") ?: continue
+  if (!gemRes.ok) {
+    const errText = await gemRes.text();
+    console.error("[CHAT ERROR]", gemRes.status, errText);
+    return error("Erro Gemini API: " + errText, gemRes.status);
+  }
 
-                            for (i in 0 until parts.length()) {
-                                val part = parts.getJSONObject(i)
-                                val text = part.optString("text", "")
-                                if (text.isEmpty()) continue
+  if (stream) {
+    return new Response(gemRes.body, {
+      headers: Object.assign({}, CORS_HEADERS, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+      }),
+    });
+  }
 
-                                if (part.optBoolean("thought", false)) {
-                                    trySend(StreamChunk.ThinkToken(text))
-                                } else {
-                                    sb.append(text)
-                                    trySend(StreamChunk.Token(text))
-                                }
-                            }
-
-                            val finishReason = candidate.optString("finishReason", "")
-                            if ((finishReason == "STOP" || finishReason == "MAX_TOKENS") && !doneSent) {
-                                doneSent = true
-                                trySend(StreamChunk.Done(sb.toString()))
-                                break
-                            }
-                        } catch (_: Exception) {}
-                    }
-                    if (!doneSent) trySend(StreamChunk.Done(sb.toString()))
-                } catch (e: Exception) {
-                    trySend(StreamChunk.Error("Erro ao ler stream: ${e.message}"))
-                } finally {
-                    response.body?.close()
-                    close()
-                }
-            }
-        })
-
-        awaitClose { call.cancel() }
-    }.flowOn(Dispatchers.IO)
-
-    suspend fun generateTitle(firstUserMessage: String, token: String, language: String = "pt"): String =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val body = JSONObject().apply {
-                    put("message", firstUserMessage)
-                    put("language", language)
-                }.toString().toRequestBody("application/json".toMediaType())
-
-                val request = Request.Builder()
-                    .url("$BASE_URL/ai/title")
-                    .addHeader("Authorization", "Bearer $token")
-                    .post(body)
-                    .build()
-
-                val response = client.newCall(request).execute()
-                if (!response.isSuccessful) return@runCatching "Nova conversa"
-                val json = JSONObject(response.body!!.string())
-                json.optString("title", "Nova conversa").trim().take(40)
-            }.getOrDefault("Nova conversa")
-        }
-
-    fun buildSystemPrompt(language: String = "pt", sheetsEnabled: Boolean = false): String {
-        val base = when (language) {
-            "en" -> "You are a helpful AI assistant. Respond clearly and accurately."
-            else -> "És um assistente de IA útil. Responde de forma clara e precisa em Português."
-        }
-
-        val sheetsInstruction = if (sheetsEnabled) {
-            if (language == "en") {
-                """
-
-
-When the user asks for mathematical problem-solving, data tables, bar charts, pie charts, or other visual content, embed a widget using this exact format:
-
-<widget type="sheet">
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    /* Use CSS variables already injected by the app: */
-    /* var(--bg), var(--surface), var(--border), var(--text), var(--text-secondary) */
-    /* var(--header-bg), var(--row-hover), var(--divider), var(--bar-color)           */
-    body { margin: 0; padding: 12px; background: var(--bg, #fff); font-family: Arial, sans-serif; color: var(--text, #111); }
-  </style>
-</head>
-<body>
-  <!-- widget content here -->
-</body>
-</html>
-</widget>
-
-Widget types available:
-- Mathematical workings: use the lined paper style (SVG with rules and margin line)
-- Tables: use a clean table with rounded corners, header row, dividers
-- Bar charts: animated bars using CSS/JS
-- Pie charts: SVG-based pie chart with labels
-- Mixed: combine elements as needed
-
-Always use the CSS variables for colors so the widget adapts to light/dark mode automatically.
-Only wrap visual content in <widget> tags. Regular text answers stay outside the tags."""
-            } else {
-                """
-
-
-Quando o utilizador pedir resolução de problemas matemáticos, tabelas de dados, gráficos de barras, gráficos de pizza ou outro conteúdo visual, incorpora um widget com este formato exato:
-
-<widget type="sheet">
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    /* Usa as variáveis CSS já injetadas pelo app: */
-    /* var(--bg), var(--surface), var(--border), var(--text), var(--text-secondary) */
-    /* var(--header-bg), var(--row-hover), var(--divider), var(--bar-color)           */
-    body { margin: 0; padding: 12px; background: var(--bg, #fff); font-family: Arial, sans-serif; color: var(--text, #111); }
-  </style>
-</head>
-<body>
-  <!-- conteúdo do widget aqui -->
-</body>
-</html>
-</widget>
-
-Tipos de widget disponíveis:
-- Resoluções matemáticas: usa o estilo de papel pautado (SVG com linhas e margem vermelha)
-- Tabelas: tabela limpa com cantos arredondados, cabeçalho destacado, divisórias
-- Gráficos de barras: barras animadas com CSS/JS
-- Gráficos de pizza: gráfico SVG com legenda
-- Misto: combina elementos conforme necessário
-
-Usa sempre as variáveis CSS de cor para que o widget se adapte automaticamente ao modo claro/escuro.
-Coloca apenas conteúdo visual dentro das tags <widget>. O texto normal fica fora das tags."""
-            }
-        } else ""
-
-        return base + sheetsInstruction
-    }
+  const data = await gemRes.json();
+  const candidate = data.candidates?.[0];
+  const parts     = candidate?.content?.parts || [];
+  let content   = "";
+  let reasoning = null;
+  for (const part of parts) {
+    if (part.thought) { reasoning = part.text; }
+    else { content += part.text || ""; }
+  }
+  return json({ content, reasoning, model: GEMINI_MODEL, usage: data.usageMetadata || null });
 }

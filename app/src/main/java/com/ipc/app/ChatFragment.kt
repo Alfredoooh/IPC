@@ -1,3 +1,4 @@
+// ChatFragment.kt
 package com.ipc.app
 
 import android.animation.Animator
@@ -73,7 +74,6 @@ class ChatFragment(private val activity: MainActiviy) {
     private var inputRowAnimator:     ValueAnimator? = null
     private var newChatSlideAnimator: ValueAnimator? = null
 
-    // Times New Roman — carregado uma vez, usado APENAS para blocos matemáticos
     private val timesTypeface: Typeface? by lazy {
         runCatching {
             Typeface.createFromAsset(activity.assets, "fonts/pattern/times_new_roman.ttf")
@@ -222,15 +222,15 @@ class ChatFragment(private val activity: MainActiviy) {
 
     fun applyKeyboardPadding(extraShift: Int) {
         val rv = binding.chatRecyclerView
-        val basePadding   = dp(160)
-        val targetPadding = basePadding + extraShift
-        if (rv.paddingBottom != targetPadding) {
-            rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, targetPadding)
+        val base   = dp(160)
+        val target = base + extraShift
+        if (rv.paddingBottom != target) {
+            rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, target)
             if (displayMessages.isNotEmpty()) smoothScroll(displayMessages.lastIndex)
         }
     }
 
-    // ─── Scroll animado ───────────────────────────────────────────────────────
+    // ─── Scroll ───────────────────────────────────────────────────────────────
 
     private fun smoothScroll(position: Int) {
         binding.chatRecyclerView.smoothScrollToPosition(position)
@@ -417,7 +417,6 @@ class ChatFragment(private val activity: MainActiviy) {
 
         val lang         = prefs.getString("language", "pt") ?: "pt"
         val token        = authToken
-        // System prompt com instrução de widgets se sheets estiver ativo
         val systemPrompt = GeminiApiService.buildSystemPrompt(lang, sheetsEnabled)
         val isThinking   = thinkMoreMode
         thinkingContent  = ""
@@ -459,7 +458,8 @@ class ChatFragment(private val activity: MainActiviy) {
                                 launch {
                                     val firstUserMsg = chatHistory.firstOrNull { it.role == "user" }?.content ?: text
                                     val generated = GeminiApiService.generateTitle(firstUserMsg, token, lang)
-                                    currentConversationTitle = if (generated.isNotBlank() && generated != "Nova conversa") generated else firstUserMsg.take(30).trimEnd()
+                                    // Só usa o gerado pela IA — nunca a primeira mensagem do utilizador
+                                    currentConversationTitle = if (generated.isNotBlank()) generated else "Conversa ${System.currentTimeMillis() % 10000}"
                                     saveCurrentConversation()
                                     activity.drawerManager.loadConversations()
                                 }
@@ -572,66 +572,49 @@ class ChatFragment(private val activity: MainActiviy) {
         override fun getItemCount() = msgs.size
     }
 
-    // ─── Renderização de blocos ───────────────────────────────────────────────
+    // ─── Renderização de mensagens ────────────────────────────────────────────
 
     private fun renderMessageContent(parent: LinearLayout, rawContent: String) {
         val text = rawContent.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
 
-        // Verificar se há widgets na resposta (só processados se sheetsEnabled = true)
         if (sheetsEnabled) {
-            val widgetRegex = Regex("<widget(?:\\s+type=\"([^\"]+)\")?>([\\s\\S]*?)</widget>", RegexOption.MULTILINE)
-            val widgetMatches = widgetRegex.findAll(text)
-            if (widgetMatches.any()) {
-                // Dividir conteúdo em partes: texto normal e widgets
+            // Detectar blocos ```widget_bar, ```widget_pie, ```widget_table, ```widget_sheet
+            val widgetRegex = Regex("```(widget_bar|widget_pie|widget_table|widget_sheet)\\s*\\n([\\s\\S]*?)```", RegexOption.MULTILINE)
+            val matches = widgetRegex.findAll(text)
+            if (matches.any()) {
                 var lastEnd = 0
-                widgetMatches.forEach { match ->
-                    // Texto antes do widget
+                matches.forEach { match ->
                     val before = text.substring(lastEnd, match.range.first).trim()
                     if (before.isNotEmpty()) {
-                        val blocks = splitIntoBlocks(before)
-                        blocks.forEach { block -> renderBlock(parent, block) }
+                        splitIntoBlocks(before).forEach { block -> renderBlock(parent, block) }
                     }
-                    // Renderizar o widget num WebView inline
-                    val widgetHtml = match.groupValues[2].trim()
-                    parent.addView(buildWidgetView(parent.context, widgetHtml))
+                    val widgetType = match.groupValues[1]
+                    val jsonStr    = match.groupValues[2].trim()
+                    parent.addView(buildWidgetView(parent.context, widgetType, jsonStr))
                     lastEnd = match.range.last + 1
                 }
-                // Texto depois do último widget
                 val after = text.substring(lastEnd).trim()
                 if (after.isNotEmpty()) {
-                    val blocks = splitIntoBlocks(after)
-                    blocks.forEach { block -> renderBlock(parent, block) }
+                    splitIntoBlocks(after).forEach { block -> renderBlock(parent, block) }
                 }
                 return
             }
         }
 
-        // Sem widgets — renderização normal
-        val blocks = splitIntoBlocks(text)
-        blocks.forEach { block -> renderBlock(parent, block) }
+        splitIntoBlocks(text).forEach { block -> renderBlock(parent, block) }
     }
 
-    private fun renderBlock(parent: LinearLayout, block: ContentBlock) {
-        when (block.type) {
-            BlockType.TABLE -> parent.addView(buildTableView(parent.context, block.lines))
-            BlockType.MATH  -> parent.addView(buildMathView(parent.context, block.lines.joinToString("\n")))
-            BlockType.TEXT  -> {
-                val spanned = parseMarkdownBlock(block.lines.joinToString("\n"))
-                val tv = TextView(parent.context).apply {
-                    textSize = 16f
-                    setLineSpacing(0f, 1.5f)
-                    setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
-                    setPadding(dp(2), dp(4), dp(8), dp(4))
-                }
-                tv.setText(spanned, TextView.BufferType.SPANNABLE)
-                parent.addView(tv)
-            }
+    // ─── Widget: carrega asset HTML e injeta dados ────────────────────────────
+
+    private fun buildWidgetView(ctx: Context, widgetType: String, jsonData: String): View {
+        val assetFile = when (widgetType) {
+            "widget_bar"   -> "widgets/bar_chart.html"
+            "widget_pie"   -> "widgets/pie_chart.html"
+            "widget_table" -> "widgets/table.html"
+            "widget_sheet" -> "widgets/sheet.html"
+            else           -> "widgets/bar_chart.html"
         }
-    }
 
-    // ─── Widget WebView inline ────────────────────────────────────────────────
-
-    private fun buildWidgetView(ctx: Context, html: String): View {
         val wrapper = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -655,74 +638,78 @@ class ChatFragment(private val activity: MainActiviy) {
             isHorizontalScrollBarEnabled = false
             setBackgroundColor(Color.TRANSPARENT)
             webChromeClient = WebChromeClient()
-            webViewClient = WebViewClient()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(320) // altura padrão — o widget pode ser redimensionado via JS se necessário
+                dp(300)
             )
         }
 
-        // Injectar tema escuro/claro no HTML via meta tag e CSS
         val isDark = activity.isDarkMode
-        val themedHtml = injectThemeIntoWidget(html, isDark)
-        webView.loadDataWithBaseURL("file:///android_asset/", themedHtml, "text/html", "UTF-8", null)
+        val themeVars = buildThemeVars(isDark)
 
+        // Injectar dados e tema após carregamento
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                val jsDataVar = when (widgetType) {
+                    "widget_bar"   -> "window.barData = $jsonData;"
+                    "widget_pie"   -> "window.pieData = $jsonData;"
+                    "widget_table" -> "window.tableData = $jsonData;"
+                    "widget_sheet" -> {
+                        // widget_sheet espera window.linesData = [{text,title}]
+                        // o JSON tem {"lines":[...]} — extrair o array
+                        "try { var d = $jsonData; window.linesData = d.lines || d; } catch(e) { window.linesData = []; }"
+                    }
+                    else -> ""
+                }
+                val jsTheme = """
+                    (function(){
+                        var s = document.createElement('style');
+                        s.textContent = ':root{$themeVars}';
+                        document.head.insertBefore(s, document.head.firstChild);
+                        $jsDataVar
+                        if(typeof render === 'function') render();
+                        if(window.linesData && typeof render === 'function') render();
+                    })();
+                """.trimIndent()
+                view?.evaluateJavascript(jsTheme, null)
+            }
+        }
+
+        webView.loadUrl("file:///android_asset/$assetFile")
         wrapper.addView(webView)
         return wrapper
     }
 
-    /**
-     * Injeta variáveis CSS de tema no HTML do widget para que ele
-     * responda automaticamente ao modo escuro/claro do app.
-     */
-    private fun injectThemeIntoWidget(html: String, isDark: Boolean): String {
-        val themeVars = if (isDark) {
-            """
-            :root {
-              --bg: #1E1E1E;
-              --surface: #2C2C2E;
-              --border: #3A3A3C;
-              --text: #F2F2F2;
-              --text-secondary: #939393;
-              --header-bg: #2C2C2E;
-              --row-hover: #242424;
-              --divider: #3A3A3C;
-              --bar-color: #6F5AF6;
-            }
-            body { background: #1E1E1E !important; color: #F2F2F2 !important; }
-            """.trimIndent()
+    private fun buildThemeVars(isDark: Boolean): String {
+        return if (isDark) {
+            "--bg:#1E1E1E;--surface:#2C2C2E;--border:#3A3A3C;--text:#F2F2F2;--text-secondary:#939393;--header-bg:#2C2C2E;--row-hover:#242424;--divider:#3A3A3C;--bar-color:#6F5AF6;"
         } else {
-            """
-            :root {
-              --bg: #FFFFFF;
-              --surface: #F2F2F7;
-              --border: #D4D8DD;
-              --text: #111111;
-              --text-secondary: #666666;
-              --header-bg: #F5F7FA;
-              --row-hover: #FAFBFC;
-              --divider: #E5E5EA;
-              --bar-color: #6F5AF6;
-            }
-            body { background: #FFFFFF !important; color: #111111 !important; }
-            """.trimIndent()
+            "--bg:#FFFFFF;--surface:#F2F2F7;--border:#D4D8DD;--text:#111111;--text-secondary:#666666;--header-bg:#F5F7FA;--row-hover:#FAFBFC;--divider:#E5E5EA;--bar-color:#6F5AF6;"
         }
+    }
 
-        val themeStyle = "<style>$themeVars</style>"
+    // ─── Blocos de conteúdo ───────────────────────────────────────────────────
 
-        return if (html.contains("<head>", ignoreCase = true)) {
-            html.replace(Regex("<head>", RegexOption.IGNORE_CASE), "<head>\n$themeStyle")
-        } else if (html.contains("<html", ignoreCase = true)) {
-            html.replace(Regex("<html[^>]*>", RegexOption.IGNORE_CASE)) { "${it.value}<head>$themeStyle</head>" }
-        } else {
-            "<html><head>$themeStyle</head><body>$html</body></html>"
+    private fun renderBlock(parent: LinearLayout, block: ContentBlock) {
+        when (block.type) {
+            BlockType.TABLE -> parent.addView(buildTableView(parent.context, block.lines))
+            BlockType.MATH  -> parent.addView(buildMathView(parent.context, block.lines.joinToString("\n")))
+            BlockType.TEXT  -> {
+                val spanned = parseMarkdownBlock(block.lines.joinToString("\n"))
+                val tv = TextView(parent.context).apply {
+                    textSize = 16f
+                    setLineSpacing(0f, 1.5f)
+                    setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
+                    setPadding(dp(2), dp(4), dp(8), dp(4))
+                }
+                tv.setText(spanned, TextView.BufferType.SPANNABLE)
+                parent.addView(tv)
+            }
         }
     }
 
     enum class BlockType { TEXT, TABLE, MATH }
     data class ContentBlock(val type: BlockType, val lines: List<String>)
-
-    // ─── Detector de blocos matemáticos ──────────────────────────────────────
 
     private fun isMathLine(line: String): Boolean {
         val t = line.trim()
@@ -805,13 +792,13 @@ class ChatFragment(private val activity: MainActiviy) {
         return t.matches(Regex("\\|[-:| ]+\\|"))
     }
 
-    // ─── Container matemático ─────────────────────────────────────────────────
+    // ─── Math view ────────────────────────────────────────────────────────────
 
     private fun buildMathView(ctx: Context, mathText: String): View {
-        val isDark   = activity.isDarkMode
-        val cardBg   = if (isDark) Color.parseColor("#1E1E1E") else Color.parseColor("#F8F7FF")
+        val isDark      = activity.isDarkMode
+        val cardBg      = if (isDark) Color.parseColor("#1E1E1E") else Color.parseColor("#F8F7FF")
         val borderColor = if (isDark) Color.parseColor("#6F5AF640") else Color.parseColor("#6F5AF630")
-        val textColor = ContextCompat.getColor(activity, R.color.text_primary)
+        val textColor   = ContextCompat.getColor(activity, R.color.text_primary)
 
         val hScroll = HorizontalScrollView(ctx).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -854,7 +841,7 @@ class ChatFragment(private val activity: MainActiviy) {
         return hScroll
     }
 
-    // ─── Builder de tabela ────────────────────────────────────────────────────
+    // ─── Table view ───────────────────────────────────────────────────────────
 
     private fun buildTableView(ctx: Context, lines: List<String>): View {
         val dataLines = lines.filter { !isSeparatorLine(it) }
@@ -912,9 +899,7 @@ class ChatFragment(private val activity: MainActiviy) {
                     setTextColor(if (isHeader) textPrimary else textSecondary)
                     if (isHeader) setTypeface(typeface, Typeface.BOLD)
                     gravity = Gravity.CENTER_VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(
-                        0, LinearLayout.LayoutParams.MATCH_PARENT, 1f
-                    )
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
                 }
                 cell.setText(parseInlineMarkdown(cellText), TextView.BufferType.SPANNABLE)
                 row.addView(cell)
@@ -1202,7 +1187,7 @@ class ChatFragment(private val activity: MainActiviy) {
         return wrap
     }
 
-    // ─── Markdown parser ──────────────────────────────────────────────────────
+    // ─── Markdown ─────────────────────────────────────────────────────────────
 
     private fun parseMarkdownBlock(raw: String): Spanned {
         val sb = SpannableStringBuilder()
@@ -1240,8 +1225,6 @@ class ChatFragment(private val activity: MainActiviy) {
         }
         return sb
     }
-
-    // ─── LaTeX / Matemática ───────────────────────────────────────────────────
 
     private fun cleanLatex(text: String): String {
         return text
