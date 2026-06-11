@@ -3,6 +3,7 @@ package com.ipc.app.ui
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.PorterDuff
 import android.graphics.Typeface
@@ -14,8 +15,11 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.caverock.androidsvg.SVG
 import com.ipc.app.MainActiviy
@@ -38,6 +42,9 @@ class RegisterActivity : BaseActivity() {
     private lateinit var errorText: TextView
     private lateinit var goLogin: TextView
     private lateinit var backBtn: ImageView
+    private lateinit var scrollView: ScrollView
+    private lateinit var googleBtn: FrameLayout
+    private lateinit var googleIcon: ImageView
 
     private var passwordVisible = false
     private var passwordConfirmVisible = false
@@ -61,11 +68,16 @@ class RegisterActivity : BaseActivity() {
         errorText             = findViewById(R.id.registerError)
         goLogin               = findViewById(R.id.registerGoLogin)
         backBtn               = findViewById(R.id.registerBack)
+        scrollView            = findViewById(R.id.registerScrollView)
+        googleBtn             = findViewById(R.id.registerGoogleBtn)
+        googleIcon            = findViewById(R.id.registerGoogleIcon)
 
         applyFonts()
         setupToggles()
         setupBackBtn()
+        setupGoogleBtn()
         setupActions()
+        setupKeyboardScroll()
     }
 
     private fun applyFonts() {
@@ -101,7 +113,7 @@ class RegisterActivity : BaseActivity() {
     }
 
     private fun updateToggleIcon(view: ImageView, visible: Boolean, tint: Int) {
-        val icon = if (visible) "icons/svg/lock_open.svg" else "icons/svg/lock.svg"
+        val icon = if (visible) "icons/svg/eye.svg" else "icons/svg/eye_closed.svg"
         view.setImageDrawable(svgDrawable(icon, 20, tint))
     }
 
@@ -109,6 +121,17 @@ class RegisterActivity : BaseActivity() {
         val tint = ContextCompat.getColor(this, R.color.icon_tint)
         backBtn.setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 18, tint))
         backBtn.setOnClickListener { finish() }
+    }
+
+    private fun setupGoogleBtn() {
+        runCatching {
+            val bmp = assets.open("icons/png/google.png").use { BitmapFactory.decodeStream(it) }
+            googleIcon.setImageBitmap(bmp)
+        }
+        // Inativo até Firebase ser integrado
+        googleBtn.isClickable = false
+        googleBtn.isFocusable = false
+        googleBtn.alpha = 0.5f
     }
 
     private fun setupActions() {
@@ -131,6 +154,30 @@ class RegisterActivity : BaseActivity() {
             }
         }
         goLogin.setOnClickListener { finish() }
+    }
+
+    private fun setupKeyboardScroll() {
+        val rootView = findViewById<View>(android.R.id.content)
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            val bottomPad = if (imeHeight > 0) imeHeight - navHeight else 0
+            scrollView.setPadding(
+                scrollView.paddingLeft,
+                scrollView.paddingTop,
+                scrollView.paddingRight,
+                bottomPad
+            )
+            if (imeHeight > 0) {
+                val focused = currentFocus
+                if (focused != null) {
+                    scrollView.post {
+                        scrollView.smoothScrollTo(0, focused.bottom)
+                    }
+                }
+            }
+            insets
+        }
     }
 
     private fun doRegister(name: String, email: String, password: String) {

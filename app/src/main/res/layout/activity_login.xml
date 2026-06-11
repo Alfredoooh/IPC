@@ -8,6 +8,7 @@
     android:fitsSystemWindows="true">
 
     <ScrollView
+        android:id="@+id/loginScrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
@@ -148,7 +149,7 @@
                 android:background="@drawable/auth_btn_bg"
                 android:clickable="true"
                 android:focusable="true"
-                android:layout_marginBottom="28dp">
+                android:layout_marginBottom="16dp">
 
                 <TextView
                     android:id="@+id/loginBtnText"
@@ -176,7 +177,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="24dp">
+                android:layout_marginBottom="16dp">
 
                 <View
                     android:layout_width="0dp"
@@ -200,6 +201,37 @@
                     android:background="@color/divider" />
 
             </LinearLayout>
+
+            <!-- Botão Google -->
+            <FrameLayout
+                android:id="@+id/loginGoogleBtn"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="@drawable/auth_input_bg"
+                android:clickable="false"
+                android:focusable="false"
+                android:alpha="0.5"
+                android:layout_marginBottom="28dp">
+
+                <ImageView
+                    android:id="@+id/loginGoogleIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginStart="20dp"
+                    android:scaleType="fitCenter"
+                    android:adjustViewBounds="true" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="Continuar com Google"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
+
+            </FrameLayout>
 
             <!-- Link para Registo -->
             <LinearLayout

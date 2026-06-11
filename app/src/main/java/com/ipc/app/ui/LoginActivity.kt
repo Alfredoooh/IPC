@@ -11,14 +11,18 @@ import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.animation.DecelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.caverock.androidsvg.SVG
 import com.ipc.app.MainActiviy
@@ -38,6 +42,9 @@ class LoginActivity : BaseActivity() {
     private lateinit var errorText: TextView
     private lateinit var goRegister: TextView
     private lateinit var forgotPassword: TextView
+    private lateinit var scrollView: ScrollView
+    private lateinit var googleBtn: FrameLayout
+    private lateinit var googleIcon: ImageView
 
     private var passwordVisible = false
     private var isLoading = false
@@ -64,11 +71,16 @@ class LoginActivity : BaseActivity() {
         errorText      = findViewById(R.id.loginError)
         goRegister     = findViewById(R.id.loginGoRegister)
         forgotPassword = findViewById(R.id.loginForgotPassword)
+        scrollView     = findViewById(R.id.loginScrollView)
+        googleBtn      = findViewById(R.id.loginGoogleBtn)
+        googleIcon     = findViewById(R.id.loginGoogleIcon)
 
         applyFonts()
         setupLogo()
         setupPasswordToggle()
+        setupGoogleBtn()
         setupActions()
+        setupKeyboardScroll()
     }
 
     private fun applyFonts() {
@@ -102,8 +114,19 @@ class LoginActivity : BaseActivity() {
     }
 
     private fun updatePasswordToggleIcon(tint: Int) {
-        val icon = if (passwordVisible) "icons/svg/lock_open.svg" else "icons/svg/lock.svg"
+        val icon = if (passwordVisible) "icons/svg/eye.svg" else "icons/svg/eye_closed.svg"
         passwordToggle.setImageDrawable(svgDrawable(icon, 20, tint))
+    }
+
+    private fun setupGoogleBtn() {
+        runCatching {
+            val bmp = assets.open("icons/png/google.png").use { BitmapFactory.decodeStream(it) }
+            googleIcon.setImageBitmap(bmp)
+        }
+        // Inativo até Firebase ser integrado
+        googleBtn.isClickable = false
+        googleBtn.isFocusable = false
+        googleBtn.alpha = 0.5f
     }
 
     private fun setupActions() {
@@ -121,6 +144,30 @@ class LoginActivity : BaseActivity() {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
         forgotPassword.setOnClickListener {}
+    }
+
+    private fun setupKeyboardScroll() {
+        val rootView = findViewById<View>(android.R.id.content)
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            val bottomPad = if (imeHeight > 0) imeHeight - navHeight else 0
+            scrollView.setPadding(
+                scrollView.paddingLeft,
+                scrollView.paddingTop,
+                scrollView.paddingRight,
+                bottomPad
+            )
+            if (imeHeight > 0) {
+                val focused = currentFocus
+                if (focused != null) {
+                    scrollView.post {
+                        scrollView.smoothScrollTo(0, focused.bottom)
+                    }
+                }
+            }
+            insets
+        }
     }
 
     private fun doLogin(email: String, password: String) {
