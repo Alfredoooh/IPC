@@ -65,8 +65,6 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_BASE  = "https://generativelanguage.googleapis.com/v1beta/models";
 
 function buildGeminiContents(messages) {
-  // messages: [{role:"user"|"assistant", content:"..."}]
-  // Gemini espera role "user" ou "model"
   return messages
     .filter(function(m) { return m.role !== "system"; })
     .map(function(m) {
@@ -77,14 +75,17 @@ function buildGeminiContents(messages) {
     });
 }
 
-function buildSystemInstruction(language) {
+function buildSystemInstruction(language, customSystemPrompt) {
+  if (customSystemPrompt && customSystemPrompt.trim().length > 0) {
+    return customSystemPrompt;
+  }
   return language === "en"
     ? "You are a helpful AI assistant. Always respond in English. Be concise and direct. When the user asks for a table, use markdown table format. When providing code, always wrap it in fenced code blocks with the language identifier."
     : "Es um assistente de IA util. Responde sempre em portugues europeu. Se conciso e direto. Quando o utilizador pedir uma tabela, usa formato de tabela markdown. Quando deres codigo, coloca-o sempre em blocos com o identificador de linguagem.";
 }
 
-async function geminiGenerate(apiKey, messages, language, stream, thinkingBudget) {
-  const systemText = buildSystemInstruction(language);
+async function geminiGenerate(apiKey, messages, language, stream, thinkingBudget, customSystemPrompt) {
+  const systemText = buildSystemInstruction(language, customSystemPrompt);
   const contents   = buildGeminiContents(messages);
 
   const generationConfig = {
@@ -93,7 +94,6 @@ async function geminiGenerate(apiKey, messages, language, stream, thinkingBudget
     topP: 0.95,
   };
 
-  // thinking budget: 0 = desativado, >0 = tokens de raciocínio
   const thinkingConfig = thinkingBudget > 0
     ? { thinkingConfig: { thinkingBudget: thinkingBudget } }
     : { thinkingConfig: { thinkingBudget: 0 } };
@@ -280,7 +280,6 @@ async function handleUpdateMe(request, env) {
     if (body.password.length < 6) return error("Password deve ter pelo menos 6 caracteres");
     user.passwordHash = await hashPassword(body.password);
   }
-  // preferências: language, theme, fontSize, defaultModel
   if (body.preferences && typeof body.preferences === "object") {
     user.preferences = Object.assign({}, user.preferences || {}, body.preferences);
   }
@@ -288,13 +287,11 @@ async function handleUpdateMe(request, env) {
   return json({ id: user.id, name: user.name, email: user.email, avatar: user.avatar || null, preferences: user.preferences || {}, createdAt: user.createdAt });
 }
 
-// Avatar: base64 string guardado no KV (simples, sem R2)
 async function handleUpdateAvatar(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);
   const body = await request.json().catch(function() { return null; });
   if (!body || !body.avatar) return error("avatar obrigatório");
-  // Limitar tamanho: ~200KB base64
   if (body.avatar.length > 270000) return error("Imagem demasiado grande (máx ~200KB)");
   const userData = await env.IPC_USERS.get("user:" + payload.id);
   if (!userData) return error("Utilizador não encontrado", 404);
@@ -320,7 +317,6 @@ async function handleListConversations(request, env) {
   const conversations = all
     .filter(function(c) { return c !== null && (archived ? c.archived === true : !c.archived); })
     .sort(function(a, b) {
-      // pinned primeiro, depois por updatedAt
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
       return b.updatedAt - a.updatedAt;
@@ -352,7 +348,6 @@ async function handleCreateConversation(request, env) {
   const ids = raw ? JSON.parse(raw) : [];
   ids.unshift(id);
   await env.IPC_USERS.put("convs:" + payload.id, JSON.stringify(ids));
-  // atualizar stats
   await incrementUserStat(env, payload.id, "totalConversations", 1);
   return json(conversation, 201);
 }
@@ -380,7 +375,6 @@ async function handleUpdateConversation(request, env) {
   if (!body) return error("Body inválido");
   if (body.title    !== undefined) conversation.title    = body.title;
   if (body.messages !== undefined) {
-    // atualizar stat de mensagens
     const added = body.messages.length - conversation.messages.length;
     if (added > 0) await incrementUserStat(env, payload.id, "totalMessages", added);
     conversation.messages = body.messages;
@@ -409,7 +403,6 @@ async function handleDeleteConversation(request, env) {
   return json({ success: true });
 }
 
-// Eliminar TODAS as conversas do utilizador
 async function handleDeleteAllConversations(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);
@@ -417,7 +410,6 @@ async function handleDeleteAllConversations(request, env) {
   const ids = raw ? JSON.parse(raw) : [];
   await Promise.all(ids.map(function(id) { return env.IPC_USERS.delete("conv:" + id); }));
   await env.IPC_USERS.put("convs:" + payload.id, JSON.stringify([]));
-  // reset stat
   const userData = await env.IPC_USERS.get("user:" + payload.id);
   if (userData) {
     const user = JSON.parse(userData);
@@ -427,12 +419,11 @@ async function handleDeleteAllConversations(request, env) {
   return json({ success: true, deleted: ids.length });
 }
 
-// Pin / Unpin
 async function handlePinConversation(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);
   const parts = new URL(request.url).pathname.split("/");
-  const id    = parts[2]; // /conversations/{id}/pin
+  const id    = parts[2];
   const data  = await env.IPC_USERS.get("conv:" + id);
   if (!data) return error("Conversa não encontrada", 404);
   const conversation = JSON.parse(data);
@@ -444,25 +435,23 @@ async function handlePinConversation(request, env) {
   return json({ id: id, pinned: conversation.pinned });
 }
 
-// Archive / Unarchive
 async function handleArchiveConversation(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);
   const parts = new URL(request.url).pathname.split("/");
-  const id    = parts[2]; // /conversations/{id}/archive
+  const id    = parts[2];
   const data  = await env.IPC_USERS.get("conv:" + id);
   if (!data) return error("Conversa não encontrada", 404);
   const conversation = JSON.parse(data);
   if (conversation.userId !== payload.id) return error("Acesso negado", 403);
   const body = await request.json().catch(function() { return {}; });
   conversation.archived  = body.archived !== undefined ? body.archived : !conversation.archived;
-  conversation.pinned    = false; // arquivada não pode estar pinned
+  conversation.pinned    = false;
   conversation.updatedAt = Date.now();
   await env.IPC_USERS.put("conv:" + id, JSON.stringify(conversation));
   return json({ id: id, archived: conversation.archived });
 }
 
-// Pesquisa de conversas por texto
 async function handleSearchConversations(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);
@@ -478,7 +467,6 @@ async function handleSearchConversations(request, env) {
   const results = all.filter(function(c) {
     if (!c || c.archived) return false;
     if (c.title.toLowerCase().includes(query)) return true;
-    // pesquisar também no conteúdo das mensagens
     return c.messages.some(function(m) {
       return m.content && m.content.toLowerCase().includes(query);
     });
@@ -503,12 +491,13 @@ async function handleAiChat(request, env) {
   const body = await request.json().catch(function() { return null; });
   if (!body || !body.messages) return error("Messages obrigatório");
 
-  const messages       = body.messages;
-  const stream         = body.stream !== undefined ? body.stream : false;
-  const language       = body.language || "pt";
-  const thinkingBudget = body.think ? 8000 : 0; // tokens de raciocínio quando think=true
+  const messages           = body.messages;
+  const stream             = body.stream !== undefined ? body.stream : false;
+  const language           = body.language || "pt";
+  const thinkingBudget     = body.think ? 8000 : 0;
+  const customSystemPrompt = body.systemPrompt || "";
 
-  const gemRes = await geminiGenerate(env.GEMINI_API_KEY, messages, language, stream, thinkingBudget);
+  const gemRes = await geminiGenerate(env.GEMINI_API_KEY, messages, language, stream, thinkingBudget, customSystemPrompt);
 
   if (!gemRes.ok) {
     const errText = await gemRes.text();
@@ -517,7 +506,6 @@ async function handleAiChat(request, env) {
   }
 
   if (stream) {
-    // passar o SSE stream diretamente para o cliente
     return new Response(gemRes.body, {
       headers: Object.assign({}, CORS_HEADERS, {
         "Content-Type": "text/event-stream",
@@ -527,29 +515,18 @@ async function handleAiChat(request, env) {
     });
   }
 
-  // resposta não-stream
-  const data = await gemRes.json();
+  const data      = await gemRes.json();
   const candidate = data.candidates?.[0];
   const parts     = candidate?.content?.parts || [];
-  // Gemini pode devolver thinking + text em parts separados
   let content   = "";
   let reasoning = null;
   for (const part of parts) {
-    if (part.thought) {
-      reasoning = part.text;
-    } else {
-      content += part.text || "";
-    }
+    if (part.thought) { reasoning = part.text; }
+    else { content += part.text || ""; }
   }
-  return json({
-    content: content,
-    reasoning: reasoning,
-    model: GEMINI_MODEL,
-    usage: data.usageMetadata || null,
-  });
+  return json({ content: content, reasoning: reasoning, model: GEMINI_MODEL, usage: data.usageMetadata || null });
 }
 
-// Resumir uma conversa longa (útil para comprimir histórico no cliente)
 async function handleAiSummarize(request, env) {
   const payload = await getAuthUser(request, env);
   if (!payload) return error("Não autenticado", 401);

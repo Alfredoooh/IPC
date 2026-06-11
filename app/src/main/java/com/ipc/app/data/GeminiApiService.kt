@@ -158,7 +158,6 @@ object GeminiApiService {
                 if (!response.isSuccessful) return@runCatching ""
                 val json = JSONObject(response.body!!.string())
                 val title = json.optString("title", "").trim().take(40)
-                // Nunca devolver "Nova conversa" — deixar o ChatFragment decidir
                 if (title.equals("Nova conversa", ignoreCase = true)) "" else title
             }.getOrDefault("")
         }
@@ -171,9 +170,44 @@ object GeminiApiService {
 
         val sheetsInstruction = if (sheetsEnabled) {
             if (language == "en") {
-                """
+                "\n\nWhen the user asks for a bar chart, respond with a JSON block tagged as widget_bar like this:\n" +
+                "```widget_bar\n" +
+                "{\"title\":\"Chart Title\",\"items\":[{\"label\":\"Jan\",\"value\":35},{\"label\":\"Feb\",\"value\":60}]}\n" +
+                "```\n" +
+                "When the user asks for a pie chart, respond with a JSON block tagged as widget_pie like this:\n" +
+                "```widget_pie\n" +
+                "{\"title\":\"Chart Title\",\"slices\":[{\"label\":\"A\",\"value\":40},{\"label\":\"B\",\"value\":30}]}\n" +
+                "```\n" +
+                "When the user asks for a data table, respond with a JSON block tagged as widget_table like this:\n" +
+                "```widget_table\n" +
+                "{\"headers\":[\"Col1\",\"Col2\"],\"rows\":[[\"A\",\"B\"],[\"C\",\"D\"]]}\n" +
+                "```\n" +
+                "When the user asks for mathematical workings, respond with a JSON block tagged as widget_sheet like this:\n" +
+                "```widget_sheet\n" +
+                "{\"lines\":[{\"text\":\"Resolution\",\"title\":true},{\"text\":\"Step 1: x = 5\"},{\"text\":\"Step 2: y = 10\"}]}\n" +
+                "```\n" +
+                "Always place explanatory text outside the JSON block. Only the structured data goes inside."
+            } else {
+                "\n\nQuando o utilizador pedir um gráfico de barras, responde com um bloco JSON com a tag widget_bar assim:\n" +
+                "```widget_bar\n" +
+                "{\"title\":\"Título do Gráfico\",\"items\":[{\"label\":\"Jan\",\"value\":35},{\"label\":\"Fev\",\"value\":60}]}\n" +
+                "```\n" +
+                "Quando o utilizador pedir um gráfico de pizza, responde com um bloco JSON com a tag widget_pie assim:\n" +
+                "```widget_pie\n" +
+                "{\"title\":\"Título do Gráfico\",\"slices\":[{\"label\":\"A\",\"value\":40},{\"label\":\"B\",\"value\":30}]}\n" +
+                "```\n" +
+                "Quando o utilizador pedir uma tabela de dados, responde com um bloco JSON com a tag widget_table assim:\n" +
+                "```widget_table\n" +
+                "{\"headers\":[\"Col1\",\"Col2\"],\"rows\":[[\"A\",\"B\"],[\"C\",\"D\"]]}\n" +
+                "```\n" +
+                "Quando o utilizador pedir resolução matemática, responde com um bloco JSON com a tag widget_sheet assim:\n" +
+                "```widget_sheet\n" +
+                "{\"lines\":[{\"text\":\"Resolução\",\"title\":true},{\"text\":\"Passo 1: x = 5\"},{\"text\":\"Passo 2: y = 10\"}]}\n" +
+                "```\n" +
+                "Coloca sempre o texto explicativo fora do bloco JSON. Só os dados estruturados vão dentro."
+            }
+        } else ""
 
-
-When the user asks for a bar chart, respond with a JSON block tagged as widget_bar like this:
-```widget_bar
-{"title":"Chart Title","items":[{"label":"Jan","value":35},{"label":"Feb","value":60}]}
+        return base + sheetsInstruction
+    }
+}
