@@ -1,88 +1,179 @@
-Agora o Worker — precisa de usar o `systemPrompt` do body quando presente:
+// GeminiApiService.kt
+package com.ipc.app.data
 
-```javascript
-// worker.js — só a função handleAiChat e buildSystemInstruction alteradas
-// Substitui as duas funções existentes no worker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
-function buildSystemInstruction(language, customSystemPrompt) {
-  // Se vier systemPrompt do body, usa-o directamente
-  if (customSystemPrompt && customSystemPrompt.trim().length > 0) {
-    return customSystemPrompt;
-  }
-  return language === "en"
-    ? "You are a helpful AI assistant. Always respond in English. Be concise and direct. When the user asks for a table, use markdown table format. When providing code, always wrap it in fenced code blocks with the language identifier."
-    : "Es um assistente de IA util. Responde sempre em portugues europeu. Se conciso e direto. Quando o utilizador pedir uma tabela, usa formato de tabela markdown. Quando deres codigo, coloca-o sempre em blocos com o identificador de linguagem.";
+data class ChatMessage(val role: String, val content: String)
+
+sealed class StreamChunk {
+    data class ThinkToken(val text: String) : StreamChunk()
+    data class Token(val text: String) : StreamChunk()
+    data class Done(val fullText: String) : StreamChunk()
+    data class Error(val message: String) : StreamChunk()
 }
 
-async function geminiGenerate(apiKey, messages, language, stream, thinkingBudget, customSystemPrompt) {
-  const systemText = buildSystemInstruction(language, customSystemPrompt);
-  const contents   = buildGeminiContents(messages);
+object GeminiApiService {
 
-  const generationConfig = {
-    maxOutputTokens: 16384,
-    temperature: 1,
-    topP: 0.95,
-  };
+    private const val BASE_URL = "https://ipc.alfredopjonas.workers.dev"
 
-  const thinkingConfig = thinkingBudget > 0
-    ? { thinkingConfig: { thinkingBudget: thinkingBudget } }
-    : { thinkingConfig: { thinkingBudget: 0 } };
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
 
-  const bodyObj = {
-    system_instruction: { parts: [{ text: systemText }] },
-    contents: contents,
-    generationConfig: Object.assign({}, generationConfig, thinkingConfig),
-  };
+    fun streamChat(
+        messages: List<ChatMessage>,
+        systemPrompt: String = buildSystemPrompt(),
+        token: String = "",
+        think: Boolean = false
+    ): Flow<StreamChunk> = callbackFlow {
 
-  const endpoint = stream
-    ? GEMINI_BASE + "/" + GEMINI_MODEL + ":streamGenerateContent?alt=sse&key=" + apiKey
-    : GEMINI_BASE + "/" + GEMINI_MODEL + ":generateContent?key=" + apiKey;
+        val messagesArray = JSONArray().apply {
+            messages.forEach { msg ->
+                put(JSONObject().apply {
+                    put("role", msg.role)
+                    put("content", msg.content)
+                })
+            }
+        }
 
-  return fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(bodyObj),
-  });
-}
+        val body = JSONObject().apply {
+            put("messages", messagesArray)
+            put("stream", true)
+            put("systemPrompt", systemPrompt)
+            put("language", if (systemPrompt.contains("English") || systemPrompt.contains("en")) "en" else "pt")
+            put("think", think)
+        }.toString().toRequestBody("application/json".toMediaType())
 
-async function handleAiChat(request, env) {
-  const payload = await getAuthUser(request, env);
-  if (!payload) return error("Não autenticado", 401);
-  const body = await request.json().catch(function() { return null; });
-  if (!body || !body.messages) return error("Messages obrigatório");
+        val request = Request.Builder()
+            .url("$BASE_URL/ai/chat")
+            .addHeader("Authorization", "Bearer $token")
+            .addHeader("Accept", "text/event-stream")
+            .post(body)
+            .build()
 
-  const messages          = body.messages;
-  const stream            = body.stream !== undefined ? body.stream : false;
-  const language          = body.language || "pt";
-  const thinkingBudget    = body.think ? 8000 : 0;
-  const customSystemPrompt = body.systemPrompt || "";
+        val call = client.newCall(request)
 
-  const gemRes = await geminiGenerate(env.GEMINI_API_KEY, messages, language, stream, thinkingBudget, customSystemPrompt);
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                trySend(StreamChunk.Error("Erro de rede: ${e.message}"))
+                close()
+            }
 
-  if (!gemRes.ok) {
-    const errText = await gemRes.text();
-    console.error("[CHAT ERROR]", gemRes.status, errText);
-    return error("Erro Gemini API: " + errText, gemRes.status);
-  }
+            override fun onResponse(call: Call, response: Response) {
+                if (!response.isSuccessful) {
+                    trySend(StreamChunk.Error("Erro ${response.code}: verifica a tua ligação"))
+                    close()
+                    return
+                }
+                val sb = StringBuilder()
+                var doneSent = false
+                try {
+                    val reader = BufferedReader(response.body!!.charStream())
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        val l = line!!.trim()
+                        if (!l.startsWith("data: ")) continue
+                        val data = l.removePrefix("data: ").trim()
+                        if (data == "[DONE]") {
+                            if (!doneSent) {
+                                doneSent = true
+                                trySend(StreamChunk.Done(sb.toString()))
+                            }
+                            break
+                        }
+                        try {
+                            val json = JSONObject(data)
+                            val candidates = json.optJSONArray("candidates") ?: continue
+                            val candidate  = candidates.optJSONObject(0) ?: continue
+                            val content    = candidate.optJSONObject("content") ?: continue
+                            val parts      = content.optJSONArray("parts") ?: continue
 
-  if (stream) {
-    return new Response(gemRes.body, {
-      headers: Object.assign({}, CORS_HEADERS, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "X-Accel-Buffering": "no",
-      }),
-    });
-  }
+                            for (i in 0 until parts.length()) {
+                                val part = parts.getJSONObject(i)
+                                val text = part.optString("text", "")
+                                if (text.isEmpty()) continue
+                                if (part.optBoolean("thought", false)) {
+                                    trySend(StreamChunk.ThinkToken(text))
+                                } else {
+                                    sb.append(text)
+                                    trySend(StreamChunk.Token(text))
+                                }
+                            }
 
-  const data = await gemRes.json();
-  const candidate = data.candidates?.[0];
-  const parts     = candidate?.content?.parts || [];
-  let content   = "";
-  let reasoning = null;
-  for (const part of parts) {
-    if (part.thought) { reasoning = part.text; }
-    else { content += part.text || ""; }
-  }
-  return json({ content, reasoning, model: GEMINI_MODEL, usage: data.usageMetadata || null });
-}
+                            val finishReason = candidate.optString("finishReason", "")
+                            if ((finishReason == "STOP" || finishReason == "MAX_TOKENS") && !doneSent) {
+                                doneSent = true
+                                trySend(StreamChunk.Done(sb.toString()))
+                                break
+                            }
+                        } catch (_: Exception) {}
+                    }
+                    if (!doneSent) trySend(StreamChunk.Done(sb.toString()))
+                } catch (e: Exception) {
+                    trySend(StreamChunk.Error("Erro ao ler stream: ${e.message}"))
+                } finally {
+                    response.body?.close()
+                    close()
+                }
+            }
+        })
+
+        awaitClose { call.cancel() }
+    }.flowOn(Dispatchers.IO)
+
+    suspend fun generateTitle(firstUserMessage: String, token: String, language: String = "pt"): String =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val body = JSONObject().apply {
+                    put("message", firstUserMessage)
+                    put("language", language)
+                }.toString().toRequestBody("application/json".toMediaType())
+
+                val request = Request.Builder()
+                    .url("$BASE_URL/ai/title")
+                    .addHeader("Authorization", "Bearer $token")
+                    .post(body)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                if (!response.isSuccessful) return@runCatching ""
+                val json = JSONObject(response.body!!.string())
+                val title = json.optString("title", "").trim().take(40)
+                // Nunca devolver "Nova conversa" — deixar o ChatFragment decidir
+                if (title.equals("Nova conversa", ignoreCase = true)) "" else title
+            }.getOrDefault("")
+        }
+
+    fun buildSystemPrompt(language: String = "pt", sheetsEnabled: Boolean = false): String {
+        val base = when (language) {
+            "en" -> "You are a helpful AI assistant integrated in the IPC app. Always respond in English. Be concise and direct. When the user asks for a table, use markdown table format. When providing code, always wrap it in fenced code blocks with the language identifier."
+            else -> "És um assistente de IA integrado na app IPC. Responde sempre em português europeu. Sê conciso e direto. Quando o utilizador pedir uma tabela, usa formato de tabela markdown. Quando deres código, coloca-o sempre em blocos com o identificador de linguagem."
+        }
+
+        val sheetsInstruction = if (sheetsEnabled) {
+            if (language == "en") {
+                """
+
+
+When the user asks for a bar chart, respond with a JSON block tagged as widget_bar like this:
+```widget_bar
+{"title":"Chart Title","items":[{"label":"Jan","value":35},{"label":"Feb","value":60}]}
