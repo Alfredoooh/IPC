@@ -20,6 +20,8 @@ import android.widget.TextView
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.caverock.androidsvg.SVG
 import com.ipc.app.MainActiviy
@@ -77,7 +79,7 @@ class LoginActivity : BaseActivity() {
         setupPasswordToggle()
         setupGoogleBtn()
         setupActions()
-        // NADA de setupKeyboardScroll – o sistema + ScrollView cuidam de tudo
+        setupKeyboardScroll()   // ✅ animação suave ao abrir/fechar teclado
     }
 
     private fun applyFonts() {
@@ -140,6 +142,25 @@ class LoginActivity : BaseActivity() {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
         forgotPassword.setOnClickListener {}
+    }
+
+    private fun setupKeyboardScroll() {
+        var lastTranslation = 0f
+        ViewCompat.setOnApplyWindowInsetsListener(scrollView) { v, insets ->
+            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val navHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            val target = if (imeHeight > 0) -((imeHeight - navHeight).toFloat() * 0.12f) else 0f
+
+            if (target != lastTranslation) {
+                lastTranslation = target
+                v.animate()
+                    .translationY(target)
+                    .setDuration(280)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+            insets
+        }
     }
 
     private fun doLogin(email: String, password: String) {

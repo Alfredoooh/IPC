@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/registerRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -34,7 +35,6 @@
             android:textStyle="bold"
             android:textColor="@color/text_primary"
             android:paddingStart="12dp" />
-
     </LinearLayout>
 
     <ScrollView
@@ -85,7 +85,6 @@
                     android:inputType="textPersonName|textCapWords"
                     android:singleLine="true"
                     android:imeOptions="actionNext" />
-
             </LinearLayout>
 
             <!-- Campo Email -->
@@ -111,7 +110,6 @@
                     android:inputType="textEmailAddress"
                     android:singleLine="true"
                     android:imeOptions="actionNext" />
-
             </LinearLayout>
 
             <!-- Campo Password -->
@@ -146,7 +144,6 @@
                     android:layout_marginStart="8dp"
                     android:clickable="true"
                     android:focusable="true" />
-
             </LinearLayout>
 
             <!-- Campo Confirmar Password -->
@@ -181,7 +178,6 @@
                     android:layout_marginStart="8dp"
                     android:clickable="true"
                     android:focusable="true" />
-
             </LinearLayout>
 
             <!-- Erro -->
@@ -224,7 +220,6 @@
                     android:layout_gravity="center"
                     android:indeterminateTint="@color/auth_button_text"
                     android:visibility="gone" />
-
             </FrameLayout>
 
             <!-- Divisor -->
@@ -255,7 +250,6 @@
                     android:layout_height="0.5dp"
                     android:layout_weight="1"
                     android:background="@color/divider" />
-
             </LinearLayout>
 
             <!-- Botão Google -->
@@ -286,7 +280,6 @@
                     android:textSize="15sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary" />
-
             </FrameLayout>
 
             <!-- Link Login -->
@@ -313,10 +306,7 @@
                     android:textColor="@color/auth_link_color"
                     android:clickable="true"
                     android:focusable="true" />
-
             </LinearLayout>
-
         </LinearLayout>
     </ScrollView>
-
 </LinearLayout>

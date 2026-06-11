@@ -1,4 +1,3 @@
-// ChatFragment.kt
 package com.ipc.app
 
 import android.animation.Animator
@@ -1320,17 +1319,19 @@ class ChatFragment(private val activity: MainActiviy) {
         dialog.show()
     }
 
-    // ─── Extras sheet ─────────────────────────────────────────────────────────
+    // ─── EXTRAS SHEET (CARDS HORIZONTAIS) ─────────────────────────────────────
 
     fun showExtrasSheet() {
         activity.hideKeyboard()
         activity.hidePopup()
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
         }
+
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -1339,34 +1340,91 @@ class ChatFragment(private val activity: MainActiviy) {
             }
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
+
+        // Handle
         card.addView(sheetHandle())
+
+        // Título
         card.addView(TextView(activity).apply {
-            text = "Extras"; textSize = 13f
+            text = "Extras"
+            textSize = 15f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(activity, R.color.settings_section_label))
+            setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
             gravity = Gravity.CENTER
-            setPadding(dp(20), dp(8), dp(20), dp(16))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding(dp(20), dp(12), dp(20), dp(20))
         })
-        card.addView(buildExtrasToggleRow("icons/svg/flash.svg", "icons/svg/flash_filled.svg",
-            "Flash", "Respostas rápidas e diretas", flashMode) {
-            flashMode = !flashMode; thinkMoreMode = false; dialog.dismiss(); showExtrasSheet()
-        })
-        card.addView(extrasDiv())
-        card.addView(buildExtrasToggleRow("icons/svg/brain.svg", "icons/svg/brain_filled.svg",
-            "Think More", "Respostas mais detalhadas e profundas", thinkMoreMode) {
-            thinkMoreMode = !thinkMoreMode; flashMode = false; dialog.dismiss(); showExtrasSheet()
-        })
-        card.addView(extrasDiv())
-        card.addView(buildExtrasToggleRow("icons/svg/sheets.svg", "icons/svg/sheets_filled.svg",
-            "Sheets", "A IA insere widgets visuais na conversa", sheetsEnabled, isSwitch = true) {
-            sheetsEnabled = !sheetsEnabled
-        })
-        card.addView(View(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24))
-        })
+
+        // Scroll horizontal com cards
+        val hscroll = HorizontalScrollView(activity).apply {
+            overScrollMode = View.OVER_SCROLL_NEVER
+            setPadding(dp(20), 0, dp(20), dp(24))
+        }
+
+        val cardsRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        val cardWidth = dp(110)
+        val iconSizeDp = 32
+        val textSizeSp = 13f
+
+        cardsRow.addView(
+            buildExtraCard(
+                name = "Flash",
+                iconOff = "icons/svg/flash.svg",
+                iconOn = "icons/svg/flash_filled.svg",
+                active = flashMode,
+                width = cardWidth,
+                iconSizeDp = iconSizeDp,
+                textSizeSp = textSizeSp
+            ) {
+                flashMode = !flashMode
+                thinkMoreMode = false
+                dialog.dismiss()
+                showExtrasSheet()
+            }
+        )
+
+        cardsRow.addView(
+            buildExtraCard(
+                name = "Think More",
+                iconOff = "icons/svg/brain.svg",
+                iconOn = "icons/svg/brain_filled.svg",
+                active = thinkMoreMode,
+                width = cardWidth,
+                iconSizeDp = iconSizeDp,
+                textSizeSp = textSizeSp
+            ) {
+                thinkMoreMode = !thinkMoreMode
+                flashMode = false
+                dialog.dismiss()
+                showExtrasSheet()
+            }
+        )
+
+        cardsRow.addView(
+            buildExtraCard(
+                name = "Sheets",
+                iconOff = "icons/svg/sheets.svg",
+                iconOn = "icons/svg/sheets_filled.svg",
+                active = sheetsEnabled,
+                width = cardWidth,
+                iconSizeDp = iconSizeDp,
+                textSizeSp = textSizeSp
+            ) {
+                sheetsEnabled = !sheetsEnabled
+                // Recria o sheet para reflectir o novo estado
+                dialog.dismiss()
+                showExtrasSheet()
+            }
+        )
+
+        hscroll.addView(cardsRow)
+        card.addView(hscroll)
+
         root.addView(card)
         dialog.setContentView(root)
+
         dialog.setOnShowListener {
             dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
                 ?.setBackgroundColor(Color.TRANSPARENT)
@@ -1374,74 +1432,72 @@ class ChatFragment(private val activity: MainActiviy) {
         dialog.show()
     }
 
-    private fun buildExtrasToggleRow(
-        iconOff: String, iconOn: String,
-        label: String, subtitle: String,
-        checked: Boolean, isSwitch: Boolean = false,
+    private fun buildExtraCard(
+        name: String,
+        iconOff: String,
+        iconOn: String,
+        active: Boolean,
+        width: Int,
+        iconSizeDp: Int,
+        textSizeSp: Float,
         onClick: () -> Unit
     ): View {
-        val GREEN    = Color.parseColor("#34C759")
-        val iconTint = if (checked) GREEN else ContextCompat.getColor(activity, R.color.icon_tint)
-        val iconPath = if (checked) iconOn else iconOff
+        val isDark = activity.isDarkMode
+        val ctx = activity
 
-        val row = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(60); setPadding(dp(20), dp(12), dp(20), dp(12))
-            val a = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
-            background = a.getDrawable(0); a.recycle()
-            isClickable = true; isFocusable = true
-        }
-        val iconFrame = FrameLayout(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).also { it.marginEnd = dp(14) }
-            background = ContextCompat.getDrawable(activity, R.drawable.drawer_icon_bg)
-        }
-        iconFrame.addView(ImageView(activity).apply {
-            setImageDrawable(activity.svgDrawable(iconPath, 14, iconTint))
-            layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
-        })
-        row.addView(iconFrame)
+        val activeBg = ContextCompat.getColor(ctx, R.color.colorPrimary)
+        val inactiveBg = ContextCompat.getColor(ctx, R.color.card_background)
+        val activeTextColor = Color.WHITE
+        val inactiveTextColor = ContextCompat.getColor(ctx, R.color.text_secondary)
+        val iconTint = if (active) Color.WHITE else ContextCompat.getColor(ctx, R.color.icon_tint)
 
-        val textCol = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        textCol.addView(TextView(activity).apply {
-            text = label; textSize = 15f
-            setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
-        })
-        textCol.addView(TextView(activity).apply {
-            text = subtitle; textSize = 12.5f
-            setTextColor(ContextCompat.getColor(activity, R.color.text_secondary))
-        })
-        row.addView(textCol)
+        val iconPath = if (active) iconOn else iconOff
 
-        if (isSwitch) {
-            val sw = MaterialSwitch(activity).apply {
-                isChecked = checked
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                setOnCheckedChangeListener { _, _ -> onClick() }
+        val cardView = FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT).also {
+                it.marginEnd = dp(12)
             }
-            row.addView(sw)
-        } else {
-            val dot = View(activity).apply {
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(if (checked) GREEN else Color.TRANSPARENT)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(if (active) activeBg else inactiveBg)
+                if (!active && !isDark) {
+                    setStroke(dp(1), Color.parseColor("#E0E0E0"))
                 }
-                layoutParams = LinearLayout.LayoutParams(dp(8), dp(8))
             }
-            row.addView(dot)
-            row.setOnClickListener { onClick() }
-        }
+            clipToOutline = true
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
 
-        return row
-    }
+            // Conteúdo interno
+            val inner = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(12), dp(20), dp(12), dp(16))
+            }
 
-    private fun extrasDiv() = View(activity).apply {
-        setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
-            it.marginStart = dp(60)
+            val icon = ImageView(ctx).apply {
+                setImageDrawable(activity.svgDrawable(iconPath, iconSizeDp, iconTint))
+                layoutParams = LinearLayout.LayoutParams(dp(iconSizeDp), dp(iconSizeDp)).also {
+                    it.gravity = Gravity.CENTER_HORIZONTAL
+                    it.bottomMargin = dp(10)
+                }
+            }
+            inner.addView(icon)
+
+            val label = TextView(ctx).apply {
+                text = name
+                textSize = textSizeSp
+                setTextColor(if (active) activeTextColor else inactiveTextColor)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+            }
+            inner.addView(label)
+
+            addView(inner, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         }
+        return cardView
     }
 
     private fun sheetHandle() = View(activity).apply {
