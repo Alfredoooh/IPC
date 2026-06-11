@@ -22,6 +22,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -52,7 +55,7 @@ class ChatFragment(private val activity: MainActiviy) {
 
     private var flashMode     = false
     private var thinkMoreMode = false
-    private var sheetsEnabled = false
+    var sheetsEnabled         = false
 
     var currentConversationId    = ""
     var currentConversationTitle = "Nova conversa"
@@ -141,7 +144,6 @@ class ChatFragment(private val activity: MainActiviy) {
             val logoBitmap = activity.assets.open("icons/png/logo.png").use { BitmapFactory.decodeStream(it) }
             binding.emptyLogo.setImageBitmap(logoBitmap)
         }
-        // Times New Roman apenas nos elementos de branding do greeting
         runCatching {
             val tf = timesTypeface ?: return@runCatching
             binding.emptyGreeting.typeface   = Typeface.create(tf, Typeface.BOLD)
@@ -415,7 +417,8 @@ class ChatFragment(private val activity: MainActiviy) {
 
         val lang         = prefs.getString("language", "pt") ?: "pt"
         val token        = authToken
-        val systemPrompt = GeminiApiService.buildSystemPrompt(lang)
+        // System prompt com instrução de widgets se sheets estiver ativo
+        val systemPrompt = GeminiApiService.buildSystemPrompt(lang, sheetsEnabled)
         val isThinking   = thinkMoreMode
         thinkingContent  = ""
 
@@ -500,7 +503,7 @@ class ChatFragment(private val activity: MainActiviy) {
 
             if (msg.role == "user") {
                 val tv = TextView(holder.wrapper.context).apply {
-                    textSize = 16f  // 16pt conforme pedido
+                    textSize = 16f
                     setLineSpacing(0f, 1.4f)
                     setTextColor(Color.WHITE)
                     setPadding(dp(16), dp(11), dp(16), dp(11))
@@ -573,24 +576,146 @@ class ChatFragment(private val activity: MainActiviy) {
 
     private fun renderMessageContent(parent: LinearLayout, rawContent: String) {
         val text = rawContent.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
-        val blocks = splitIntoBlocks(text)
-        blocks.forEach { block ->
-            when (block.type) {
-                BlockType.TABLE -> parent.addView(buildTableView(parent.context, block.lines))
-                BlockType.MATH  -> parent.addView(buildMathView(parent.context, block.lines.joinToString("\n")))
-                BlockType.TEXT  -> {
-                    val spanned = parseMarkdownBlock(block.lines.joinToString("\n"))
-                    val tv = TextView(parent.context).apply {
-                        textSize = 16f  // 16pt
-                        setLineSpacing(0f, 1.5f)
-                        setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
-                        setPadding(dp(2), dp(4), dp(8), dp(4))
-                        // SEM Times New Roman — fonte padrão do sistema para texto normal
+
+        // Verificar se há widgets na resposta (só processados se sheetsEnabled = true)
+        if (sheetsEnabled) {
+            val widgetRegex = Regex("<widget(?:\\s+type=\"([^\"]+)\")?>([\\s\\S]*?)</widget>", RegexOption.MULTILINE)
+            val widgetMatches = widgetRegex.findAll(text)
+            if (widgetMatches.any()) {
+                // Dividir conteúdo em partes: texto normal e widgets
+                var lastEnd = 0
+                widgetMatches.forEach { match ->
+                    // Texto antes do widget
+                    val before = text.substring(lastEnd, match.range.first).trim()
+                    if (before.isNotEmpty()) {
+                        val blocks = splitIntoBlocks(before)
+                        blocks.forEach { block -> renderBlock(parent, block) }
                     }
-                    tv.setText(spanned, TextView.BufferType.SPANNABLE)
-                    parent.addView(tv)
+                    // Renderizar o widget num WebView inline
+                    val widgetHtml = match.groupValues[2].trim()
+                    parent.addView(buildWidgetView(parent.context, widgetHtml))
+                    lastEnd = match.range.last + 1
                 }
+                // Texto depois do último widget
+                val after = text.substring(lastEnd).trim()
+                if (after.isNotEmpty()) {
+                    val blocks = splitIntoBlocks(after)
+                    blocks.forEach { block -> renderBlock(parent, block) }
+                }
+                return
             }
+        }
+
+        // Sem widgets — renderização normal
+        val blocks = splitIntoBlocks(text)
+        blocks.forEach { block -> renderBlock(parent, block) }
+    }
+
+    private fun renderBlock(parent: LinearLayout, block: ContentBlock) {
+        when (block.type) {
+            BlockType.TABLE -> parent.addView(buildTableView(parent.context, block.lines))
+            BlockType.MATH  -> parent.addView(buildMathView(parent.context, block.lines.joinToString("\n")))
+            BlockType.TEXT  -> {
+                val spanned = parseMarkdownBlock(block.lines.joinToString("\n"))
+                val tv = TextView(parent.context).apply {
+                    textSize = 16f
+                    setLineSpacing(0f, 1.5f)
+                    setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
+                    setPadding(dp(2), dp(4), dp(8), dp(4))
+                }
+                tv.setText(spanned, TextView.BufferType.SPANNABLE)
+                parent.addView(tv)
+            }
+        }
+    }
+
+    // ─── Widget WebView inline ────────────────────────────────────────────────
+
+    private fun buildWidgetView(ctx: Context, html: String): View {
+        val wrapper = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(if (activity.isDarkMode) Color.parseColor("#1E1E1E") else Color.parseColor("#FAFAFA"))
+                setStroke(dp(1), if (activity.isDarkMode) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA"))
+            }
+            clipToOutline = true
+        }
+
+        val webView = WebView(ctx).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.loadWithOverviewMode = true
+            settings.useWideViewPort = true
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
+            setBackgroundColor(Color.TRANSPARENT)
+            webChromeClient = WebChromeClient()
+            webViewClient = WebViewClient()
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(320) // altura padrão — o widget pode ser redimensionado via JS se necessário
+            )
+        }
+
+        // Injectar tema escuro/claro no HTML via meta tag e CSS
+        val isDark = activity.isDarkMode
+        val themedHtml = injectThemeIntoWidget(html, isDark)
+        webView.loadDataWithBaseURL("file:///android_asset/", themedHtml, "text/html", "UTF-8", null)
+
+        wrapper.addView(webView)
+        return wrapper
+    }
+
+    /**
+     * Injeta variáveis CSS de tema no HTML do widget para que ele
+     * responda automaticamente ao modo escuro/claro do app.
+     */
+    private fun injectThemeIntoWidget(html: String, isDark: Boolean): String {
+        val themeVars = if (isDark) {
+            """
+            :root {
+              --bg: #1E1E1E;
+              --surface: #2C2C2E;
+              --border: #3A3A3C;
+              --text: #F2F2F2;
+              --text-secondary: #939393;
+              --header-bg: #2C2C2E;
+              --row-hover: #242424;
+              --divider: #3A3A3C;
+              --bar-color: #6F5AF6;
+            }
+            body { background: #1E1E1E !important; color: #F2F2F2 !important; }
+            """.trimIndent()
+        } else {
+            """
+            :root {
+              --bg: #FFFFFF;
+              --surface: #F2F2F7;
+              --border: #D4D8DD;
+              --text: #111111;
+              --text-secondary: #666666;
+              --header-bg: #F5F7FA;
+              --row-hover: #FAFBFC;
+              --divider: #E5E5EA;
+              --bar-color: #6F5AF6;
+            }
+            body { background: #FFFFFF !important; color: #111111 !important; }
+            """.trimIndent()
+        }
+
+        val themeStyle = "<style>$themeVars</style>"
+
+        return if (html.contains("<head>", ignoreCase = true)) {
+            html.replace(Regex("<head>", RegexOption.IGNORE_CASE), "<head>\n$themeStyle")
+        } else if (html.contains("<html", ignoreCase = true)) {
+            html.replace(Regex("<html[^>]*>", RegexOption.IGNORE_CASE)) { "${it.value}<head>$themeStyle</head>" }
+        } else {
+            "<html><head>$themeStyle</head><body>$html</body></html>"
         }
     }
 
@@ -599,17 +724,12 @@ class ChatFragment(private val activity: MainActiviy) {
 
     // ─── Detector de blocos matemáticos ──────────────────────────────────────
 
-    /** Retorna true se a linha contém notação matemática significativa */
     private fun isMathLine(line: String): Boolean {
         val t = line.trim()
         if (t.isEmpty()) return false
-        // Delimitadores LaTeX explícitos
         if (t.contains("$$") || t.contains("\\(") || t.contains("\\[")) return true
-        // Inline $…$
         if (Regex("\\$[^$]+\\$").containsMatchIn(t)) return true
-        // Comandos LaTeX comuns
         if (Regex("\\\\(frac|sqrt|sum|int|lim|alpha|beta|gamma|delta|pi|theta|sigma|lambda|mu|omega|infty|pm|times|leq|geq|neq)").containsMatchIn(t)) return true
-        // Padrões matemáticos: x^2, ax^n, fórmulas com = e variáveis
         if (Regex("[a-zA-Z]\\^[{0-9]").containsMatchIn(t)) return true
         if (Regex("^[a-zA-Z]\\^?[0-9]?\\s*[+\\-*/=]").containsMatchIn(t)) return true
         return false
@@ -641,12 +761,10 @@ class ChatFragment(private val activity: MainActiviy) {
                     if (tableLines.size >= 2) result.add(ContentBlock(BlockType.TABLE, tableLines))
                     else currentTextLines.addAll(tableLines)
                 }
-                // Bloco $$…$$ ou \[…\] — bloco matemático display
                 line.trim().startsWith("$$") || line.trim().startsWith("\\[") -> {
                     flushText()
                     val mathLines = mutableListOf<String>()
                     val endMarker = if (line.trim().startsWith("$$")) "$$" else "\\]"
-                    // Se a linha abre e fecha na mesma linha ($$expr$$)
                     val rest = line.trim().removePrefix("$$").removePrefix("\\[")
                     if (rest.endsWith("$$") || rest.endsWith("\\]")) {
                         mathLines.add(line); i++
@@ -659,9 +777,7 @@ class ChatFragment(private val activity: MainActiviy) {
                     }
                     result.add(ContentBlock(BlockType.MATH, mathLines))
                 }
-                // Linha puramente matemática isolada (ex: "ax² + bx + c = 0")
                 isMathLine(line) && !line.trim().startsWith("#") && !line.trim().startsWith("-") && !line.trim().startsWith("*") -> {
-                    // Acumular linhas matemáticas consecutivas
                     flushText()
                     val mathLines = mutableListOf<String>()
                     while (i < lines.size && (isMathLine(lines[i]) || lines[i].isBlank()) &&
@@ -689,7 +805,7 @@ class ChatFragment(private val activity: MainActiviy) {
         return t.matches(Regex("\\|[-:| ]+\\|"))
     }
 
-    // ─── Container matemático (como o DeepSeek) ───────────────────────────────
+    // ─── Container matemático ─────────────────────────────────────────────────
 
     private fun buildMathView(ctx: Context, mathText: String): View {
         val isDark   = activity.isDarkMode
@@ -715,7 +831,6 @@ class ChatFragment(private val activity: MainActiviy) {
             clipToOutline = true
         }
 
-        // Processar cada linha da expressão matemática
         val cleaned = mathText
             .replace(Regex("^\\$\\$|\\$\\$$", RegexOption.MULTILINE), "")
             .replace(Regex("^\\\\\\[|\\\\\\]$", RegexOption.MULTILINE), "")
@@ -728,7 +843,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 setLineSpacing(0f, 1.4f)
                 setTextColor(textColor)
                 gravity = Gravity.CENTER_HORIZONTAL
-                // Times New Roman AQUI — apenas para expressões matemáticas
                 timesTypeface?.let { typeface = it }
                 if (idx > 0) setPadding(0, dp(2), 0, 0)
             }
@@ -740,7 +854,7 @@ class ChatFragment(private val activity: MainActiviy) {
         return hScroll
     }
 
-    // ─── Builder de tabela compacta (estilo DeepSeek) ─────────────────────────
+    // ─── Builder de tabela ────────────────────────────────────────────────────
 
     private fun buildTableView(ctx: Context, lines: List<String>): View {
         val dataLines = lines.filter { !isSeparatorLine(it) }
@@ -782,7 +896,6 @@ class ChatFragment(private val activity: MainActiviy) {
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setBackgroundColor(if (isHeader) headerBg else Color.TRANSPARENT)
-                // Compacto: altura menor, semelhante ao DeepSeek
                 minimumHeight = dp(36)
             }
 
@@ -794,7 +907,6 @@ class ChatFragment(private val activity: MainActiviy) {
                     })
                 }
                 val cell = TextView(ctx).apply {
-                    // Compacto: padding menor
                     setPadding(dp(10), dp(7), dp(10), dp(7))
                     textSize = 13f
                     setTextColor(if (isHeader) textPrimary else textSecondary)
@@ -935,7 +1047,7 @@ class ChatFragment(private val activity: MainActiviy) {
         })
         card.addView(extrasDiv())
         card.addView(buildExtrasToggleRow("icons/svg/sheets.svg", "icons/svg/sheets_filled.svg",
-            "Sheets", "A IA insere rascunhos HTML na conversa", sheetsEnabled, isSwitch = true) {
+            "Sheets", "A IA insere widgets visuais na conversa", sheetsEnabled, isSwitch = true) {
             sheetsEnabled = !sheetsEnabled
         })
         card.addView(View(activity).apply {
@@ -1224,13 +1336,6 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun parseMarkdown(raw: String): Spanned = parseMarkdownBlock(
         raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
     )
-
-    private fun blendColors(base: Int, overlay: Int, ratio: Float): Int {
-        val r = (Color.red(base)   * (1 - ratio) + Color.red(overlay)   * ratio).toInt()
-        val g = (Color.green(base) * (1 - ratio) + Color.green(overlay) * ratio).toInt()
-        val b = (Color.blue(base)  * (1 - ratio) + Color.blue(overlay)  * ratio).toInt()
-        return Color.rgb(r, g, b)
-    }
 
     private fun dp(v: Int) = activity.dp(v)
 }

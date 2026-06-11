@@ -110,19 +110,27 @@ class SettingsActivity : BaseActivity() {
         findViewById<View>(R.id.itemLogout).setOnClickListener { showLogoutSheet() }
     }
 
+    // ─── Sheet temático — usa dialog_background do tema atual ─────────────────
+
     private fun showIosSheet(title: String, block: LinearLayout.() -> Unit) {
-        val dialog = BottomSheetDialog(this)
+        // R.style.Theme_IPC_BottomSheet já aponta para dialog_background correto
+        // tanto em light (#F2F2F7) como em dark (#1f1f1f)
+        val dialog = BottomSheetDialog(this, R.style.Theme_IPC_BottomSheet)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
         }
 
+        val dialogBg = ContextCompat.getColor(this, R.color.dialog_background)
+        val handleColor = ContextCompat.getColor(this, R.color.divider)
+        val titleColor  = ContextCompat.getColor(this, R.color.settings_section_label)
+
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 cornerRadii = floatArrayOf(dp(20), dp(20), dp(20), dp(20), 0f, 0f, 0f, 0f)
-                setColor(Color.WHITE) // branco puro sempre
+                setColor(dialogBg)
             }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -135,7 +143,7 @@ class SettingsActivity : BaseActivity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(3)
-                setColor(Color.parseColor("#E0E0E0"))
+                setColor(handleColor)
             }
             layoutParams = LinearLayout.LayoutParams(dp(36).toInt(), dp(4).toInt()).also {
                 it.gravity = Gravity.CENTER_HORIZONTAL
@@ -144,12 +152,12 @@ class SettingsActivity : BaseActivity() {
             }
         })
 
-        // Título sólido, sem linha abaixo
+        // Título
         card.addView(TextView(this).apply {
             text = title
             textSize = 13f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.parseColor("#8E8E93")) // cinza sólido
+            setTextColor(titleColor)
             gravity = Gravity.CENTER
             setPadding(dp(20).toInt(), dp(8).toInt(), dp(20).toInt(), dp(12).toInt())
             layoutParams = LinearLayout.LayoutParams(
@@ -158,7 +166,6 @@ class SettingsActivity : BaseActivity() {
             )
         })
 
-        // Sem linha divisória após o título — direto para os rows
         card.block()
 
         card.addView(View(this).apply {
@@ -179,6 +186,8 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun sheetRow(label: String, selected: Boolean, labelColor: Int? = null, onClick: () -> Unit): View {
+        val textColor = labelColor ?: ContextCompat.getColor(this, R.color.text_primary)
+
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -192,8 +201,7 @@ class SettingsActivity : BaseActivity() {
         row.addView(TextView(this).apply {
             text = label
             textSize = 17f
-            // texto sempre sólido: preto para normal, cor customizada para destrutivo
-            setTextColor(labelColor ?: Color.BLACK)
+            setTextColor(textColor)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
 
@@ -209,8 +217,6 @@ class SettingsActivity : BaseActivity() {
         return row
     }
 
-    // Sem sheetDivider — removido completamente
-
     private fun showThemeSheet() {
         val current = prefs.getString("theme", "light")
         showIosSheet("Tema") {
@@ -223,7 +229,6 @@ class SettingsActivity : BaseActivity() {
                     )
                     recreate()
                 })
-                // sem divisórias
             }
         }
     }

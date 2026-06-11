@@ -154,22 +154,90 @@ object GeminiApiService {
                     .build()
 
                 val response = client.newCall(request).execute()
+                if (!response.isSuccessful) return@runCatching "Nova conversa"
                 val json = JSONObject(response.body!!.string())
                 json.optString("title", "Nova conversa").trim().take(40)
             }.getOrDefault("Nova conversa")
         }
 
-    fun buildSystemPrompt(language: String = "pt"): String {
-        val langInstruction = when (language) {
-            "en" -> "Always respond in English."
-            else -> "Responde sempre em português europeu."
+    fun buildSystemPrompt(language: String = "pt", sheetsEnabled: Boolean = false): String {
+        val base = when (language) {
+            "en" -> "You are a helpful AI assistant. Respond clearly and accurately."
+            else -> "És um assistente de IA útil. Responde de forma clara e precisa em Português."
         }
-        return """
-            És um assistente de IA integrado na app IPC. $langInstruction
-            Sê conciso, útil e direto. Quando não souberes algo, diz-o claramente.
-            Não uses formatação excessiva. Responde de forma natural e conversacional.
-            Quando o utilizador pedir uma tabela, formata em markdown com | separadores.
-            Quando o usuário pedir código então use/canvas, ela serve para passar os códigos.
-        """.trimIndent()
+
+        val sheetsInstruction = if (sheetsEnabled) {
+            if (language == "en") {
+                """
+
+
+When the user asks for mathematical problem-solving, data tables, bar charts, pie charts, or other visual content, embed a widget using this exact format:
+
+<widget type="sheet">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* Use CSS variables already injected by the app: */
+    /* var(--bg), var(--surface), var(--border), var(--text), var(--text-secondary) */
+    /* var(--header-bg), var(--row-hover), var(--divider), var(--bar-color)           */
+    body { margin: 0; padding: 12px; background: var(--bg, #fff); font-family: Arial, sans-serif; color: var(--text, #111); }
+  </style>
+</head>
+<body>
+  <!-- widget content here -->
+</body>
+</html>
+</widget>
+
+Widget types available:
+- Mathematical workings: use the lined paper style (SVG with rules and margin line)
+- Tables: use a clean table with rounded corners, header row, dividers
+- Bar charts: animated bars using CSS/JS
+- Pie charts: SVG-based pie chart with labels
+- Mixed: combine elements as needed
+
+Always use the CSS variables for colors so the widget adapts to light/dark mode automatically.
+Only wrap visual content in <widget> tags. Regular text answers stay outside the tags."""
+            } else {
+                """
+
+
+Quando o utilizador pedir resolução de problemas matemáticos, tabelas de dados, gráficos de barras, gráficos de pizza ou outro conteúdo visual, incorpora um widget com este formato exato:
+
+<widget type="sheet">
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* Usa as variáveis CSS já injetadas pelo app: */
+    /* var(--bg), var(--surface), var(--border), var(--text), var(--text-secondary) */
+    /* var(--header-bg), var(--row-hover), var(--divider), var(--bar-color)           */
+    body { margin: 0; padding: 12px; background: var(--bg, #fff); font-family: Arial, sans-serif; color: var(--text, #111); }
+  </style>
+</head>
+<body>
+  <!-- conteúdo do widget aqui -->
+</body>
+</html>
+</widget>
+
+Tipos de widget disponíveis:
+- Resoluções matemáticas: usa o estilo de papel pautado (SVG com linhas e margem vermelha)
+- Tabelas: tabela limpa com cantos arredondados, cabeçalho destacado, divisórias
+- Gráficos de barras: barras animadas com CSS/JS
+- Gráficos de pizza: gráfico SVG com legenda
+- Misto: combina elementos conforme necessário
+
+Usa sempre as variáveis CSS de cor para que o widget se adapte automaticamente ao modo claro/escuro.
+Coloca apenas conteúdo visual dentro das tags <widget>. O texto normal fica fora das tags."""
+            }
+        } else ""
+
+        return base + sheetsInstruction
     }
 }

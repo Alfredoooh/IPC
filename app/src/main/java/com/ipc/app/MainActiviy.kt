@@ -75,7 +75,6 @@ class MainActiviy : BaseActivity() {
     var lastImeShift = 0
     var maxImeShift  = 0
 
-    // Último extraShift aplicado — para animação incremental suave
     private var lastAppliedImeShift = -1
 
     val prefs     by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
@@ -207,8 +206,6 @@ class MainActiviy : BaseActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
 
-        // adjustPan está no manifest — NÃO chamar SOFT_INPUT_ADJUST_RESIZE aqui
-        // O WindowInsets cuida do bottomNavWrapper; o sistema cuida do pan
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -221,34 +218,47 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
-        // ── Listener de IME (teclado) ─────────────────────────────────────────
-        // Com adjustPan o sistema já sobe a janela — aqui só precisamos de:
-        // 1. Mover o bottomNavWrapper para ficar sempre acima do teclado
-        // 2. Ajustar o padding do RecyclerView
-        // NÃO mexemos no emptyState — ele sobe automaticamente com o adjustPan
+        // ── Listener de IME ───────────────────────────────────────────────────
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             val extraShift = (imeInsets.bottom - navInsets.bottom).coerceAtLeast(0)
             val imeNowOpen = extraShift > 0
 
-            // Só animar se o valor mudou mesmo
             if (extraShift != lastAppliedImeShift) {
                 lastAppliedImeShift = extraShift
 
-                // BottomNavWrapper — sobe para não ficar atrás do teclado
+                val dur    = if (imeNowOpen) 280L else 240L
+                val interp = DecelerateInterpolator(1.6f)
+
+                // BottomNavWrapper sobe
                 binding.bottomNavWrapper.animate()
                     .translationY(-extraShift.toFloat())
-                    .setDuration(if (imeNowOpen) 280 else 240)
-                    .setInterpolator(DecelerateInterpolator(1.6f))
+                    .setDuration(dur)
+                    .setInterpolator(interp)
                     .start()
 
                 binding.bottomNavWrapper.updatePadding(
                     bottom = if (extraShift == 0) navInsets.bottom else 0
                 )
 
-                // RecyclerView — ajusta paddingBottom para o conteúdo não ficar
-                // escondido atrás do bottomNavWrapper quando o teclado está aberto
+                // emptyState sobe junto (greeting fica visível ao digitar)
+                binding.emptyState.animate()
+                    .translationY(-extraShift.toFloat())
+                    .setDuration(dur)
+                    .setInterpolator(interp)
+                    .start()
+
+                // inputRow sobe — não fica atrás do teclado
+                if (chatFragment.inputRowVisible) {
+                    binding.inputRow.animate()
+                        .translationY(-extraShift.toFloat())
+                        .setDuration(dur)
+                        .setInterpolator(interp)
+                        .start()
+                }
+
+                // RecyclerView padding
                 chatFragment.applyKeyboardPadding(extraShift)
             }
 

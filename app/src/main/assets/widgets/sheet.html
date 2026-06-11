@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sheet</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg, #ffffff);
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .paper {
+      width: min(92vw, 640px);
+      height: min(70vh, 320px);
+      border: 1px solid var(--border, #d6d6d6);
+      background: var(--surface, #fffef8);
+      box-shadow: 0 8px 22px rgba(0,0,0,0.10);
+      overflow: hidden;
+    }
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .rule {
+      stroke: rgba(95, 145, 255, 0.16);
+      stroke-width: 1;
+      shape-rendering: crispEdges;
+    }
+    .text-line {
+      fill: var(--text, #222);
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: 400;
+      dominant-baseline: alphabetic;
+    }
+    .title-line {
+      fill: var(--text, #222);
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: 700;
+      dominant-baseline: alphabetic;
+    }
+  </style>
+</head>
+<body>
+  <div class="paper">
+    <svg id="sheet" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <script>
+    // linesData é injetado dinamicamente pelo app ou pode ser sobrescrito
+    window.linesData = window.linesData || [
+      { text: "Resolução", title: true },
+      { text: "Linha 1" },
+      { text: "Linha 2" }
+    ];
+
+    const sheet = document.getElementById("sheet");
+    const cfg = {
+      leftPad: 72, rightPad: 20, topPad: 34,
+      gap: 32, textLift: 10,
+      minFont: 10, maxFont: 18, titleMaxFont: 20
+    };
+
+    const mc = document.createElement("canvas");
+    const ctx = mc.getContext("2d");
+
+    function fitFont(text, maxW, minF, maxF, bold) {
+      let lo = minF, hi = maxF, best = lo;
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        ctx.font = (bold ? "700 " : "") + mid + "px Arial";
+        if (ctx.measureText(text).width <= maxW) { best = mid; lo = mid + 1; }
+        else hi = mid - 1;
+      }
+      return best;
+    }
+
+    function render() {
+      const w = sheet.clientWidth, h = sheet.clientHeight;
+      const maxTW = w - cfg.leftPad - cfg.rightPad;
+      sheet.innerHTML = "";
+
+      const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bg.setAttribute("width", w); bg.setAttribute("height", h);
+      bg.setAttribute("fill", getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fffef8");
+      sheet.appendChild(bg);
+
+      for (let i = 0; i <= Math.ceil(h / cfg.gap) + 1; i++) {
+        const ln = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        const y = i * cfg.gap;
+        ln.setAttribute("x1", 0); ln.setAttribute("y1", y);
+        ln.setAttribute("x2", w); ln.setAttribute("y2", y);
+        ln.setAttribute("class", "rule");
+        sheet.appendChild(ln);
+      }
+
+      const mg = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      mg.setAttribute("x1", 56); mg.setAttribute("y1", 0);
+      mg.setAttribute("x2", 56); mg.setAttribute("y2", h);
+      mg.setAttribute("stroke", "rgba(255,90,90,0.20)");
+      mg.setAttribute("stroke-width", 1);
+      mg.setAttribute("shape-rendering", "crispEdges");
+      sheet.appendChild(mg);
+
+      window.linesData.forEach((item, i) => {
+        const y = cfg.topPad + i * cfg.gap - cfg.textLift;
+        const isT = !!item.title;
+        const sz = fitFont(item.text, maxTW, isT ? 12 : cfg.minFont, isT ? cfg.titleMaxFont : cfg.maxFont, isT);
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", cfg.leftPad); t.setAttribute("y", y);
+        t.setAttribute("font-size", sz);
+        t.setAttribute("class", isT ? "title-line" : "text-line");
+        t.textContent = item.text;
+        sheet.appendChild(t);
+      });
+    }
+
+    window.addEventListener("load", render);
+    window.addEventListener("resize", render);
+  </script>
+</body>
+</html>

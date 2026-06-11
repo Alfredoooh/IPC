@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pie Chart Widget</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 12px;
+      background: var(--bg, #ffffff);
+      font-family: Arial, sans-serif;
+      color: var(--text, #111);
+    }
+    .widget {
+      width: 100%;
+      background: var(--surface, #fff);
+      border: 1px solid var(--border, #d9dde3);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .widget-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--divider, #e7ebf0);
+      background: var(--header-bg, #f7f9fb);
+    }
+    .widget-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text, #111);
+    }
+    .widget-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    svg { overflow: visible; }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      justify-content: center;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary, #555);
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- pieData injetado pelo app:
+       window.pieData = { title: "Título", slices: [{label:"A", value:40, color:"#6F5AF6"}, ...] }
+  -->
+  <div class="widget">
+    <div class="widget-header">
+      <h1 class="widget-title" id="pie-title">Gráfico de Pizza</h1>
+    </div>
+    <div class="widget-body">
+      <svg id="pie-svg" width="180" height="180" viewBox="-1 -1 2 2"></svg>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+  <script>
+    const COLORS = ["#6F5AF6","#FF3B30","#34C759","#FF9500","#007AFF","#AF52DE","#5AC8FA","#FFCC00"];
+    const data = window.pieData || {
+      title: "Distribuição",
+      slices: [
+        { label: "A", value: 40 },
+        { label: "B", value: 30 },
+        { label: "C", value: 20 },
+        { label: "D", value: 10 }
+      ]
+    };
+
+    document.getElementById("pie-title").textContent = data.title || "Gráfico de Pizza";
+
+    const total = data.slices.reduce((s, d) => s + d.value, 0);
+    const svg = document.getElementById("pie-svg");
+    const legend = document.getElementById("legend");
+
+    let startAngle = -Math.PI / 2;
+    data.slices.forEach((slice, i) => {
+      const color = slice.color || COLORS[i % COLORS.length];
+      const angle = (slice.value / total) * 2 * Math.PI;
+      const endAngle = startAngle + angle;
+
+      const x1 = Math.cos(startAngle), y1 = Math.sin(startAngle);
+      const x2 = Math.cos(endAngle),   y2 = Math.sin(endAngle);
+      const large = angle > Math.PI ? 1 : 0;
+
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", `M 0 0 L ${x1} ${y1} A 1 1 0 ${large} 1 ${x2} ${y2} Z`);
+      path.setAttribute("fill", color);
+      path.setAttribute("stroke", "var(--bg, #fff)");
+      path.setAttribute("stroke-width", "0.02");
+      svg.appendChild(path);
+
+      // Label de percentagem no slice
+      const midAngle = startAngle + angle / 2;
+      const lx = Math.cos(midAngle) * 0.65;
+      const ly = Math.sin(midAngle) * 0.65;
+      const pct = Math.round((slice.value / total) * 100);
+      if (pct >= 5) {
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", lx); txt.setAttribute("y", ly);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("dominant-baseline", "middle");
+        txt.setAttribute("font-size", "0.13");
+        txt.setAttribute("font-weight", "700");
+        txt.setAttribute("fill", "#fff");
+        txt.textContent = pct + "%";
+        svg.appendChild(txt);
+      }
+
+      // Legenda
+      const item = document.createElement("div");
+      item.className = "legend-item";
+      item.innerHTML = `<div class="legend-dot" style="background:${color}"></div><span>${slice.label} (${pct}%)</span>`;
+      legend.appendChild(item);
+
+      startAngle = endAngle;
+    });
+  </script>
+</body>
+</html>
