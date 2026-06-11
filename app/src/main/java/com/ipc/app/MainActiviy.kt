@@ -1,4 +1,3 @@
-// MainActiviy.kt
 package com.ipc.app
 
 import android.Manifest
@@ -116,12 +115,7 @@ class MainActiviy : BaseActivity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadii = floatArrayOf(cornerPx, cornerPx, cornerPx, cornerPx, 0f, 0f, 0f, 0f)
-                colors = intArrayOf(
-                    ContextCompat.getColor(this@MainActiviy, R.color.gradient_warm_top),
-                    ContextCompat.getColor(this@MainActiviy, R.color.gradient_warm_bottom)
-                )
-                gradientType = GradientDrawable.LINEAR_GRADIENT
-                orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
             }
             clipToOutline = true
         }
@@ -407,13 +401,11 @@ class MainActiviy : BaseActivity() {
 
     fun showAddPopupMenu(anchor: View) {
         if (addPopup?.isShowing == true) return
-        // Fechar teclado SEMPRE antes de mostrar popup
         hideKeyboard()
         val popupWidth = dp(220)
         val iconSizeDp = 20
         val iconTint   = ContextCompat.getColor(this, R.color.icon_tint)
 
-        // Overlay blur no rootFrame para cobrir tela TODA (status bar + nav bar)
         val overlay = View(this).apply {
             setBackgroundColor(Color.parseColor("#88000000"))
             layoutParams = FrameLayout.LayoutParams(
@@ -538,12 +530,7 @@ class MainActiviy : BaseActivity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadii = floatArrayOf(cornerPx, cornerPx, cornerPx, cornerPx, 0f, 0f, 0f, 0f)
-                colors = intArrayOf(
-                    ContextCompat.getColor(this@MainActiviy, R.color.gradient_warm_top),
-                    ContextCompat.getColor(this@MainActiviy, R.color.gradient_warm_bottom)
-                )
-                gradientType = GradientDrawable.LINEAR_GRADIENT
-                orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
             }
             clipToOutline = true
         }
@@ -708,7 +695,6 @@ class MainActiviy : BaseActivity() {
 
     private fun showMorePopup(anchor: View) {
         if (morePopup?.isShowing == true) return
-        // Fechar teclado SEMPRE antes de mostrar popup
         hideKeyboard()
         val conv = chatFragment.currentConversationSnapshot ?: return
         val iconTint   = ContextCompat.getColor(this, R.color.icon_tint)
@@ -716,7 +702,6 @@ class MainActiviy : BaseActivity() {
         val popupWidth = dp(220)
         val iconSizeDp = 20
 
-        // Overlay blur no rootFrame para cobrir tela TODA
         val overlay = View(this).apply {
             setBackgroundColor(Color.parseColor("#88000000"))
             layoutParams = FrameLayout.LayoutParams(
@@ -828,7 +813,6 @@ class MainActiviy : BaseActivity() {
     fun showPopup() {
         if (popupVisible) return
         popupVisible = true
-        // Fechar teclado SEMPRE antes
         hideKeyboard()
         binding.inputMessage.isEnabled = false; binding.inputMessage.isFocusable = false
         binding.popupOverlay.visibility = View.VISIBLE; binding.popupOverlay.alpha = 0f

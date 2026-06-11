@@ -73,4 +73,6 @@
     <color name="bottom_bar_solid">#FFFFFFFF</color>
     
     <color name="tab_preview_pill_bg">#E8E4FF</color>
+    <color name="extras_card_active">#F0EBF8</color> <!-- roxo muito claro -->
+    <color name="extras_card_active_text">#6C3FA0</color> <!-- roxo médio -->
 </resources>

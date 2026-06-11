@@ -75,6 +75,18 @@ class ChatFragment(private val activity: MainActiviy) {
     private var inputRowAnimator:     ValueAnimator? = null
     private var newChatSlideAnimator: ValueAnimator? = null
 
+    // Referências dos cards do modal de extras para atualização em tempo real
+    private var flashCardView:   View? = null
+    private var flashCardIcon:   ImageView? = null
+    private var flashCardLabel:  TextView? = null
+    private var thinkCardView:   View? = null
+    private var thinkCardIcon:   ImageView? = null
+    private var thinkCardLabel:  TextView? = null
+    private var sheetsCardView:  View? = null
+    private var sheetsCardIcon:  ImageView? = null
+    private var sheetsCardLabel: TextView? = null
+    private var extrasDialog: BottomSheetDialog? = null
+
     private val timesTypeface: Typeface? by lazy {
         runCatching {
             Typeface.createFromAsset(activity.assets, "fonts/pattern/times_new_roman.ttf")
@@ -424,7 +436,6 @@ class ChatFragment(private val activity: MainActiviy) {
 
         refreshNewChatBtn()
 
-        // ── Gerar título como PRIMEIRA acção, antes de tudo o resto ──────────
         if (!titleGenerated) {
             titleGenerated = true
             activity.lifecycleScope.launch {
@@ -1319,13 +1330,20 @@ class ChatFragment(private val activity: MainActiviy) {
         dialog.show()
     }
 
-    // ─── EXTRAS SHEET (CARDS HORIZONTAIS) ─────────────────────────────────────
+    // ─── EXTRAS SHEET (CARDS HORIZONTAIS, ATUALIZAÇÃO IN-PLACE) ─────────────
 
     fun showExtrasSheet() {
         activity.hideKeyboard()
         activity.hidePopup()
+
+        if (extrasDialog?.isShowing == true) {
+            refreshExtraCards()
+            return
+        }
+
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+        extrasDialog = dialog
 
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -1341,10 +1359,7 @@ class ChatFragment(private val activity: MainActiviy) {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
 
-        // Handle
         card.addView(sheetHandle())
-
-        // Título
         card.addView(TextView(activity).apply {
             text = "Extras"
             textSize = 15f
@@ -1354,7 +1369,6 @@ class ChatFragment(private val activity: MainActiviy) {
             setPadding(dp(20), dp(12), dp(20), dp(20))
         })
 
-        // Scroll horizontal com cards
         val hscroll = HorizontalScrollView(activity).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
             setPadding(dp(20), 0, dp(20), dp(24))
@@ -1365,63 +1379,60 @@ class ChatFragment(private val activity: MainActiviy) {
         }
 
         val cardWidth = dp(110)
-        val iconSizeDp = 32
-        val textSizeSp = 13f
+        val iconSizeDp = 24
 
-        cardsRow.addView(
-            buildExtraCard(
-                name = "Flash",
-                iconOff = "icons/svg/flash.svg",
-                iconOn = "icons/svg/flash_filled.svg",
-                active = flashMode,
-                width = cardWidth,
-                iconSizeDp = iconSizeDp,
-                textSizeSp = textSizeSp
-            ) {
-                flashMode = !flashMode
-                thinkMoreMode = false
-                dialog.dismiss()
-                showExtrasSheet()
-            }
-        )
+        val flashData = buildExtraCard(
+            name = "Flash",
+            iconOff = "icons/svg/flash.svg",
+            iconOn = "icons/svg/flash_filled.svg",
+            active = flashMode,
+            width = cardWidth,
+            iconSizeDp = iconSizeDp
+        ) {
+            flashMode = true
+            thinkMoreMode = false
+            refreshExtraCards()
+        }
+        cardsRow.addView(flashData.root)
+        flashCardView = flashData.root
+        flashCardIcon = flashData.icon
+        flashCardLabel = flashData.label
 
-        cardsRow.addView(
-            buildExtraCard(
-                name = "Think More",
-                iconOff = "icons/svg/brain.svg",
-                iconOn = "icons/svg/brain_filled.svg",
-                active = thinkMoreMode,
-                width = cardWidth,
-                iconSizeDp = iconSizeDp,
-                textSizeSp = textSizeSp
-            ) {
-                thinkMoreMode = !thinkMoreMode
-                flashMode = false
-                dialog.dismiss()
-                showExtrasSheet()
-            }
-        )
+        val thinkData = buildExtraCard(
+            name = "Think More",
+            iconOff = "icons/svg/brain.svg",
+            iconOn = "icons/svg/brain_filled.svg",
+            active = thinkMoreMode,
+            width = cardWidth,
+            iconSizeDp = iconSizeDp
+        ) {
+            thinkMoreMode = true
+            flashMode = false
+            refreshExtraCards()
+        }
+        cardsRow.addView(thinkData.root)
+        thinkCardView = thinkData.root
+        thinkCardIcon = thinkData.icon
+        thinkCardLabel = thinkData.label
 
-        cardsRow.addView(
-            buildExtraCard(
-                name = "Sheets",
-                iconOff = "icons/svg/sheets.svg",
-                iconOn = "icons/svg/sheets_filled.svg",
-                active = sheetsEnabled,
-                width = cardWidth,
-                iconSizeDp = iconSizeDp,
-                textSizeSp = textSizeSp
-            ) {
-                sheetsEnabled = !sheetsEnabled
-                // Recria o sheet para reflectir o novo estado
-                dialog.dismiss()
-                showExtrasSheet()
-            }
-        )
+        val sheetsData = buildExtraCard(
+            name = "Sheets",
+            iconOff = "icons/svg/sheets.svg",
+            iconOn = "icons/svg/sheets_filled.svg",
+            active = sheetsEnabled,
+            width = cardWidth,
+            iconSizeDp = iconSizeDp
+        ) {
+            sheetsEnabled = !sheetsEnabled
+            refreshExtraCards()
+        }
+        cardsRow.addView(sheetsData.root)
+        sheetsCardView = sheetsData.root
+        sheetsCardIcon = sheetsData.icon
+        sheetsCardLabel = sheetsData.label
 
         hscroll.addView(cardsRow)
         card.addView(hscroll)
-
         root.addView(card)
         dialog.setContentView(root)
 
@@ -1429,8 +1440,42 @@ class ChatFragment(private val activity: MainActiviy) {
             dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
                 ?.setBackgroundColor(Color.TRANSPARENT)
         }
+        dialog.setOnDismissListener {
+            extrasDialog = null
+        }
         dialog.show()
     }
+
+    private fun refreshExtraCards() {
+        val ctx = activity
+        fun applyCard(view: View?, icon: ImageView?, label: TextView?, active: Boolean) {
+            view ?: return
+            val bg = view.background as? GradientDrawable
+            val cardBg = if (active) {
+                ContextCompat.getColor(ctx, R.color.extras_card_active)
+            } else {
+                ContextCompat.getColor(ctx, R.color.card_background)
+            }
+            bg?.setColor(cardBg)
+            val textColor = if (active) {
+                ContextCompat.getColor(ctx, R.color.extras_card_active_text)
+            } else {
+                ContextCompat.getColor(ctx, R.color.text_secondary)
+            }
+            label?.setTextColor(textColor)
+            icon?.setColorFilter(
+                if (active) ContextCompat.getColor(ctx, R.color.extras_card_active_text)
+                else ContextCompat.getColor(ctx, R.color.icon_tint),
+                android.graphics.PorterDuff.Mode.SRC_IN
+            )
+        }
+
+        applyCard(flashCardView, flashCardIcon, flashCardLabel, flashMode)
+        applyCard(thinkCardView, thinkCardIcon, thinkCardLabel, thinkMoreMode)
+        applyCard(sheetsCardView, sheetsCardIcon, sheetsCardLabel, sheetsEnabled)
+    }
+
+    private data class ExtraCardData(val root: View, val icon: ImageView, val label: TextView)
 
     private fun buildExtraCard(
         name: String,
@@ -1439,17 +1484,26 @@ class ChatFragment(private val activity: MainActiviy) {
         active: Boolean,
         width: Int,
         iconSizeDp: Int,
-        textSizeSp: Float,
         onClick: () -> Unit
-    ): View {
-        val isDark = activity.isDarkMode
+    ): ExtraCardData {
         val ctx = activity
+        val isDark = activity.isDarkMode
 
-        val activeBg = ContextCompat.getColor(ctx, R.color.colorPrimary)
-        val inactiveBg = ContextCompat.getColor(ctx, R.color.card_background)
-        val activeTextColor = Color.WHITE
-        val inactiveTextColor = ContextCompat.getColor(ctx, R.color.text_secondary)
-        val iconTint = if (active) Color.WHITE else ContextCompat.getColor(ctx, R.color.icon_tint)
+        val cardBg = if (active) {
+            ContextCompat.getColor(ctx, R.color.extras_card_active)
+        } else {
+            ContextCompat.getColor(ctx, R.color.card_background)
+        }
+        val textColor = if (active) {
+            ContextCompat.getColor(ctx, R.color.extras_card_active_text)
+        } else {
+            ContextCompat.getColor(ctx, R.color.text_secondary)
+        }
+        val iconTint = if (active) {
+            ContextCompat.getColor(ctx, R.color.extras_card_active_text)
+        } else {
+            ContextCompat.getColor(ctx, R.color.icon_tint)
+        }
 
         val iconPath = if (active) iconOn else iconOff
 
@@ -1459,7 +1513,7 @@ class ChatFragment(private val activity: MainActiviy) {
             }
             background = GradientDrawable().apply {
                 cornerRadius = dp(16).toFloat()
-                setColor(if (active) activeBg else inactiveBg)
+                setColor(cardBg)
                 if (!active && !isDark) {
                     setStroke(dp(1), Color.parseColor("#E0E0E0"))
                 }
@@ -1468,36 +1522,36 @@ class ChatFragment(private val activity: MainActiviy) {
             isClickable = true
             isFocusable = true
             setOnClickListener { onClick() }
-
-            // Conteúdo interno
-            val inner = LinearLayout(ctx).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                setPadding(dp(12), dp(20), dp(12), dp(16))
-            }
-
-            val icon = ImageView(ctx).apply {
-                setImageDrawable(activity.svgDrawable(iconPath, iconSizeDp, iconTint))
-                layoutParams = LinearLayout.LayoutParams(dp(iconSizeDp), dp(iconSizeDp)).also {
-                    it.gravity = Gravity.CENTER_HORIZONTAL
-                    it.bottomMargin = dp(10)
-                }
-            }
-            inner.addView(icon)
-
-            val label = TextView(ctx).apply {
-                text = name
-                textSize = textSizeSp
-                setTextColor(if (active) activeTextColor else inactiveTextColor)
-                typeface = Typeface.DEFAULT_BOLD
-                gravity = Gravity.CENTER
-            }
-            inner.addView(label)
-
-            addView(inner, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         }
-        return cardView
+
+        val inner = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(20), dp(12), dp(16))
+        }
+
+        val icon = ImageView(ctx).apply {
+            setImageDrawable(activity.svgDrawable(iconPath, iconSizeDp, iconTint))
+            layoutParams = LinearLayout.LayoutParams(dp(iconSizeDp), dp(iconSizeDp)).also {
+                it.gravity = Gravity.CENTER_HORIZONTAL
+                it.bottomMargin = dp(10)
+            }
+        }
+        inner.addView(icon)
+
+        val label = TextView(ctx).apply {
+            text = name
+            textSize = 13f
+            setTextColor(textColor)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        }
+        inner.addView(label)
+
+        cardView.addView(inner, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+
+        return ExtraCardData(cardView, icon, label)
     }
 
     private fun sheetHandle() = View(activity).apply {

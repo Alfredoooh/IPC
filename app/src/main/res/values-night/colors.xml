@@ -67,4 +67,6 @@
     <color name="bottom_bar_solid">#FF1f1f1f</color>
     
     <color name="tab_preview_pill_bg">#2A2440</color>
+    <color name="extras_card_active">#352B45</color> <!-- roxo escuro suave -->
+    <color name="extras_card_active_text">#D0B8F0</color> <!-- lavanda claro -->
 </resources>
