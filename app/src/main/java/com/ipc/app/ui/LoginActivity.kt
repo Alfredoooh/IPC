@@ -11,6 +11,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
+import android.view.animation.DecelerateInterpolator   // <-- ESSA PORRA FALTOU
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
