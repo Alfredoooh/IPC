@@ -34,7 +34,6 @@
                 android:textSize="26sp"
                 android:textStyle="bold"
                 android:textColor="@color/drawer_text" />
-
         </LinearLayout>
 
         <View
@@ -68,7 +67,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingBottom="8dp" />
-
         </ScrollView>
 
         <View
@@ -99,7 +97,6 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:layout_gravity="center" />
-
             </FrameLayout>
 
             <TextView
@@ -114,17 +111,15 @@
                 android:id="@+id/drawerChevronSettings"
                 android:layout_width="13dp"
                 android:layout_height="13dp" />
-
         </LinearLayout>
 
         <View
             android:id="@+id/drawerNavSpacer"
             android:layout_width="match_parent"
             android:layout_height="16dp" />
-
     </LinearLayout>
 
-    <!-- CONTEÚDO PRINCIPAL -->
+    <!-- CONTEÚDO PRINCIPAL (sem a bottom bar) -->
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:id="@+id/coordinatorLayout"
         android:layout_width="match_parent"
@@ -167,7 +162,6 @@
                             android:layout_height="17dp"
                             android:layout_gravity="center"
                             android:background="?attr/selectableItemBackgroundBorderless" />
-
                     </FrameLayout>
 
                     <LinearLayout
@@ -193,7 +187,6 @@
                                 android:layout_height="17dp"
                                 android:layout_gravity="center"
                                 android:background="?attr/selectableItemBackgroundBorderless" />
-
                         </FrameLayout>
 
                         <FrameLayout
@@ -211,15 +204,10 @@
                                 android:layout_height="17dp"
                                 android:layout_gravity="center"
                                 android:background="?attr/selectableItemBackgroundBorderless" />
-
                         </FrameLayout>
-
                     </LinearLayout>
-
                 </RelativeLayout>
-
             </FrameLayout>
-
         </com.google.android.material.appbar.AppBarLayout>
 
         <View
@@ -229,7 +217,6 @@
             android:background="@drawable/appbar_gradient"
             app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-        <!-- RecyclerView ocupa o espaço disponível, não match_parent -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/chatRecyclerView"
             android:layout_width="match_parent"
@@ -284,7 +271,6 @@
                 android:textColor="@color/text_hint"
                 android:gravity="center"
                 android:lineSpacingMultiplier="1.4" />
-
         </LinearLayout>
 
         <LinearLayout
@@ -325,7 +311,6 @@
                 android:textSize="16.5sp"
                 android:textColor="@color/text_secondary"
                 android:gravity="center" />
-
         </LinearLayout>
 
         <View
@@ -384,7 +369,6 @@
                         android:text="Câmara"
                         android:textSize="15sp"
                         android:textColor="@color/text_primary" />
-
                 </LinearLayout>
 
                 <LinearLayout
@@ -412,7 +396,6 @@
                         android:text="Importar Ficheiro"
                         android:textSize="15sp"
                         android:textColor="@color/text_primary" />
-
                 </LinearLayout>
 
                 <LinearLayout
@@ -441,7 +424,6 @@
                         android:text="URL / Link"
                         android:textSize="15sp"
                         android:textColor="@color/text_primary" />
-
                 </LinearLayout>
 
                 <LinearLayout
@@ -469,11 +451,8 @@
                         android:text="Extras"
                         android:textSize="15sp"
                         android:textColor="@color/text_primary" />
-
                 </LinearLayout>
-
             </LinearLayout>
-
         </FrameLayout>
 
         <FrameLayout
@@ -484,176 +463,159 @@
             android:clickable="true"
             android:focusable="true"
             android:background="#44000000" />
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <!-- BOTTOM BAR FIXA (fora do CoordinatorLayout) -->
+    <LinearLayout
+        android:id="@+id/bottomNavWrapper"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="20dp"
+        android:elevation="8dp"
+        android:background="@color/bottom_bar_solid">
 
         <View
             android:id="@+id/bottomBlurBg"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="20dp" />
+            android:visibility="gone" />
 
-        <!-- BOTTOM NAV WRAPPER — fundo mais forte -->
         <LinearLayout
-            android:id="@+id/bottomNavWrapper"
+            android:id="@+id/inputRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:orientation="vertical"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="20dp"
-            android:elevation="8dp">
+            android:orientation="horizontal"
+            android:gravity="bottom"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:minHeight="56dp">
 
-            <!-- INPUT ROW -->
-            <LinearLayout
-                android:id="@+id/inputRow"
+            <EditText
+                android:id="@+id/inputMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="bottom"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:paddingTop="12dp"
-                android:paddingBottom="12dp"
-                android:minHeight="56dp">
+                android:layout_gravity="center_vertical"
+                android:hint="@string/input_hint"
+                android:textSize="15sp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_hint"
+                android:background="@null"
+                android:inputType="textMultiLine|textCapSentences"
+                android:minLines="1"
+                android:maxLines="5"
+                android:scrollbars="vertical"
+                android:gravity="center_vertical" />
+        </LinearLayout>
 
-                <EditText
-                    android:id="@+id/inputMessage"
-                    android:layout_width="match_parent"
+        <LinearLayout
+            android:id="@+id/bottomNav"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <FrameLayout
+                android:id="@+id/btnBottomAdd"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/add_circle_bg"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/btnBottomAddIcon"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:background="?attr/selectableItemBackgroundBorderless" />
+            </FrameLayout>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <FrameLayout
+                android:id="@+id/tabPreview"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:background="@drawable/tab_preview_pill_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
-                    android:hint="@string/input_hint"
-                    android:textSize="15sp"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_hint"
-                    android:background="@null"
-                    android:inputType="textMultiLine|textCapSentences"
-                    android:minLines="1"
-                    android:maxLines="5"
-                    android:scrollbars="vertical"
-                    android:gravity="center_vertical" />
+                    android:layout_gravity="center"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-            </LinearLayout>
+                    <ImageView
+                        android:id="@+id/tabPreviewIcon"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="6dp" />
 
-            <!-- BOTTOM NAV ROW -->
-            <LinearLayout
-                android:id="@+id/bottomNav"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                    <TextView
+                        android:id="@+id/tabPreviewLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Preview"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="10dp">
 
                 <FrameLayout
-                    android:id="@+id/btnBottomAdd"
+                    android:id="@+id/btnRecord"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:layout_marginStart="10dp"
-                    android:layout_marginEnd="4dp"
-                    android:background="@drawable/add_circle_bg"
+                    android:background="@drawable/send_btn_bg"
                     android:clickable="true"
                     android:focusable="true">
 
                     <ImageView
-                        android:id="@+id/btnBottomAddIcon"
+                        android:id="@+id/btnRecordIcon"
                         android:layout_width="18dp"
                         android:layout_height="18dp"
-                        android:layout_gravity="center"
-                        android:background="?attr/selectableItemBackgroundBorderless" />
-
+                        android:layout_gravity="center" />
                 </FrameLayout>
 
-                <View
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
-
-                <!-- Tab Preview pill -->
                 <FrameLayout
-                    android:id="@+id/tabPreview"
-                    android:layout_width="wrap_content"
-                    android:layout_height="38dp"
-                    android:background="@drawable/tab_preview_pill_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="14dp">
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-
-                        <ImageView
-                            android:id="@+id/tabPreviewIcon"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:layout_marginEnd="6dp" />
-
-                        <TextView
-                            android:id="@+id/tabPreviewLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Preview"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                    </LinearLayout>
-
-                </FrameLayout>
-
-                <!-- Record e Send sobrepostos no mesmo sítio -->
-                <FrameLayout
+                    android:id="@+id/btnSend"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginEnd="10dp">
+                    android:background="@drawable/send_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone"
+                    android:alpha="0">
 
-                    <FrameLayout
-                        android:id="@+id/btnRecord"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/send_btn_bg"
-                        android:clickable="true"
-                        android:focusable="true">
-
-                        <ImageView
-                            android:id="@+id/btnRecordIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:layout_gravity="center" />
-
-                    </FrameLayout>
-
-                    <FrameLayout
-                        android:id="@+id/btnSend"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/send_btn_bg"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:visibility="gone"
-                        android:alpha="0">
-
-                        <ImageView
-                            android:id="@+id/btnSendIcon"
-                            android:layout_width="15dp"
-                            android:layout_height="15dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_send_arrow" />
-
-                    </FrameLayout>
-
+                    <ImageView
+                        android:id="@+id/btnSendIcon"
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_send_arrow" />
                 </FrameLayout>
-
-            </LinearLayout>
-
+            </FrameLayout>
         </LinearLayout>
-
-    </androidx.coordinatorlayout.widget.CoordinatorLayout>
-
+    </LinearLayout>
 </FrameLayout>

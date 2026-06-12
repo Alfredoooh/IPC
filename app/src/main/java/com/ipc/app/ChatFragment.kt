@@ -609,42 +609,47 @@ class ChatFragment(private val activity: MainActiviy) {
     // ─── Action row (copiar, gostei, não gostei, partilhar, regenerar) ──────
 
     private fun buildActionRow(ctx: Context, messageContent: String): View {
-        val container = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(8), dp(4), dp(4))
-        }
-        val tint = ContextCompat.getColor(activity, R.color.icon_tint_secondary)
-        val iconSize = 20
-
-        fun addAction(icon: String, label: String, listener: () -> Unit) {
-            val btn = LinearLayout(ctx).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                setPadding(dp(8), dp(4), dp(8), dp(4))
-                isClickable = true; isFocusable = true
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            }
-            btn.addView(ImageView(ctx).apply {
-                setImageDrawable(activity.svgDrawable(icon, iconSize, tint))
-                val px = dp(iconSize)
-                layoutParams = LinearLayout.LayoutParams(px, px)
-            })
-            btn.addView(TextView(ctx).apply {
-                text = label; textSize = 11f; setTextColor(tint); gravity = Gravity.CENTER
-            })
-            btn.setOnClickListener { listener() }
-            container.addView(btn)
-        }
-
-        addAction("icons/svg/copy.svg", "Copiar") { copyToClipboard(messageContent) }
-        addAction("icons/svg/thumbs_up.svg", "Gostei") { /* enviar like */ }
-        addAction("icons/svg/thumbs_down.svg", "Não") { /* dislike */ }
-        addAction("icons/svg/share.svg", "Partilhar") { shareText(messageContent) }
-        addAction("icons/svg/regenerate.svg", "Regenerar") { regenerateResponse() }
-
-        return container
+    val container = LinearLayout(ctx).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(2), dp(6), dp(2), dp(2))
     }
+    val tint = ContextCompat.getColor(activity, R.color.icon_tint_secondary)
+    val iconSize = 16   // 20 * 0.8 = 16dp
+    val btnWidth = dp(44)
+
+    fun addAction(icon: String, label: String, listener: () -> Unit) {
+        val btn = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(3), dp(4), dp(3))
+            isClickable = true; isFocusable = true
+            layoutParams = LinearLayout.LayoutParams(btnWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        btn.addView(ImageView(ctx).apply {
+            setImageDrawable(activity.svgDrawable(icon, iconSize, tint))
+            val px = dp(iconSize)
+            layoutParams = LinearLayout.LayoutParams(px, px)
+        })
+        btn.addView(TextView(ctx).apply {
+            text = label; textSize = 10f; setTextColor(tint); gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).also {
+                it.topMargin = dp(2)
+            }
+        })
+        btn.setOnClickListener { listener() }
+        container.addView(btn)
+    }
+
+    addAction("icons/svg/copy.svg", "Copiar") { copyToClipboard(messageContent) }
+    addAction("icons/svg/thumbs_up.svg", "Gostei") { /* like */ }
+    addAction("icons/svg/thumbs_down.svg", "Não") { /* dislike */ }
+    addAction("icons/svg/share.svg", "Partilhar") { shareText(messageContent) }
+    addAction("icons/svg/regenerate.svg", "Regenerar") { regenerateResponse() }
+
+    return container
+}
+
 
     private fun copyToClipboard(text: String) {
         val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

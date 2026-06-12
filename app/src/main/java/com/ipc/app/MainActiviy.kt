@@ -109,7 +109,7 @@ class MainActiviy : BaseActivity() {
 
         val screenH  = resources.displayMetrics.heightPixels
         val topGap   = dp(40)
-        val cornerPx = dp(12).toFloat()          // 12dp como nos modais de Settings
+        val cornerPx = dp(12).toFloat()
 
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -224,7 +224,8 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
+        // Insets para a bottom bar (agora diretamente no rootFrame)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavWrapper) { v, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             val imeHeight  = ime.bottom
@@ -236,11 +237,13 @@ class MainActiviy : BaseActivity() {
                 val dur    = if (imeNowOpen) 260L else 220L
                 val interp = DecelerateInterpolator(1.6f)
 
-                binding.bottomNavWrapper.animate()
+                v.animate()
                     .translationY(-shift.toFloat())
                     .setDuration(dur).setInterpolator(interp).start()
 
-                val targetChatShift = (shift * 0.12f)
+                // Ajusta conteúdo do chat com limite máximo de 100 dp
+                val maxChatShift = dp(100).toFloat()
+                val targetChatShift = (shift * 0.12f).coerceAtMost(maxChatShift)
                 listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach { view ->
                     view.animate()
                         .translationY(-targetChatShift)
@@ -253,8 +256,9 @@ class MainActiviy : BaseActivity() {
                 if (imeNowOpen) chatFragment.applyKeyboardPadding(shift)
             } else if (imeNowOpen && shift != currentImeShift) {
                 currentImeShift = shift
-                binding.bottomNavWrapper.translationY = -shift.toFloat()
-                val targetChatShift = (shift * 0.12f)
+                v.translationY = -shift.toFloat()
+                val maxChatShift = dp(100).toFloat()
+                val targetChatShift = (shift * 0.12f).coerceAtMost(maxChatShift)
                 listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach {
                     it.translationY = -targetChatShift
                 }
@@ -272,6 +276,12 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
+        // Tocar no chat ou em qualquer parte da tela remove o foco do input
+        binding.coordinatorLayout.setOnTouchListener { _, _ ->
+            binding.inputMessage.clearFocus()
+            false
+        }
+
         binding.appBarLayout.stateListAnimator = null
         binding.appBarLayout.elevation = dp(4).toFloat()
 
@@ -286,7 +296,7 @@ class MainActiviy : BaseActivity() {
         drawerManager = DrawerManager(this)
 
         setupBottomBarSolid()
-        setupAppBarTransparentGradient()   // substitui o setupAppBarSolid anterior
+        setupAppBarTransparentGradient()
         setupIcons()
         setupDrawer()
         setupSwipeDrawer()
@@ -308,8 +318,6 @@ class MainActiviy : BaseActivity() {
             intArrayOf(solidColor, transparent)
         )
         binding.appBarLayout.background = gradient
-
-        // Esconde a view separada de gradiente (não precisamos mais dela)
         binding.appBarGradient.visibility = View.GONE
     }
 
@@ -326,7 +334,7 @@ class MainActiviy : BaseActivity() {
     fun setupIcons() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
-        binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/menu.svg", 16, iconTint))
+        binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
         binding.btnNewChatIcon.setImageDrawable(svgDrawable("icons/svg/new_chat.svg", 17, iconTint))
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
@@ -549,7 +557,7 @@ class MainActiviy : BaseActivity() {
 
         val screenH  = resources.displayMetrics.heightPixels
         val topGap   = dp(120)
-        val cornerPx = dp(12).toFloat()          // 12dp como nos modais de Settings
+        val cornerPx = dp(12).toFloat()
 
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
