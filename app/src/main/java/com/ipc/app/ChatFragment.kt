@@ -38,12 +38,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.materialswitch.MaterialSwitch
 import com.ipc.app.data.AuthApiService
 import com.ipc.app.data.ChatMessage
 import com.ipc.app.data.Conversation
 import com.ipc.app.data.GeminiApiService
 import com.ipc.app.data.StreamChunk
+import com.ipc.app.ui.GooeyLoader
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -75,7 +75,6 @@ class ChatFragment(private val activity: MainActiviy) {
     private var inputRowAnimator:     ValueAnimator? = null
     private var newChatSlideAnimator: ValueAnimator? = null
 
-    // Referências dos cards do modal de extras para atualização em tempo real
     private var flashCardView:   View? = null
     private var flashCardIcon:   ImageView? = null
     private var flashCardLabel:  TextView? = null
@@ -125,6 +124,7 @@ class ChatFragment(private val activity: MainActiviy) {
         setupPreviewImage()
         setupGreeting()
         setupInput()
+        setupInputFocusBorderGlow()
         binding.inputRow.post {
             if (inputRowHeight == 0) inputRowHeight = binding.inputRow.height
         }
@@ -249,7 +249,7 @@ class ChatFragment(private val activity: MainActiviy) {
         binding.chatRecyclerView.smoothScrollToPosition(position)
     }
 
-    // ─── Input ────────────────────────────────────────────────────────────────
+    // ─── Input + Brilho na borda ──────────────────────────────────────────────
 
     private fun setupInput() {
         binding.inputMessage.addTextChangedListener(object : TextWatcher {
@@ -268,6 +268,27 @@ class ChatFragment(private val activity: MainActiviy) {
             if (text.isNotEmpty()) { binding.inputMessage.text?.clear(); sendChatMessage(text) }
         }
         binding.btnRecord.setOnClickListener { activity.showVoiceModal() }
+    }
+
+    private fun setupInputFocusBorderGlow() {
+        val wrapper = binding.bottomNavWrapper
+        val bg = wrapper.background as? GradientDrawable ?: return
+        val defaultStrokeColor = ContextCompat.getColor(activity, R.color.divider)
+        val glowColor = ContextCompat.getColor(activity, R.color.colorPrimary)
+
+        binding.inputMessage.setOnFocusChangeListener { _, hasFocus ->
+            val targetColor = if (hasFocus) glowColor else defaultStrokeColor
+            val anim = ValueAnimator.ofArgb(
+                if (hasFocus) defaultStrokeColor else glowColor,
+                targetColor
+            )
+            anim.duration = 260L
+            anim.addUpdateListener {
+                bg.setStroke(dp(1.5f).toInt(), it.animatedValue as Int)
+            }
+            anim.start()
+        }
+        bg.setStroke(dp(1.5f).toInt(), defaultStrokeColor)
     }
 
     fun showInputRow() {
@@ -672,15 +693,13 @@ class ChatFragment(private val activity: MainActiviy) {
         }
     }
 
-    // ─── Bar Chart nativo ─────────────────────────────────────────────────────
-
     private fun buildNativeBarChart(ctx: Context, json: JSONObject): View {
         val container = widgetContainer(ctx)
         val title = json.optString("title", "Gráfico")
         container.addView(widgetHeader(ctx, title))
 
         val items = json.optJSONArray("items") ?: return container
-        val barColor = Color.parseColor("#6F5AF6")
+        val barColor = ContextCompat.getColor(activity, R.color.colorPrimary)
         val textPrimary = ContextCompat.getColor(ctx, R.color.text_primary)
         val textSecondary = ContextCompat.getColor(ctx, R.color.text_secondary)
         val isDark = activity.isDarkMode
@@ -757,8 +776,6 @@ class ChatFragment(private val activity: MainActiviy) {
         container.addView(chartView)
         return container
     }
-
-    // ─── Pie Chart nativo ─────────────────────────────────────────────────────
 
     private fun buildNativePieChart(ctx: Context, json: JSONObject): View {
         val container = widgetContainer(ctx)
@@ -857,8 +874,6 @@ class ChatFragment(private val activity: MainActiviy) {
         return container
     }
 
-    // ─── Table nativa ─────────────────────────────────────────────────────────
-
     private fun buildNativeTable(ctx: Context, json: JSONObject): View {
         val headersArr = json.optJSONArray("headers")
         val rowsArr = json.optJSONArray("rows")
@@ -940,8 +955,6 @@ class ChatFragment(private val activity: MainActiviy) {
         hScroll.addView(table)
         return hScroll
     }
-
-    // ─── Sheet nativo ─────────────────────────────────────────────────────────
 
     private fun buildNativeSheet(ctx: Context, json: JSONObject): View {
         val linesArr = json.optJSONArray("lines") ?: return View(ctx)
@@ -1130,7 +1143,7 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun buildMathView(ctx: Context, mathText: String): View {
         val isDark      = activity.isDarkMode
         val cardBg      = if (isDark) Color.parseColor("#1E1E1E") else Color.parseColor("#F8F7FF")
-        val borderColor = if (isDark) Color.parseColor("#6F5AF640") else Color.parseColor("#6F5AF630")
+        val borderColor = if (isDark) Color.parseColor("#2F7BF640") else Color.parseColor("#2F7BF630")
         val textColor   = ContextCompat.getColor(activity, R.color.text_primary)
 
         val hScroll = HorizontalScrollView(ctx).apply {
@@ -1330,7 +1343,7 @@ class ChatFragment(private val activity: MainActiviy) {
         dialog.show()
     }
 
-    // ─── EXTRAS SHEET (CARDS HORIZONTAIS, ATUALIZAÇÃO IN-PLACE) ─────────────
+    // ─── EXTRAS SHEET (CARDS NÃO DESLIZÁVEIS, ÍCONES 20DP) ──────────────────
 
     fun showExtrasSheet() {
         activity.hideKeyboard()
@@ -1369,31 +1382,26 @@ class ChatFragment(private val activity: MainActiviy) {
             setPadding(dp(20), dp(12), dp(20), dp(20))
         })
 
-        val hscroll = HorizontalScrollView(activity).apply {
-            overScrollMode = View.OVER_SCROLL_NEVER
-            setPadding(dp(20), 0, dp(20), dp(24))
-        }
-
         val cardsRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(20), 0, dp(20), dp(24))
+            weightSum = 3f
         }
 
-        val cardWidth = dp(110)
-        val iconSizeDp = 24
+        val iconSizeDp = 20
 
         val flashData = buildExtraCard(
             name = "Flash",
             iconOff = "icons/svg/flash.svg",
             iconOn = "icons/svg/flash_filled.svg",
             active = flashMode,
-            width = cardWidth,
             iconSizeDp = iconSizeDp
         ) {
             flashMode = true
             thinkMoreMode = false
             refreshExtraCards()
         }
-        cardsRow.addView(flashData.root)
+        cardsRow.addView(flashData.root, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).also { it.marginEnd = dp(8) })
         flashCardView = flashData.root
         flashCardIcon = flashData.icon
         flashCardLabel = flashData.label
@@ -1403,14 +1411,13 @@ class ChatFragment(private val activity: MainActiviy) {
             iconOff = "icons/svg/brain.svg",
             iconOn = "icons/svg/brain_filled.svg",
             active = thinkMoreMode,
-            width = cardWidth,
             iconSizeDp = iconSizeDp
         ) {
             thinkMoreMode = true
             flashMode = false
             refreshExtraCards()
         }
-        cardsRow.addView(thinkData.root)
+        cardsRow.addView(thinkData.root, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).also { it.marginEnd = dp(8) })
         thinkCardView = thinkData.root
         thinkCardIcon = thinkData.icon
         thinkCardLabel = thinkData.label
@@ -1420,19 +1427,17 @@ class ChatFragment(private val activity: MainActiviy) {
             iconOff = "icons/svg/sheets.svg",
             iconOn = "icons/svg/sheets_filled.svg",
             active = sheetsEnabled,
-            width = cardWidth,
             iconSizeDp = iconSizeDp
         ) {
             sheetsEnabled = !sheetsEnabled
             refreshExtraCards()
         }
-        cardsRow.addView(sheetsData.root)
+        cardsRow.addView(sheetsData.root, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         sheetsCardView = sheetsData.root
         sheetsCardIcon = sheetsData.icon
         sheetsCardLabel = sheetsData.label
 
-        hscroll.addView(cardsRow)
-        card.addView(hscroll)
+        card.addView(cardsRow)
         root.addView(card)
         dialog.setContentView(root)
 
@@ -1482,7 +1487,6 @@ class ChatFragment(private val activity: MainActiviy) {
         iconOff: String,
         iconOn: String,
         active: Boolean,
-        width: Int,
         iconSizeDp: Int,
         onClick: () -> Unit
     ): ExtraCardData {
@@ -1508,9 +1512,6 @@ class ChatFragment(private val activity: MainActiviy) {
         val iconPath = if (active) iconOn else iconOff
 
         val cardView = FrameLayout(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT).also {
-                it.marginEnd = dp(12)
-            }
             background = GradientDrawable().apply {
                 cornerRadius = dp(16).toFloat()
                 setColor(cardBg)
@@ -1527,14 +1528,14 @@ class ChatFragment(private val activity: MainActiviy) {
         val inner = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(12), dp(20), dp(12), dp(16))
+            setPadding(dp(8), dp(20), dp(8), dp(16))
         }
 
         val icon = ImageView(ctx).apply {
             setImageDrawable(activity.svgDrawable(iconPath, iconSizeDp, iconTint))
             layoutParams = LinearLayout.LayoutParams(dp(iconSizeDp), dp(iconSizeDp)).also {
                 it.gravity = Gravity.CENTER_HORIZONTAL
-                it.bottomMargin = dp(10)
+                it.bottomMargin = dp(8)
             }
         }
         inner.addView(icon)
@@ -1564,34 +1565,25 @@ class ChatFragment(private val activity: MainActiviy) {
         }
     }
 
-    // ─── Loader / Skeleton ────────────────────────────────────────────────────
+    // ─── Loader com GooeyLoader ──────────────────────────────────────────────
 
     private fun buildLoaderView(ctx: Context): View {
-        val dotSize = dp(7); val gap = dp(5)
-        val color = ContextCompat.getColor(activity, R.color.text_secondary)
-        val container = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                .also { it.topMargin = dp(6); it.bottomMargin = dp(4) }
-        }
-        val dots = (0..2).map {
-            View(ctx).apply {
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
-                layoutParams = LinearLayout.LayoutParams(dotSize, dotSize).also { lp -> if (it > 0) lp.marginStart = gap }
-                container.addView(this)
+        val container = FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also {
+                it.topMargin = dp(8)
+                it.bottomMargin = dp(4)
             }
         }
-        dots.forEachIndexed { i, dot ->
-            ValueAnimator.ofFloat(0f, -dp(6).toFloat(), 0f).apply {
-                duration = 600; startDelay = (i * 150).toLong()
-                repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.RESTART
-                interpolator = DecelerateInterpolator()
-                addUpdateListener { dot.translationY = it.animatedValue as Float }
-                start()
-            }
-        }
+        val loader = GooeyLoader(ctx)
+        val size = dp(48)
+        container.addView(loader, FrameLayout.LayoutParams(size, size))
         return container
     }
+
+    // ─── Thinking skeleton ────────────────────────────────────────────────────
 
     private fun buildThinkingSkeletonView(ctx: Context): View {
         val wrap = LinearLayout(ctx).apply {

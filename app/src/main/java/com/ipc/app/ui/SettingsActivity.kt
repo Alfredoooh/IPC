@@ -110,13 +110,10 @@ class SettingsActivity : BaseActivity() {
         findViewById<View>(R.id.itemLogout).setOnClickListener { showLogoutSheet() }
     }
 
-    // ─── Sheet temático — usa dialog_background do tema atual ─────────────────
+    // ─── Sheet temático RÁPIDO (dismiss instantâneo) ───────────────────────
 
     private fun showIosSheet(title: String, block: LinearLayout.() -> Unit) {
-        // R.style.Theme_IPC_BottomSheet já aponta para dialog_background correto
-        // tanto em light (#F2F2F7) como em dark (#1f1f1f)
         val dialog = BottomSheetDialog(this, R.style.Theme_IPC_BottomSheet)
-
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
@@ -138,7 +135,6 @@ class SettingsActivity : BaseActivity() {
             )
         }
 
-        // Handle pill
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -152,7 +148,6 @@ class SettingsActivity : BaseActivity() {
             }
         })
 
-        // Título
         card.addView(TextView(this).apply {
             text = title
             textSize = 13f
@@ -176,12 +171,6 @@ class SettingsActivity : BaseActivity() {
 
         root.addView(card)
         dialog.setContentView(root)
-
-        dialog.setOnShowListener {
-            val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bs?.setBackgroundColor(Color.TRANSPARENT)
-        }
-
         dialog.show()
     }
 
@@ -217,20 +206,57 @@ class SettingsActivity : BaseActivity() {
         return row
     }
 
+    // ─── Tema: aplica sem perder o chat ────────────────────────────────────
+
     private fun showThemeSheet() {
         val current = prefs.getString("theme", "light")
-        showIosSheet("Tema") {
-            listOf("Claro" to "light", "Escuro" to "dark").forEach { (label, value) ->
-                addView(sheetRow(label, current == value) {
-                    prefs.edit().putString("theme", value).apply()
-                    AppCompatDelegate.setDefaultNightMode(
-                        if (value == "dark") AppCompatDelegate.MODE_NIGHT_YES
-                        else AppCompatDelegate.MODE_NIGHT_NO
-                    )
-                    recreate()
-                })
+        val dialog = BottomSheetDialog(this, R.style.Theme_IPC_BottomSheet)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadii = floatArrayOf(dp(20), dp(20), dp(20), dp(20), 0f, 0f, 0f, 0f)
+                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.dialog_background))
             }
         }
+        // ... (handle e título igual ao showIosSheet)
+        card.addView(View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3)
+                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.divider))
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(36).toInt(), dp(4).toInt()).also {
+                it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12).toInt(); it.bottomMargin = dp(4).toInt()
+            }
+        })
+        card.addView(TextView(this).apply {
+            text = "Tema"
+            textSize = 13f; setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.settings_section_label))
+            gravity = Gravity.CENTER
+            setPadding(dp(20).toInt(), dp(8).toInt(), dp(20).toInt(), dp(12).toInt())
+        })
+
+        listOf("Claro" to "light", "Escuro" to "dark").forEach { (label, value) ->
+            card.addView(sheetRow(label, current == value) {
+                prefs.edit().putString("theme", value).apply()
+                val nightMode = if (value == "dark") AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+                AppCompatDelegate.setDefaultNightMode(nightMode)
+                dialog.dismiss()
+                // Recria apenas a SettingsActivity para aplicar o tema imediatamente
+                // A MainActiviy NÃO é recriada, preservando o chat.
+                recreate()
+            })
+        }
+        card.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24).toInt())
+        })
+        root.addView(card)
+        dialog.setContentView(root)
+        dialog.show()
     }
 
     private fun showLanguageSheet() {

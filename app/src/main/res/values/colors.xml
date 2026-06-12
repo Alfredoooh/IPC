@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#6F5AF6</color>
-    <color name="colorPrimaryDark">#5A45D4</color>
-    <color name="colorAccent">#6F5AF6</color>
-    <color name="brand_orange">#6F5AF6</color>
+    <color name="colorPrimary">#2F7BF6</color>
+    <color name="colorPrimaryDark">#1E5DC4</color>
+    <color name="colorAccent">#2F7BF6</color>
+    <color name="brand_orange">#2F7BF6</color>
     <color name="brand_cream">#F7E7CE</color>
     <color name="red_badge">#FF3B30</color>
     
@@ -14,12 +14,12 @@
     
     <color name="appbar_background">#FFFFFF</color>
     <color name="bottom_nav_background">#FFFFFF</color>
-    <color name="bottom_nav_text_color">#6F5AF6</color>
+    <color name="bottom_nav_text_color">#2F7BF6</color>
     
     <color name="text_primary">#000000</color>
     <color name="text_secondary">#888888</color>
     <color name="text_hint">#AAAAAA</color>
-    <color name="text_link">#6F5AF6</color>
+    <color name="text_link">#2F7BF6</color>
     
     <color name="drawer_background">#F2F2F7</color>
     <color name="drawer_text">#000000</color>
@@ -31,7 +31,6 @@
     
     <color name="popup_background">#FFFFFF</color>
     <color name="popup_shadow">#14000000</color>
-    
     <color name="dialog_background">#F2F2F7</color>
     
     <color name="divider">#E5E5EA</color>
@@ -44,7 +43,7 @@
     <color name="input_background">#F2F2F7</color>
     <color name="input_text">#000000</color>
     <color name="input_hint">#AAAAAA</color>
-    <color name="cursor_color">#6F5AF6</color>
+    <color name="cursor_color">#2F7BF6</color>
     
     <color name="search_input_fill">#EBEBEB</color>
     
@@ -55,24 +54,19 @@
     <color name="incognito_text">#FFFFFF</color>
     <color name="ask_ai_pill_color">#EBEBEB</color>
     <color name="compound_pill_color">#EBEBEB</color>
-    <color name="send_btn_color">#6F5AF6</color>
+    <color name="send_btn_color">#2F7BF6</color>
     <color name="send_icon_color">#FFFFFF</color>
     
-    <color name="gradient_warm_top">#F0EEFF</color>
-    <color name="gradient_warm_bottom">#FFFFFF</color>
-    <color name="gradient_blue_top">#F0EEFF</color>
-    <color name="gradient_blue_bottom">#FFFFFF</color>
-    
-    <color name="auth_button_bg">#6F5AF6</color>
+    <color name="auth_button_bg">#2F7BF6</color>
     <color name="auth_button_text">#FFFFFF</color>
     <color name="auth_input_bg">#F2F2F7</color>
-    <color name="auth_link_color">#6F5AF6</color>
+    <color name="auth_link_color">#2F7BF6</color>
     
     <color name="appbar_btn_bg_color">#0F000000</color>
     <color name="appbar_solid">#FFFFFFFF</color>
     <color name="bottom_bar_solid">#FFFFFFFF</color>
     
-    <color name="tab_preview_pill_bg">#E8E4FF</color>
-    <color name="extras_card_active">#F0EBF8</color> <!-- roxo muito claro -->
-    <color name="extras_card_active_text">#6C3FA0</color> <!-- roxo médio -->
+    <color name="tab_preview_pill_bg">#E0EBFE</color>
+    <color name="extras_card_active">#EEF2FF</color> <!-- azul muito claro -->
+    <color name="extras_card_active_text">#2F7BF6</color> <!-- azul primário -->
 </resources>
