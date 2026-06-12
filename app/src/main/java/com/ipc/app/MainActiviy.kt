@@ -75,6 +75,7 @@ class MainActiviy : BaseActivity() {
     private var navBarHeight  = 0
     private var lastImeHeight = 0
     private var currentImeShift = 0
+    private var lastChatShift = 0f          // guarda o último deslocamento do chat
 
     val prefs     by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
     val authToken get() = prefs.getString("auth_token", "") ?: ""
@@ -223,6 +224,7 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
+        // ── AQUI ESTÁ O SHIFT DO CHAT ──────────────────────────────────────
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
@@ -238,9 +240,23 @@ class MainActiviy : BaseActivity() {
                 val dur    = if (imeNowOpen) 260L else 220L
                 val interp = DecelerateInterpolator(1.6f)
 
+                // Barra inferior sobe o shift completo
                 binding.bottomNavWrapper.animate()
                     .translationY(-shift.toFloat())
                     .setDuration(dur).setInterpolator(interp).start()
+
+                // Conteúdo do chat sobe apenas 12% (factor 0.12)
+                val targetChatShift = (shift * 0.12f)
+                if (targetChatShift != lastChatShift) {
+                    lastChatShift = targetChatShift
+                    listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach { view ->
+                        view.animate()
+                            .translationY(-targetChatShift)
+                            .setDuration(dur)
+                            .setInterpolator(interp)
+                            .start()
+                    }
+                }
 
                 addPopup?.let { popup ->
                     if (popup.isShowing) {
