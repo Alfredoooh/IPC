@@ -271,25 +271,26 @@ class ChatFragment(private val activity: MainActiviy) {
     }
 
     private fun setupInputFocusBorderGlow() {
-        val wrapper = binding.bottomNavWrapper
-        val bg = wrapper.background as? GradientDrawable ?: return
-        val defaultStrokeColor = ContextCompat.getColor(activity, R.color.divider)
-        val glowColor = ContextCompat.getColor(activity, R.color.colorPrimary)
+    val wrapper = binding.bottomNavWrapper
+    val bg = wrapper.background as? GradientDrawable ?: return
+    val defaultStrokeColor = ContextCompat.getColor(activity, R.color.divider)
+    val glowColor = ContextCompat.getColor(activity, R.color.colorPrimary)
+    val strokePx = (1.5f * activity.density).toInt()   // <-- aqui
 
-        binding.inputMessage.setOnFocusChangeListener { _, hasFocus ->
-            val targetColor = if (hasFocus) glowColor else defaultStrokeColor
-            val anim = ValueAnimator.ofArgb(
-                if (hasFocus) defaultStrokeColor else glowColor,
-                targetColor
-            )
-            anim.duration = 260L
-            anim.addUpdateListener {
-                bg.setStroke(dp(1.5f).toInt(), it.animatedValue as Int)
-            }
-            anim.start()
+    binding.inputMessage.setOnFocusChangeListener { _, hasFocus ->
+        val targetColor = if (hasFocus) glowColor else defaultStrokeColor
+        val anim = ValueAnimator.ofArgb(
+            if (hasFocus) defaultStrokeColor else glowColor,
+            targetColor
+        )
+        anim.duration = 260L
+        anim.addUpdateListener {
+            bg.setStroke(strokePx, it.animatedValue as Int)   // <-- stroke fixo
         }
-        bg.setStroke(dp(1.5f).toInt(), defaultStrokeColor)
+        anim.start()
     }
+    bg.setStroke(strokePx, defaultStrokeColor)   // inicial
+}
 
     fun showInputRow() {
         if (inputRowVisible) return
