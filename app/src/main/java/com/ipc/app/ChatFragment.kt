@@ -3,7 +3,10 @@ package com.ipc.app
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
@@ -32,6 +35,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -75,6 +79,7 @@ class ChatFragment(private val activity: MainActiviy) {
     private var inputRowAnimator:     ValueAnimator? = null
     private var newChatSlideAnimator: ValueAnimator? = null
 
+    // Referências dos cards do modal de extras para atualização em tempo real
     private var flashCardView:   View? = null
     private var flashCardIcon:   ImageView? = null
     private var flashCardLabel:  TextView? = null
@@ -271,26 +276,26 @@ class ChatFragment(private val activity: MainActiviy) {
     }
 
     private fun setupInputFocusBorderGlow() {
-    val wrapper = binding.bottomNavWrapper
-    val bg = wrapper.background as? GradientDrawable ?: return
-    val defaultStrokeColor = ContextCompat.getColor(activity, R.color.divider)
-    val glowColor = ContextCompat.getColor(activity, R.color.colorPrimary)
-    val strokePx = (1.5f * activity.density).toInt()
+        val wrapper = binding.bottomNavWrapper
+        val bg = wrapper.background as? GradientDrawable ?: return
+        val defaultStrokeColor = ContextCompat.getColor(activity, R.color.divider)
+        val glowColor = ContextCompat.getColor(activity, R.color.colorPrimary)
+        val strokePx = (1.5f * activity.density).toInt()
 
-    binding.inputMessage.setOnFocusChangeListener { _, hasFocus ->
-        val targetColor = if (hasFocus) glowColor else defaultStrokeColor
-        val anim = ValueAnimator.ofArgb(
-            if (hasFocus) defaultStrokeColor else glowColor,
-            targetColor
-        )
-        anim.duration = 260L
-        anim.addUpdateListener {
-            bg.setStroke(strokePx, it.animatedValue as Int)
+        binding.inputMessage.setOnFocusChangeListener { _, hasFocus ->
+            val targetColor = if (hasFocus) glowColor else defaultStrokeColor
+            val anim = ValueAnimator.ofArgb(
+                if (hasFocus) defaultStrokeColor else glowColor,
+                targetColor
+            )
+            anim.duration = 260L
+            anim.addUpdateListener {
+                bg.setStroke(strokePx, it.animatedValue as Int)
+            }
+            anim.start()
         }
-        anim.start()
+        bg.setStroke(strokePx, defaultStrokeColor)
     }
-    bg.setStroke(strokePx, defaultStrokeColor)
-}
 
     fun showInputRow() {
         if (inputRowVisible) return
@@ -592,6 +597,10 @@ class ChatFragment(private val activity: MainActiviy) {
                     else -> {
                         renderMessageContent(col, msg.content)
                         if (msg.isStreaming) col.addView(buildLoaderView(holder.wrapper.context))
+                        else if (msg.role == "assistant" && msg.content.isNotBlank()) {
+                            // Botões de ação no final da resposta final
+                            col.addView(buildActionRow(holder.wrapper.context, msg.content))
+                        }
                     }
                 }
 
@@ -604,7 +613,72 @@ class ChatFragment(private val activity: MainActiviy) {
         override fun getItemCount() = msgs.size
     }
 
-    // ─── Renderização de mensagens ────────────────────────────────────────────
+    // ─── Action row (copiar, gostei, não gostei, partilhar, regenerar) ──────
+
+    private fun buildActionRow(ctx: Context, messageContent: String): View {
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(8), dp(4), dp(4))
+        }
+        val tint = ContextCompat.getColor(activity, R.color.icon_tint_secondary)
+        val iconSize = 20
+
+        fun addAction(icon: String, label: String, listener: () -> Unit) {
+            val btn = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                isClickable = true; isFocusable = true
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            btn.addView(ImageView(ctx).apply {
+                setImageDrawable(activity.svgDrawable(icon, iconSize, tint))
+                layoutParams = LinearLayout.LayoutParams(iconSize.dp, iconSize.dp, Gravity.CENTER)
+            })
+            btn.addView(TextView(ctx).apply {
+                text = label; textSize = 11f; setTextColor(tint); gravity = Gravity.CENTER
+            })
+            btn.setOnClickListener { listener() }
+            container.addView(btn)
+        }
+
+        addAction("icons/svg/copy.svg", "Copiar") { copyToClipboard(messageContent) }
+        addAction("icons/svg/thumbs_up.svg", "Gostei") { /* enviar like */ }
+        addAction("icons/svg/thumbs_down.svg", "Não") { /* dislike */ }
+        addAction("icons/svg/share.svg", "Partilhar") { shareText(messageContent) }
+        addAction("icons/svg/regenerate.svg", "Regenerar") { regenerateResponse() }
+
+        return container
+    }
+
+    private fun copyToClipboard(text: String) {
+        val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("IPC", text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(activity, "Copiado!", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun shareText(text: String) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        activity.startActivity(Intent.createChooser(intent, "Partilhar resposta"))
+    }
+
+    private fun regenerateResponse() {
+        if (chatHistory.isEmpty()) return
+        val lastUserMsg = chatHistory.last { it.role == "user" }.content
+        streamJob?.cancel()
+        val aiIndex = displayMessages.lastIndex
+        displayMessages.removeAt(aiIndex)
+        chatHistory.removeLast()
+        chatAdapter.notifyItemRemoved(aiIndex)
+        sendChatMessage(lastUserMsg)
+    }
+
+    // ─── Renderização de mensagens (widgets corrigidos) ──────────────────────
 
     private fun renderMessageContent(parent: LinearLayout, rawContent: String) {
         val text = rawContent.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
@@ -734,9 +808,7 @@ class ChatFragment(private val activity: MainActiviy) {
                 val totalContentW = barW * totalBars + totalGap
                 val startX = (w - totalContentW) / 2
 
-                val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = gridColor; strokeWidth = 1f
-                }
+                val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = gridColor; strokeWidth = 1f }
                 for (i in 0..4) {
                     val y = sidePad + barAreaHeight * (1 - i / 4f)
                     canvas.drawLine(0f, y, w, y, gridPaint)
@@ -773,7 +845,6 @@ class ChatFragment(private val activity: MainActiviy) {
         chartView.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, chartHeight + bottomPad
         ).also { it.setMargins(sidePad, dp(14), sidePad, dp(16)) }
-
         container.addView(chartView)
         return container
     }
@@ -1472,7 +1543,7 @@ class ChatFragment(private val activity: MainActiviy) {
             icon?.setColorFilter(
                 if (active) ContextCompat.getColor(ctx, R.color.extras_card_active_text)
                 else ContextCompat.getColor(ctx, R.color.icon_tint),
-                android.graphics.PorterDuff.Mode.SRC_IN
+                PorterDuff.Mode.SRC_IN
             )
         }
 
@@ -1622,25 +1693,26 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun parseMarkdownBlock(raw: String): Spanned {
         val sb = SpannableStringBuilder()
         val lines = raw.split("\n")
-        lines.forEachIndexed { idx, line ->
-            val trimmed = line.trimStart()
-            if (idx > 0) sb.append("\n")
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            if (i > 0) sb.append("\n")
             when {
-                trimmed.startsWith("## ") || trimmed.startsWith("# ") -> {
-                    val content = trimmed.trimStart('#').trim()
+                line.trimStart().startsWith("## ") || line.trimStart().startsWith("# ") -> {
+                    val content = line.trimStart().trimStart('#').trim()
                     val start = sb.length
                     appendInlineSpans(sb, content)
-                    sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     sb.setSpan(RelativeSizeSpan(1.15f), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
-                trimmed.startsWith("### ") -> {
-                    val content = trimmed.trimStart('#').trim()
+                line.trimStart().startsWith("### ") -> {
+                    val content = line.trimStart().trimStart('#').trim()
                     val start = sb.length
                     appendInlineSpans(sb, content)
-                    sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
-                trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ") -> {
-                    val content = trimmed.substring(2)
+                line.trimStart().startsWith("* ") || line.trimStart().startsWith("- ") || line.trimStart().startsWith("• ") -> {
+                    val content = line.trimStart().substring(2).trim()
                     val start = sb.length
                     sb.append("  ")
                     appendInlineSpans(sb, content)
@@ -1649,9 +1721,10 @@ class ChatFragment(private val activity: MainActiviy) {
                         start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                     )
                 }
-                trimmed.matches(Regex("[-=|: ]+")) -> {}
+                line.trim().matches(Regex("[-=|: ]+")) -> { /* ignorar separadores de tabela */ }
                 else -> appendInlineSpans(sb, line)
             }
+            i++
         }
         return sb
     }
@@ -1721,15 +1794,15 @@ class ChatFragment(private val activity: MainActiviy) {
             when {
                 match.groupValues[1].isNotEmpty() -> {
                     sb.append(match.groupValues[1])
-                    sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 match.groupValues[2].isNotEmpty() -> {
                     sb.append(match.groupValues[2])
-                    sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 match.groupValues[3].isNotEmpty() -> {
                     sb.append(match.groupValues[3])
-                    sb.setSpan(StyleSpan(android.graphics.Typeface.ITALIC), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    sb.setSpan(StyleSpan(Typeface.ITALIC), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 match.groupValues[4].isNotEmpty() -> {
                     sb.append(match.groupValues[4])
@@ -1749,6 +1822,8 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun parseMarkdown(raw: String): Spanned = parseMarkdownBlock(
         raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
     )
+
+    private val Int.dp get() = dp(this)
 
     private fun dp(v: Int) = activity.dp(v)
 }

@@ -20,7 +20,6 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import com.caverock.androidsvg.SVG
-import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.ipc.app.R
@@ -36,6 +35,7 @@ class SettingsActivity : BaseActivity() {
         setupAvatar()
         setupIcons()
         setupActions()
+        styleGroupedCards()
     }
 
     private fun applyTimesNewRomanTitle() {
@@ -54,15 +54,15 @@ class SettingsActivity : BaseActivity() {
         val email   = prefs.getString("auth_user_email", "—") ?: "—"
         val initial = name.firstOrNull()?.uppercase() ?: "U"
 
-        val avatarContainer = findViewById<LinearLayout>(R.id.avatarContainer)
         findViewById<TextView>(R.id.avatarInitial).text = initial
         findViewById<TextView>(R.id.settingsUserName).text = name
         findViewById<TextView>(R.id.settingsUserEmail).text = email
 
         val iconSec = ContextCompat.getColor(this, R.color.icon_tint_secondary)
         findViewById<ImageView>(R.id.chevronProfile)
-            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
-        avatarContainer.setOnClickListener {
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 20, iconSec))
+
+        findViewById<View>(R.id.itemProfile).setOnClickListener {
             startActivity(Intent(this, UserProfileActivity::class.java))
         }
     }
@@ -71,22 +71,45 @@ class SettingsActivity : BaseActivity() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
 
+        // Back
         findViewById<ImageView>(R.id.btnBack)
-            .setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 16, iconTint))
-        findViewById<ImageView>(R.id.iconTheme)
-            .setImageDrawable(svgDrawable("icons/svg/appearance.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconLanguage)
-            .setImageDrawable(svgDrawable("icons/svg/language.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconPrivacy)
-            .setImageDrawable(svgDrawable("icons/svg/privacy.svg", 14, iconTint))
-        findViewById<ImageView>(R.id.iconNotifications)
-            .setImageDrawable(svgDrawable("icons/svg/notifications.svg", 14, iconTint))
+            .setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 24, iconTint))
 
+        // Conta
+        findViewById<ImageView>(R.id.iconCustomization)
+            .setImageDrawable(svgDrawable("icons/svg/customise.svg", 24, iconTint))
+        findViewById<ImageView>(R.id.chevronCustomization)
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 20, iconSec))
+
+        findViewById<ImageView>(R.id.iconStorage)
+            .setImageDrawable(svgDrawable("icons/svg/database.svg", 24, iconTint))
+        findViewById<ImageView>(R.id.chevronStorage)
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 20, iconSec))
+
+        findViewById<ImageView>(R.id.iconSecurity)
+            .setImageDrawable(svgDrawable("icons/svg/security.svg", 24, iconTint))
+        findViewById<ImageView>(R.id.chevronSecurity)
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 20, iconSec))
+
+        // Aparência
+        findViewById<ImageView>(R.id.iconTheme)
+            .setImageDrawable(svgDrawable("icons/svg/appearance.svg", 24, iconTint))
+        findViewById<ImageView>(R.id.iconLanguage)
+            .setImageDrawable(svgDrawable("icons/svg/language.svg", 24, iconTint))
+
+        // Privacidade
+        findViewById<ImageView>(R.id.iconPrivacy)
+            .setImageDrawable(svgDrawable("icons/svg/privacy.svg", 24, iconTint))
+        findViewById<ImageView>(R.id.iconNotifications)
+            .setImageDrawable(svgDrawable("icons/svg/notifications.svg", 24, iconTint))
+
+        // Chevrons
         listOf(R.id.chevronTheme, R.id.chevronLanguage, R.id.chevronPrivacy).forEach {
             findViewById<ImageView>(it)
-                .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
+                .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 20, iconSec))
         }
 
+        // Labels
         val currentTheme = prefs.getString("theme", "light")
         findViewById<TextView>(R.id.labelTheme).text = if (currentTheme == "dark") "Escuro" else "Claro"
 
@@ -101,19 +124,40 @@ class SettingsActivity : BaseActivity() {
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
         findViewById<View>(R.id.itemTheme).setOnClickListener { showThemeSheet() }
         findViewById<View>(R.id.itemLanguage).setOnClickListener { showLanguageSheet() }
+
         val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
         switchNotif.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("notifications", isChecked).apply()
         }
         findViewById<View>(R.id.itemNotifications).setOnClickListener { switchNotif.toggle() }
+
         findViewById<View>(R.id.itemPrivacy).setOnClickListener {}
         findViewById<View>(R.id.itemLogout).setOnClickListener { showLogoutSheet() }
+
+        // Novos itens (placeholders)
+        findViewById<View>(R.id.itemCustomization).setOnClickListener {}
+        findViewById<View>(R.id.itemStorage).setOnClickListener {}
+        findViewById<View>(R.id.itemSecurity).setOnClickListener {}
     }
 
-    // ─── Sheet temático RÁPIDO (dismiss instantâneo) ───────────────────────
+    // ========== ESTILO AGRUPADO (iOS) ==========
+    private fun styleGroupedCards() {
+        val cornerRadius = dp(10)   // raio padrão para os grupos
 
+        listOf(R.id.groupAccount, R.id.groupAppearance, R.id.groupPrivacy).forEach { id ->
+            val container = findViewById<LinearLayout>(id)
+            container.background = GradientDrawable().apply {
+                cornerRadius = cornerRadius
+                setColor(Color.WHITE)   // fundo branco no modo claro
+            }
+            container.clipToOutline = true
+        }
+    }
+
+    // ========== MODAIS COM BORDAS MENOS CURVAS ==========
     private fun showIosSheet(title: String, block: LinearLayout.() -> Unit) {
         val dialog = BottomSheetDialog(this, R.style.Theme_IPC_BottomSheet)
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
@@ -126,7 +170,7 @@ class SettingsActivity : BaseActivity() {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadii = floatArrayOf(dp(20), dp(20), dp(20), dp(20), 0f, 0f, 0f, 0f)
+                cornerRadii = floatArrayOf(dp(12), dp(12), dp(12), dp(12), 0f, 0f, 0f, 0f) // bordas menos curvas
                 setColor(dialogBg)
             }
             layoutParams = LinearLayout.LayoutParams(
@@ -135,6 +179,7 @@ class SettingsActivity : BaseActivity() {
             )
         }
 
+        // Handle pill
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -148,6 +193,7 @@ class SettingsActivity : BaseActivity() {
             }
         })
 
+        // Título
         card.addView(TextView(this).apply {
             text = title
             textSize = 13f
@@ -206,57 +252,21 @@ class SettingsActivity : BaseActivity() {
         return row
     }
 
-    // ─── Tema: aplica sem perder o chat ────────────────────────────────────
-
+    // ========== TEMA ==========
     private fun showThemeSheet() {
         val current = prefs.getString("theme", "light")
-        val dialog = BottomSheetDialog(this, R.style.Theme_IPC_BottomSheet)
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.TRANSPARENT)
-        }
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                cornerRadii = floatArrayOf(dp(20), dp(20), dp(20), dp(20), 0f, 0f, 0f, 0f)
-                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.dialog_background))
+        showIosSheet("Tema") {
+            listOf("Claro" to "light", "Escuro" to "dark").forEach { (label, value) ->
+                addView(sheetRow(label, current == value) {
+                    prefs.edit().putString("theme", value).apply()
+                    AppCompatDelegate.setDefaultNightMode(
+                        if (value == "dark") AppCompatDelegate.MODE_NIGHT_YES
+                        else AppCompatDelegate.MODE_NIGHT_NO
+                    )
+                    recreate()
+                })
             }
         }
-        // ... (handle e título igual ao showIosSheet)
-        card.addView(View(this).apply {
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3)
-                setColor(ContextCompat.getColor(this@SettingsActivity, R.color.divider))
-            }
-            layoutParams = LinearLayout.LayoutParams(dp(36).toInt(), dp(4).toInt()).also {
-                it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12).toInt(); it.bottomMargin = dp(4).toInt()
-            }
-        })
-        card.addView(TextView(this).apply {
-            text = "Tema"
-            textSize = 13f; setTypeface(typeface, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.settings_section_label))
-            gravity = Gravity.CENTER
-            setPadding(dp(20).toInt(), dp(8).toInt(), dp(20).toInt(), dp(12).toInt())
-        })
-
-        listOf("Claro" to "light", "Escuro" to "dark").forEach { (label, value) ->
-            card.addView(sheetRow(label, current == value) {
-                prefs.edit().putString("theme", value).apply()
-                val nightMode = if (value == "dark") AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
-                AppCompatDelegate.setDefaultNightMode(nightMode)
-                dialog.dismiss()
-                // Recria apenas a SettingsActivity para aplicar o tema imediatamente
-                // A MainActiviy NÃO é recriada, preservando o chat.
-                recreate()
-            })
-        }
-        card.addView(View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24).toInt())
-        })
-        root.addView(card)
-        dialog.setContentView(root)
-        dialog.show()
     }
 
     private fun showLanguageSheet() {

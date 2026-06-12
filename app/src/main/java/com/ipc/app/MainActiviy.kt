@@ -75,7 +75,7 @@ class MainActiviy : BaseActivity() {
     private var navBarHeight  = 0
     private var lastImeHeight = 0
     private var currentImeShift = 0
-    private var lastChatShift = 0f          // guarda o último deslocamento do chat
+    private var lastChatShift = 0f
 
     val prefs     by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
     val authToken get() = prefs.getString("auth_token", "") ?: ""
@@ -109,7 +109,7 @@ class MainActiviy : BaseActivity() {
 
         val screenH  = resources.displayMetrics.heightPixels
         val topGap   = dp(40)
-        val cornerPx = dp(24).toFloat()
+        val cornerPx = dp(12).toFloat()          // 12dp como nos modais de Settings
 
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -231,18 +231,15 @@ class MainActiviy : BaseActivity() {
             val imeNowOpen = imeHeight > 0
             val shift = (imeHeight - nav.bottom).coerceAtLeast(0)
 
-            // Só animamos a subida/descida quando o estado "teclado aberto" muda
             if (imeNowOpen != keyboardOpen) {
                 keyboardOpen = imeNowOpen
                 val dur    = if (imeNowOpen) 260L else 220L
                 val interp = DecelerateInterpolator(1.6f)
 
-                // Barra inferior
                 binding.bottomNavWrapper.animate()
                     .translationY(-shift.toFloat())
                     .setDuration(dur).setInterpolator(interp).start()
 
-                // Conteúdo do chat sobe apenas 12%
                 val targetChatShift = (shift * 0.12f)
                 listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach { view ->
                     view.animate()
@@ -253,13 +250,8 @@ class MainActiviy : BaseActivity() {
                 }
                 lastChatShift = targetChatShift
 
-                if (imeNowOpen) {
-                    // Ao abrir, aplicamos também o padding no RecyclerView
-                    chatFragment.applyKeyboardPadding(shift)
-                }
+                if (imeNowOpen) chatFragment.applyKeyboardPadding(shift)
             } else if (imeNowOpen && shift != currentImeShift) {
-                // Teclado já estava aberto, mas a altura mudou (ex: barra de sugestões)
-                // Ajustamos SEM animação para evitar o “sobe‑e‑desce”
                 currentImeShift = shift
                 binding.bottomNavWrapper.translationY = -shift.toFloat()
                 val targetChatShift = (shift * 0.12f)
@@ -294,7 +286,7 @@ class MainActiviy : BaseActivity() {
         drawerManager = DrawerManager(this)
 
         setupBottomBarSolid()
-        setupAppBarSolid()
+        setupAppBarTransparentGradient()   // substitui o setupAppBarSolid anterior
         setupIcons()
         setupDrawer()
         setupSwipeDrawer()
@@ -305,12 +297,20 @@ class MainActiviy : BaseActivity() {
         drawerManager.loadConversations()
     }
 
-    // ─── AppBar ───────────────────────────────────────────────────────────────
+    // ─── AppBar com gradiente transparente ────────────────────────────────────
 
-    private fun setupAppBarSolid() {
-        binding.appBarLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.appbar_solid))
-        binding.appBarGradient.visibility = View.VISIBLE
-        binding.appBarGradient.layoutParams = binding.appBarGradient.layoutParams.also { it.height = dp(80) }
+    private fun setupAppBarTransparentGradient() {
+        val solidColor = ContextCompat.getColor(this, R.color.appbar_solid)
+        val transparent = Color.TRANSPARENT
+
+        val gradient = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(solidColor, transparent)
+        )
+        binding.appBarLayout.background = gradient
+
+        // Esconde a view separada de gradiente (não precisamos mais dela)
+        binding.appBarGradient.visibility = View.GONE
     }
 
     fun setupBottomBarSolid() {
@@ -326,7 +326,7 @@ class MainActiviy : BaseActivity() {
     fun setupIcons() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
-        binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
+        binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/menu.svg", 16, iconTint))
         binding.btnNewChatIcon.setImageDrawable(svgDrawable("icons/svg/new_chat.svg", 17, iconTint))
         binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
         binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
@@ -549,7 +549,7 @@ class MainActiviy : BaseActivity() {
 
         val screenH  = resources.displayMetrics.heightPixels
         val topGap   = dp(120)
-        val cornerPx = dp(24).toFloat()
+        val cornerPx = dp(12).toFloat()          // 12dp como nos modais de Settings
 
         val root = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -647,6 +647,8 @@ class MainActiviy : BaseActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L)
         }
 
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
