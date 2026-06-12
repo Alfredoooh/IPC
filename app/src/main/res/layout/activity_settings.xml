@@ -67,7 +67,6 @@
                 android:paddingStart="24dp"
                 android:paddingBottom="6dp" />
 
-            <!-- Container do grupo Conta (cantos arredondados) -->
             <LinearLayout
                 android:id="@+id/groupAccount"
                 android:layout_width="match_parent"
@@ -75,11 +74,10 @@
                 android:orientation="vertical"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
-                android:background="@drawable/settings_card_bg"
                 android:clipToOutline="true"
                 android:outlineProvider="background">
 
-                <!-- Item Perfil (primeiro – topo arredondado) -->
+                <!-- Item Perfil -->
                 <LinearLayout
                     android:id="@+id/itemProfile"
                     android:layout_width="match_parent"
@@ -88,7 +86,7 @@
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="@null"
                     android:clickable="true"
                     android:focusable="true">
 
@@ -140,8 +138,8 @@
                         android:layout_height="20dp" />
                 </LinearLayout>
 
-                <!-- Separador -->
                 <View
+                    android:tag="divider"
                     android:layout_width="match_parent"
                     android:layout_height="0.5dp"
                     android:layout_marginStart="72dp"
@@ -156,7 +154,7 @@
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="@null"
                     android:clickable="true"
                     android:focusable="true">
 
@@ -180,8 +178,8 @@
                         android:layout_height="20dp" />
                 </LinearLayout>
 
-                <!-- Separador -->
                 <View
+                    android:tag="divider"
                     android:layout_width="match_parent"
                     android:layout_height="0.5dp"
                     android:layout_marginStart="72dp"
@@ -196,7 +194,7 @@
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="@null"
                     android:clickable="true"
                     android:focusable="true">
 
@@ -220,14 +218,14 @@
                         android:layout_height="20dp" />
                 </LinearLayout>
 
-                <!-- Separador -->
                 <View
+                    android:tag="divider"
                     android:layout_width="match_parent"
                     android:layout_height="0.5dp"
                     android:layout_marginStart="72dp"
                     android:background="@color/divider" />
 
-                <!-- Item Segurança (último – fundo arredondado) -->
+                <!-- Item Segurança -->
                 <LinearLayout
                     android:id="@+id/itemSecurity"
                     android:layout_width="match_parent"
@@ -236,7 +234,7 @@
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="@null"
                     android:clickable="true"
                     android:focusable="true">
 
@@ -280,7 +278,6 @@
                 android:orientation="vertical"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
-                android:background="@drawable/settings_card_bg"
                 android:clipToOutline="true"
                 android:outlineProvider="background">
 
@@ -293,7 +290,7 @@
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="@null"
                     android:clickable="true"
                     android:focusable="true">
 
@@ -326,6 +323,7 @@
                 </LinearLayout>
 
                 <View
+                    android:tag="divider"
                     android:layout_width="match_parent"
                     android:layout_height="0.5dp"
                     android:layout_marginStart="72dp"
@@ -340,7 +338,7 @@
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="@null"
                     android:clickable="true"
                     android:focusable="true">
 
@@ -392,7 +390,6 @@
                 android:orientation="vertical"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
-                android:background="@drawable/settings_card_bg"
                 android:clipToOutline="true"
                 android:outlineProvider="background">
 
@@ -404,7 +401,7 @@
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="@null"
                     android:clickable="true"
                     android:focusable="true">
 
@@ -429,6 +426,7 @@
                 </LinearLayout>
 
                 <View
+                    android:tag="divider"
                     android:layout_width="match_parent"
                     android:layout_height="0.5dp"
                     android:layout_marginStart="72dp"
@@ -442,7 +440,7 @@
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="@null"
                     android:clickable="true"
                     android:focusable="true">
 
@@ -466,6 +464,7 @@
                         android:layout_height="wrap_content" />
                 </LinearLayout>
             </LinearLayout>
+
         </LinearLayout>
     </ScrollView>
 
