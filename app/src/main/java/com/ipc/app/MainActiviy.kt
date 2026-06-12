@@ -224,7 +224,6 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
-        // ── AQUI ESTÁ O SHIFT DO CHAT ──────────────────────────────────────
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
@@ -232,41 +231,52 @@ class MainActiviy : BaseActivity() {
             val imeNowOpen = imeHeight > 0
             val shift = (imeHeight - nav.bottom).coerceAtLeast(0)
 
-            if (shift != lastImeHeight) {
-                lastImeHeight  = shift
-                currentImeShift = shift
-                keyboardOpen   = imeNowOpen
-
+            // Só animamos a subida/descida quando o estado "teclado aberto" muda
+            if (imeNowOpen != keyboardOpen) {
+                keyboardOpen = imeNowOpen
                 val dur    = if (imeNowOpen) 260L else 220L
                 val interp = DecelerateInterpolator(1.6f)
 
-                // Barra inferior sobe o shift completo
+                // Barra inferior
                 binding.bottomNavWrapper.animate()
                     .translationY(-shift.toFloat())
                     .setDuration(dur).setInterpolator(interp).start()
 
-                // Conteúdo do chat sobe apenas 12% (factor 0.12)
+                // Conteúdo do chat sobe apenas 12%
                 val targetChatShift = (shift * 0.12f)
-                if (targetChatShift != lastChatShift) {
-                    lastChatShift = targetChatShift
-                    listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach { view ->
-                        view.animate()
-                            .translationY(-targetChatShift)
-                            .setDuration(dur)
-                            .setInterpolator(interp)
-                            .start()
-                    }
+                listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach { view ->
+                    view.animate()
+                        .translationY(-targetChatShift)
+                        .setDuration(dur)
+                        .setInterpolator(interp)
+                        .start()
                 }
+                lastChatShift = targetChatShift
 
-                addPopup?.let { popup ->
-                    if (popup.isShowing) {
-                        popup.dismiss()
-                        binding.btnBottomAdd.postDelayed({ showAddPopupMenu(binding.btnBottomAdd) }, dur + 20)
-                    }
+                if (imeNowOpen) {
+                    // Ao abrir, aplicamos também o padding no RecyclerView
+                    chatFragment.applyKeyboardPadding(shift)
                 }
-
+            } else if (imeNowOpen && shift != currentImeShift) {
+                // Teclado já estava aberto, mas a altura mudou (ex: barra de sugestões)
+                // Ajustamos SEM animação para evitar o “sobe‑e‑desce”
+                currentImeShift = shift
+                binding.bottomNavWrapper.translationY = -shift.toFloat()
+                val targetChatShift = (shift * 0.12f)
+                listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach {
+                    it.translationY = -targetChatShift
+                }
+                lastChatShift = targetChatShift
                 chatFragment.applyKeyboardPadding(shift)
             }
+
+            addPopup?.let { popup ->
+                if (popup.isShowing) {
+                    popup.dismiss()
+                    binding.btnBottomAdd.postDelayed({ showAddPopupMenu(binding.btnBottomAdd) }, 280)
+                }
+            }
+
             insets
         }
 

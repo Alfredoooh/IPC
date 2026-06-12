@@ -275,7 +275,7 @@ class ChatFragment(private val activity: MainActiviy) {
     val bg = wrapper.background as? GradientDrawable ?: return
     val defaultStrokeColor = ContextCompat.getColor(activity, R.color.divider)
     val glowColor = ContextCompat.getColor(activity, R.color.colorPrimary)
-    val strokePx = (1.5f * activity.density).toInt()   // <-- aqui
+    val strokePx = (1.5f * activity.density).toInt()
 
     binding.inputMessage.setOnFocusChangeListener { _, hasFocus ->
         val targetColor = if (hasFocus) glowColor else defaultStrokeColor
@@ -285,11 +285,11 @@ class ChatFragment(private val activity: MainActiviy) {
         )
         anim.duration = 260L
         anim.addUpdateListener {
-            bg.setStroke(strokePx, it.animatedValue as Int)   // <-- stroke fixo
+            bg.setStroke(strokePx, it.animatedValue as Int)
         }
         anim.start()
     }
-    bg.setStroke(strokePx, defaultStrokeColor)   // inicial
+    bg.setStroke(strokePx, defaultStrokeColor)
 }
 
     fun showInputRow() {
