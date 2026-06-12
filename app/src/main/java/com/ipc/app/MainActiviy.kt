@@ -224,7 +224,7 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
-        // Insets para a bottom bar (agora diretamente no rootFrame)
+        // Insets para a bottom bar (dentro do Coordinator, fixa no fundo)
         ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavWrapper) { v, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
@@ -880,7 +880,7 @@ class MainActiviy : BaseActivity() {
         startActivity(Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE))
     }
 
-    // ─── Drawer (move o coordinatorLayout, comportamento original) ────────────
+    // ─── Drawer (move o contentContainer) ─────────────────────────────────────
 
     private fun setupDrawer() {
         binding.btnMenu.setOnClickListener { if (drawerOpen) closeDrawer() else openDrawer() }
@@ -897,12 +897,12 @@ class MainActiviy : BaseActivity() {
         hideKeyboard(); drawerOpen = true
         binding.drawerScrim.visibility = View.VISIBLE
         drawerManager.loadConversations()
-        animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat())
+        animateDrawer(binding.contentContainer.translationX, drawerWidth.toFloat())
     }
 
     fun closeDrawer() {
         if (!drawerOpen) return; drawerOpen = false
-        animateDrawer(binding.coordinatorLayout.translationX, 0f) { binding.drawerScrim.visibility = View.GONE }
+        animateDrawer(binding.contentContainer.translationX, 0f) { binding.drawerScrim.visibility = View.GONE }
     }
 
     private fun animateDrawer(from: Float, to: Float, onEnd: (() -> Unit)? = null) {
@@ -911,8 +911,8 @@ class MainActiviy : BaseActivity() {
             duration = 300; interpolator = DecelerateInterpolator(1.8f)
             addUpdateListener { anim ->
                 val v = anim.animatedValue as Float
-                binding.coordinatorLayout.translationX = v
-                binding.coordinatorLayout.elevation    = 8f + ((v / drawerWidth) * 16f)
+                binding.contentContainer.translationX = v
+                binding.contentContainer.elevation    = 8f + ((v / drawerWidth) * 16f)
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) { onEnd?.invoke() }
@@ -937,16 +937,16 @@ class MainActiviy : BaseActivity() {
                         val dx = event.rawX - swipeStartX; val dy = event.rawY - swipeStartY
                         if (kotlin.math.abs(dx) > kotlin.math.abs(dy) && dx > 0) {
                             val progress = (dx / drawerWidth).coerceIn(0f, 1f)
-                            binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
-                            binding.coordinatorLayout.elevation    = 8f + progress * 16f
+                            binding.contentContainer.translationX = dx.coerceAtMost(drawerWidth.toFloat())
+                            binding.contentContainer.elevation    = 8f + progress * 16f
                             binding.drawerScrim.visibility = View.VISIBLE; true
                         } else false
                     } else if (drawerOpen) {
                         val dx = event.rawX - swipeStartX
                         if (dx < 0) {
                             val newX = (drawerWidth + dx).coerceAtLeast(0f)
-                            binding.coordinatorLayout.translationX = newX
-                            binding.coordinatorLayout.elevation    = 8f + (newX / drawerWidth) * 16f; true
+                            binding.contentContainer.translationX = newX
+                            binding.contentContainer.elevation    = 8f + (newX / drawerWidth) * 16f; true
                         } else false
                     } else false
                 }
@@ -954,8 +954,8 @@ class MainActiviy : BaseActivity() {
                     val dx = event.rawX - swipeStartX
                     if (isSwipingDrawer) {
                         isSwipingDrawer = false
-                        if (dx > minDistPx) { drawerOpen = true; animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat()) }
-                        else animateDrawer(binding.coordinatorLayout.translationX, 0f) { binding.drawerScrim.visibility = View.GONE }
+                        if (dx > minDistPx) { drawerOpen = true; animateDrawer(binding.contentContainer.translationX, drawerWidth.toFloat()) }
+                        else animateDrawer(binding.contentContainer.translationX, 0f) { binding.drawerScrim.visibility = View.GONE }
                         true
                     } else if (drawerOpen && dx < -minDistPx) { closeDrawer(); true }
                     else false
