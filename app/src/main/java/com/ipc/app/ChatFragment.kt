@@ -628,7 +628,7 @@ class ChatFragment(private val activity: MainActiviy) {
             btn.addView(ImageView(ctx).apply {
                 setImageDrawable(activity.svgDrawable(icon, iconSize, tint))
                 val px = dp(iconSize)
-                layoutParams = LinearLayout.LayoutParams(px, px, Gravity.CENTER)
+                layoutParams = LinearLayout.LayoutParams(px, px)
             })
             btn.addView(TextView(ctx).apply {
                 text = label; textSize = 11f; setTextColor(tint); gravity = Gravity.CENTER
