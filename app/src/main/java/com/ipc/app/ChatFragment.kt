@@ -12,6 +12,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -79,16 +80,9 @@ class ChatFragment(private val activity: MainActiviy) {
     private var inputRowAnimator:     ValueAnimator? = null
     private var newChatSlideAnimator: ValueAnimator? = null
 
-    // Referências dos cards do modal de extras para atualização em tempo real
-    private var flashCardView:   View? = null
-    private var flashCardIcon:   ImageView? = null
-    private var flashCardLabel:  TextView? = null
-    private var thinkCardView:   View? = null
-    private var thinkCardIcon:   ImageView? = null
-    private var thinkCardLabel:  TextView? = null
-    private var sheetsCardView:  View? = null
-    private var sheetsCardIcon:  ImageView? = null
-    private var sheetsCardLabel: TextView? = null
+    private var flashCardView:   View? = null; private var flashCardIcon:   ImageView? = null; private var flashCardLabel:  TextView? = null
+    private var thinkCardView:   View? = null; private var thinkCardIcon:   ImageView? = null; private var thinkCardLabel:  TextView? = null
+    private var sheetsCardView:  View? = null; private var sheetsCardIcon:  ImageView? = null; private var sheetsCardLabel: TextView? = null
     private var extrasDialog: BottomSheetDialog? = null
 
     private val timesTypeface: Typeface? by lazy {
@@ -598,7 +592,6 @@ class ChatFragment(private val activity: MainActiviy) {
                         renderMessageContent(col, msg.content)
                         if (msg.isStreaming) col.addView(buildLoaderView(holder.wrapper.context))
                         else if (msg.role == "assistant" && msg.content.isNotBlank()) {
-                            // Botões de ação no final da resposta final
                             col.addView(buildActionRow(holder.wrapper.context, msg.content))
                         }
                     }
@@ -634,7 +627,8 @@ class ChatFragment(private val activity: MainActiviy) {
             }
             btn.addView(ImageView(ctx).apply {
                 setImageDrawable(activity.svgDrawable(icon, iconSize, tint))
-                layoutParams = LinearLayout.LayoutParams(iconSize.dp, iconSize.dp, Gravity.CENTER)
+                val px = dp(iconSize)
+                layoutParams = LinearLayout.LayoutParams(px, px, Gravity.CENTER)
             })
             btn.addView(TextView(ctx).apply {
                 text = label; textSize = 11f; setTextColor(tint); gravity = Gravity.CENTER
@@ -1822,8 +1816,6 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun parseMarkdown(raw: String): Spanned = parseMarkdownBlock(
         raw.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
     )
-
-    private val Int.dp get() = dp(this)
 
     private fun dp(v: Int) = activity.dp(v)
 }
