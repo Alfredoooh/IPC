@@ -38,6 +38,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -127,34 +129,30 @@ class ChatFragment(private val activity: MainActiviy) {
             if (inputRowHeight == 0) inputRowHeight = binding.inputRow.height
         }
         refreshNewChatBtn()
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.chatRecyclerView) { v: View, insets: WindowInsetsCompat ->
+            val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            val appBarHeight = binding.appBarLayout.height.takeIf { it > 0 }
+                ?: (statusBar.top + activity.dp(56))
+
+            v.setPadding(
+                v.paddingLeft,
+                appBarHeight + activity.dp(8),
+                v.paddingRight,
+                v.paddingBottom
+            )
+            insets
+        }
     }
 
     private fun setupChatRecycler() {
-    chatAdapter = ChatAdapter(displayMessages)
-    val llm = LinearLayoutManager(activity)
-    llm.stackFromEnd = true
-    binding.chatRecyclerView.layoutManager = llm
-    binding.chatRecyclerView.adapter = chatAdapter
-    binding.chatRecyclerView.overScrollMode = View.OVER_SCROLL_NEVER
-}
-
-private fun setup() {
-    setupChatRecycler()
-
-    ViewCompat.setOnApplyWindowInsetsListener(binding.chatRecyclerView) { v, insets ->
-        val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-        val appBarHeight = binding.appBarLayout.height.takeIf { it > 0 }
-            ?: (statusBar.top + requireActivity().dp(56))
-
-        v.setPadding(
-            v.paddingLeft,
-            appBarHeight + requireActivity().dp(8),
-            v.paddingRight,
-            v.paddingBottom
-        )
-        insets
+        chatAdapter = ChatAdapter(displayMessages)
+        val llm = LinearLayoutManager(activity)
+        llm.stackFromEnd = true
+        binding.chatRecyclerView.layoutManager = llm
+        binding.chatRecyclerView.adapter = chatAdapter
+        binding.chatRecyclerView.overScrollMode = View.OVER_SCROLL_NEVER
     }
-}
 
     private fun setupPreviewImage() {
         val bitmap = runCatching {
@@ -250,14 +248,14 @@ private fun setup() {
     }
 
     fun applyKeyboardPadding(extraShift: Int) {
-    val rv = binding.chatRecyclerView
-    val base   = dp(160)
-    val target = base + extraShift
-    if (rv.paddingBottom != target) {
-        rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, target)
-        if (displayMessages.isNotEmpty()) smoothScroll(displayMessages.lastIndex)
+        val rv = binding.chatRecyclerView
+        val base   = dp(160)
+        val target = base + extraShift
+        if (rv.paddingBottom != target) {
+            rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, target)
+            if (displayMessages.isNotEmpty()) smoothScroll(displayMessages.lastIndex)
+        }
     }
-}
 
     // ─── Scroll ───────────────────────────────────────────────────────────────
 
@@ -626,37 +624,36 @@ private fun setup() {
     // ─── Action row (copiar, gostei, não gostei, partilhar, regenerar) ──────
 
     private fun buildActionRow(ctx: Context, messageContent: String): View {
-    val container = LinearLayout(ctx).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.START
-        setPadding(dp(2), dp(6), dp(4), dp(4))
-    }
-    val tint = ContextCompat.getColor(activity, R.color.icon_tint_secondary)
-    val iconSize = 16
-    val btnSize = dp(36)
-
-    fun addAction(icon: String, listener: () -> Unit) {
-        val btn = FrameLayout(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).also { it.marginEnd = dp(4) }
-            isClickable = true; isFocusable = true
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.START
+            setPadding(dp(2), dp(6), dp(4), dp(4))
         }
-        btn.addView(ImageView(ctx).apply {
-            setImageDrawable(activity.svgDrawable(icon, iconSize, tint))
-            layoutParams = FrameLayout.LayoutParams(dp(iconSize), dp(iconSize), Gravity.CENTER)
-        })
-        btn.setOnClickListener { listener() }
-        container.addView(btn)
+        val tint = ContextCompat.getColor(activity, R.color.icon_tint_secondary)
+        val iconSize = 16
+        val btnSize = dp(36)
+
+        fun addAction(icon: String, listener: () -> Unit) {
+            val btn = FrameLayout(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).also { it.marginEnd = dp(4) }
+                isClickable = true; isFocusable = true
+            }
+            btn.addView(ImageView(ctx).apply {
+                setImageDrawable(activity.svgDrawable(icon, iconSize, tint))
+                layoutParams = FrameLayout.LayoutParams(dp(iconSize), dp(iconSize), Gravity.CENTER)
+            })
+            btn.setOnClickListener { listener() }
+            container.addView(btn)
+        }
+
+        addAction("icons/svg/copy.svg") { copyToClipboard(messageContent) }
+        addAction("icons/svg/thumbs_up.svg") { /* like */ }
+        addAction("icons/svg/thumbs_down.svg") { /* dislike */ }
+        addAction("icons/svg/share.svg") { shareText(messageContent) }
+        addAction("icons/svg/regenerate.svg") { regenerateResponse() }
+
+        return container
     }
-
-    addAction("icons/svg/copy.svg") { copyToClipboard(messageContent) }
-    addAction("icons/svg/thumbs_up.svg") { /* like */ }
-    addAction("icons/svg/thumbs_down.svg") { /* dislike */ }
-    addAction("icons/svg/share.svg") { shareText(messageContent) }
-    addAction("icons/svg/regenerate.svg") { regenerateResponse() }
-
-    return container
-}
-
 
     private fun copyToClipboard(text: String) {
         val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -1646,21 +1643,21 @@ private fun setup() {
     // ─── Loader com GooeyLoader ──────────────────────────────────────────────
 
     private fun buildLoaderView(ctx: Context): View {
-    val container = FrameLayout(ctx).apply {
-        layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).also {
-            it.topMargin = dp(4)
-            it.bottomMargin = dp(4)
+        val container = FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).also {
+                it.topMargin = dp(4)
+                it.bottomMargin = dp(4)
+            }
         }
+        val lottie = com.airbnb.lottie.LottieAnimationView(ctx).apply {
+            layoutParams = FrameLayout.LayoutParams(dp(48), dp(48))
+            setAnimation("icons/lottie/loader.json")
+            repeatCount = com.airbnb.lottie.LottieDrawable.INFINITE
+            playAnimation()
+        }
+        container.addView(lottie)
+        return container
     }
-    val lottie = com.airbnb.lottie.LottieAnimationView(ctx).apply {
-        layoutParams = FrameLayout.LayoutParams(dp(48), dp(48))
-        setAnimation("icons/lottie/loader.json")
-        repeatCount = com.airbnb.lottie.LottieDrawable.INFINITE
-        playAnimation()
-    }
-    container.addView(lottie)
-    return container
-}
 
     // ─── Thinking skeleton ────────────────────────────────────────────────────
 
