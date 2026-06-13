@@ -48,7 +48,6 @@ import com.ipc.app.data.ChatMessage
 import com.ipc.app.data.Conversation
 import com.ipc.app.data.GeminiApiService
 import com.ipc.app.data.StreamChunk
-import com.ipc.app.ui.GooeyLoader
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.json.JSONObject
