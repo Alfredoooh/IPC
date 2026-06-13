@@ -77,41 +77,16 @@
             android:layout_marginEnd="24dp"
             android:background="@color/divider" />
 
+        <!-- Avatar + Nome do utilizador (sem ícone de settings) -->
         <LinearLayout
             android:id="@+id/drawerItemSettings"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="60dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
             android:background="?attr/selectableItemBackground">
-
-            <FrameLayout
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:background="@drawable/drawer_icon_bg"
-                android:layout_marginEnd="16dp">
-
-                <ImageView
-                    android:id="@+id/drawerIconSettings"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_gravity="center" />
-            </FrameLayout>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/drawer_settings"
-                android:textSize="15sp"
-                android:textColor="@color/drawer_text" />
-
-            <ImageView
-                android:id="@+id/drawerChevronSettings"
-                android:layout_width="13dp"
-                android:layout_height="13dp" />
         </LinearLayout>
 
         <View
@@ -129,7 +104,6 @@
         android:elevation="8dp"
         android:outlineProvider="bounds">
 
-        <!-- Contentor que desliza com o drawer -->
         <FrameLayout
             android:id="@+id/contentContainer"
             android:layout_width="match_parent"
@@ -222,20 +196,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="80dp"
                 android:background="@drawable/appbar_gradient"
+                android:visibility="gone"
                 app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
             <androidx.recyclerview.widget.RecyclerView
-    android:id="@+id/chatRecyclerView"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="64dp"
-    android:paddingBottom="140dp"
-    android:clipToPadding="false"
-    android:overScrollMode="never"
-    android:visibility="gone"
-    app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+                android:id="@+id/chatRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="0dp"
+                android:paddingBottom="160dp"
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/previewState"
@@ -471,16 +445,14 @@
                 android:focusable="true"
                 android:background="#44000000" />
         </FrameLayout>
-        
-        <View
-    android:id="@+id/bottomFadeScrim"
-    android:layout_width="match_parent"
-    android:layout_height="80dp"
-    android:layout_gravity="bottom"
-    android:layout_marginBottom="0dp"
-    android:background="@drawable/bottom_scrim_gradient" />
 
-        <!-- BOTTOM BAR FIXA (dentro do Coordinator, fora do contentContainer) -->
+        <View
+            android:id="@+id/bottomFadeScrim"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/bottom_scrim_gradient" />
+
         <LinearLayout
             android:id="@+id/bottomNavWrapper"
             android:layout_width="match_parent"

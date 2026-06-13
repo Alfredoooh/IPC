@@ -130,13 +130,31 @@ class ChatFragment(private val activity: MainActiviy) {
     }
 
     private fun setupChatRecycler() {
-        chatAdapter = ChatAdapter(displayMessages)
-        val llm = LinearLayoutManager(activity)
-        llm.stackFromEnd = true
-        binding.chatRecyclerView.layoutManager = llm
-        binding.chatRecyclerView.adapter = chatAdapter
-        binding.chatRecyclerView.overScrollMode = View.OVER_SCROLL_NEVER
+    chatAdapter = ChatAdapter(displayMessages)
+    val llm = LinearLayoutManager(activity)
+    llm.stackFromEnd = true
+    binding.chatRecyclerView.layoutManager = llm
+    binding.chatRecyclerView.adapter = chatAdapter
+    binding.chatRecyclerView.overScrollMode = View.OVER_SCROLL_NEVER
+}
+
+private fun setup() {
+    setupChatRecycler()
+
+    ViewCompat.setOnApplyWindowInsetsListener(binding.chatRecyclerView) { v, insets ->
+        val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+        val appBarHeight = binding.appBarLayout.height.takeIf { it > 0 }
+            ?: (statusBar.top + requireActivity().dp(56))
+
+        v.setPadding(
+            v.paddingLeft,
+            appBarHeight + requireActivity().dp(8),
+            v.paddingRight,
+            v.paddingBottom
+        )
+        insets
     }
+}
 
     private fun setupPreviewImage() {
         val bitmap = runCatching {
@@ -233,7 +251,7 @@ class ChatFragment(private val activity: MainActiviy) {
 
     fun applyKeyboardPadding(extraShift: Int) {
     val rv = binding.chatRecyclerView
-    val base   = dp(140)
+    val base   = dp(160)
     val target = base + extraShift
     if (rv.paddingBottom != target) {
         rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, target)

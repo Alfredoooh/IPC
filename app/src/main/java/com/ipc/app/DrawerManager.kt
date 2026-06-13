@@ -1,4 +1,3 @@
-// DrawerManager.kt
 package com.ipc.app
 
 import android.graphics.Color
@@ -8,6 +7,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -30,7 +30,7 @@ class DrawerManager(private val activity: MainActiviy) {
             val list = AuthApiService.listConversations(authToken)
             drawerConversations.clear()
             drawerConversations.addAll(list)
-            refreshDrawerConversations()
+            refreshDrawerUI()
         }
     }
 
@@ -54,10 +54,71 @@ class DrawerManager(private val activity: MainActiviy) {
         return result
     }
 
+    private fun refreshDrawerUI() {
+        refreshDrawerHeader()
+        refreshDrawerConversations()
+    }
+
+    private fun refreshDrawerHeader() {
+        val userName = activity.prefs.getString("auth_user_name", "Utilizador") ?: "Utilizador"
+        val initial  = userName.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
+
+        // Substituir o drawerItemSettings por avatar + nome
+        val settingsRow = binding.drawerItemSettings
+        settingsRow.removeAllViews()
+        settingsRow.setPadding(dp(20), 0, dp(20), 0)
+        settingsRow.gravity = Gravity.CENTER_VERTICAL
+
+        // Avatar circular com inicial
+        val avatar = FrameLayout(activity).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).also { it.marginEnd = dp(12) }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(ContextCompat.getColor(activity, R.color.colorPrimary))
+            }
+        }
+        avatar.addView(TextView(activity).apply {
+            text = initial
+            textSize = 15f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        })
+        settingsRow.addView(avatar)
+
+        // Nome do utilizador
+        settingsRow.addView(TextView(activity).apply {
+            text = userName
+            textSize = 15f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(activity, R.color.drawer_text))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+        })
+
+        // Chevron
+        settingsRow.addView(ImageView(activity).apply {
+            setImageDrawable(activity.svgDrawable("icons/svg/chevron_right.svg", 13,
+                ContextCompat.getColor(activity, R.color.icon_tint_secondary)))
+            layoutParams = LinearLayout.LayoutParams(dp(13), dp(13))
+        })
+
+        settingsRow.setOnClickListener {
+            activity.closeDrawer()
+            binding.root.postDelayed({
+                activity.startActivity(android.content.Intent(activity, com.ipc.app.ui.SettingsActivity::class.java))
+            }, 250)
+        }
+    }
+
     private fun refreshDrawerConversations() {
         val container = binding.drawerConversationsList
         container.removeAllViews()
         val grouped = groupConversations(drawerConversations)
+        val activeId = activity.chatFragment.currentConversationId
+
         grouped.forEach { item ->
             when (item) {
                 is String -> {
@@ -71,41 +132,53 @@ class DrawerManager(private val activity: MainActiviy) {
                     })
                 }
                 is Conversation -> {
+                    val isActive = item.id == activeId && activeId.isNotEmpty()
+
                     val row = LinearLayout(activity).apply {
                         orientation = LinearLayout.HORIZONTAL
                         gravity     = Gravity.CENTER_VERTICAL
-                        setPadding(dp(20), 0, dp(12), 0)
-                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52))
-                        val a = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
-                        background = a.getDrawable(0); a.recycle()
+                        setPadding(dp(12), 0, dp(12), 0)
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).also { it.marginStart = dp(8); it.marginEnd = dp(8); it.topMargin = dp(2); it.bottomMargin = dp(2) }
+
+                        background = if (isActive) {
+                            GradientDrawable().apply {
+                                cornerRadius = dp(10).toFloat()
+                                setColor(ContextCompat.getColor(activity, R.color.colorPrimary).let { c ->
+                                    Color.argb(30, Color.red(c), Color.green(c), Color.blue(c))
+                                })
+                            }
+                        } else {
+                            val a = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+                            val d = a.getDrawable(0); a.recycle(); d
+                        }
                         isClickable = true; isFocusable = true
+                        minimumHeight = dp(48)
                     }
 
                     if (item.pinned) {
                         row.addView(ImageView(activity).apply {
-                            setImageDrawable(activity.svgDrawable("icons/svg/pin_filled.svg", 13,
+                            setImageDrawable(activity.svgDrawable("icons/svg/pin_filled.svg", 12,
                                 ContextCompat.getColor(activity, R.color.colorPrimary)))
-                            layoutParams = LinearLayout.LayoutParams(dp(13), dp(13)).also { it.marginEnd = dp(6) }
+                            layoutParams = LinearLayout.LayoutParams(dp(12), dp(12)).also { it.marginEnd = dp(6) }
                         })
                     }
 
                     row.addView(TextView(activity).apply {
-                        text      = item.title
-                        textSize  = 14.5f
-                        setTextColor(ContextCompat.getColor(activity, R.color.drawer_text))
-                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        text     = item.title
+                        textSize = 14.5f
+                        setTextColor(
+                            if (isActive) ContextCompat.getColor(activity, R.color.colorPrimary)
+                            else ContextCompat.getColor(activity, R.color.drawer_text)
+                        )
+                        if (isActive) setTypeface(null, Typeface.BOLD)
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
+                            it.marginStart = dp(8)
+                        }
                         maxLines  = 1
                         ellipsize = TextUtils.TruncateAt.END
-                    })
-
-                    row.addView(ImageView(activity).apply {
-                        setImageDrawable(activity.svgDrawable("icons/svg/more_vertical.svg", 15, Color.parseColor("#C0C0C0")))
-                        layoutParams = LinearLayout.LayoutParams(dp(36), dp(52)).also { it.marginStart = dp(4) }
-                        scaleType = ImageView.ScaleType.CENTER
-                        val a = activity.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackgroundBorderless))
-                        background = a.getDrawable(0); a.recycle()
-                        isClickable = true; isFocusable = true
-                        setOnClickListener { showConversationOptions(item) }
                     })
 
                     row.setOnClickListener {
@@ -128,22 +201,23 @@ class DrawerManager(private val activity: MainActiviy) {
         activity.hideKeyboard()
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
+                cornerRadii = floatArrayOf(dp(14).toFloat(), dp(14).toFloat(), dp(14).toFloat(), dp(14).toFloat(), 0f, 0f, 0f, 0f)
                 setColor(ContextCompat.getColor(activity, R.color.dialog_background))
             }
         }
+
         card.addView(sheetHandle())
         card.addView(TextView(activity).apply {
             text = conv.title; textSize = 15f
             setTypeface(null, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
-            setPadding(dp(20), dp(4), dp(20), dp(12))
+            setPadding(dp(20), dp(4), dp(20), dp(16))
         })
-        card.addView(divider())
 
         val iconTint = ContextCompat.getColor(activity, R.color.icon_tint)
         val redColor = Color.parseColor("#FF3B30")
@@ -157,13 +231,11 @@ class DrawerManager(private val activity: MainActiviy) {
                 loadConversations()
             }
         })
-        card.addView(rowDivider())
 
         card.addView(optionRow("icons/svg/share.svg", "Partilhar conversa", iconTint) {
             dialog.dismiss()
             shareConversation(conv)
         })
-        card.addView(rowDivider())
 
         val archLabel = if (conv.archived) "Desarquivar conversa" else "Arquivar conversa"
         val archIcon  = if (conv.archived) "icons/svg/bookmark_filled.svg" else "icons/svg/bookmark.svg"
@@ -175,7 +247,6 @@ class DrawerManager(private val activity: MainActiviy) {
                 else loadConversations()
             }
         })
-        card.addView(rowDivider())
 
         card.addView(optionRow("icons/svg/trash.svg", "Eliminar conversa", redColor) {
             dialog.dismiss()
@@ -193,8 +264,8 @@ class DrawerManager(private val activity: MainActiviy) {
         }
         dialog.setContentView(root)
         dialog.setOnShowListener {
-            val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bs?.setBackgroundColor(Color.TRANSPARENT)
+            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                ?.setBackgroundColor(Color.TRANSPARENT)
         }
         dialog.show()
     }
@@ -214,10 +285,11 @@ class DrawerManager(private val activity: MainActiviy) {
         activity.hideKeyboard()
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadii = floatArrayOf(dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), dp(20).toFloat(), 0f, 0f, 0f, 0f)
+                cornerRadii = floatArrayOf(dp(14).toFloat(), dp(14).toFloat(), dp(14).toFloat(), dp(14).toFloat(), 0f, 0f, 0f, 0f)
                 setColor(ContextCompat.getColor(activity, R.color.dialog_background))
             }
         }
@@ -246,6 +318,7 @@ class DrawerManager(private val activity: MainActiviy) {
             setPadding(dp(24), 0, dp(24), dp(24))
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         })
+
         val btnRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(16), 0, dp(16), dp(24))
@@ -287,8 +360,8 @@ class DrawerManager(private val activity: MainActiviy) {
         }
         dialog.setContentView(root)
         dialog.setOnShowListener {
-            val bs = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bs?.setBackgroundColor(Color.TRANSPARENT)
+            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                ?.setBackgroundColor(Color.TRANSPARENT)
         }
         dialog.show()
     }
@@ -321,18 +394,6 @@ class DrawerManager(private val activity: MainActiviy) {
         }
         layoutParams = LinearLayout.LayoutParams(dp(36), dp(4)).also {
             it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(12); it.bottomMargin = dp(8)
-        }
-    }
-
-    private fun divider() = View(activity).apply {
-        setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
-    }
-
-    private fun rowDivider() = View(activity).apply {
-        setBackgroundColor(ContextCompat.getColor(activity, R.color.divider))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).also {
-            it.marginStart = dp(56)
         }
     }
 

@@ -60,8 +60,8 @@ class MainActiviy : BaseActivity() {
     private var swipeStartX     = 0f
     private var swipeStartY     = 0f
     private var isSwipingDrawer = false
-    private val SWIPE_EDGE_WIDTH = 40f
-    private val SWIPE_MIN_DIST   = 30f
+    private var swipeConsumed   = false
+    private val SWIPE_MIN_DIST  = 30f
 
     val MARGIN_CHAT_DP    = 16f
     val MARGIN_PREVIEW_DP = 36f
@@ -73,7 +73,6 @@ class MainActiviy : BaseActivity() {
     var currentBarRadiusPx: Float = -1f
 
     private var navBarHeight  = 0
-    private var lastImeHeight = 0
     private var currentImeShift = 0
     private var lastChatShift = 0f
 
@@ -224,7 +223,6 @@ class MainActiviy : BaseActivity() {
             insets
         }
 
-        // Insets para o teclado — igual ao antigo: listener no coordinatorLayout
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinatorLayout) { _, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
@@ -241,23 +239,16 @@ class MainActiviy : BaseActivity() {
                     .translationY(-shift.toFloat())
                     .setDuration(dur).setInterpolator(interp).start()
 
-                val maxChatShift = dp(100).toFloat()
-                val targetChatShift = (shift * 0.12f).coerceAtMost(maxChatShift)
+                val targetChatShift = (shift * 0.12f)
                 listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach { view ->
-                    view.animate()
-                        .translationY(-targetChatShift)
-                        .setDuration(dur)
-                        .setInterpolator(interp)
-                        .start()
+                    view.animate().translationY(-targetChatShift).setDuration(dur).setInterpolator(interp).start()
                 }
                 lastChatShift = targetChatShift
-
                 if (imeNowOpen) chatFragment.applyKeyboardPadding(shift)
             } else if (imeNowOpen && shift != currentImeShift) {
                 currentImeShift = shift
                 binding.bottomNavWrapper.translationY = -shift.toFloat()
-                val maxChatShift = dp(100).toFloat()
-                val targetChatShift = (shift * 0.12f).coerceAtMost(maxChatShift)
+                val targetChatShift = (shift * 0.12f)
                 listOf(binding.chatRecyclerView, binding.emptyState, binding.previewState).forEach {
                     it.translationY = -targetChatShift
                 }
@@ -273,12 +264,6 @@ class MainActiviy : BaseActivity() {
             }
 
             insets
-        }
-
-        // Tocar no chat remove o foco do input
-        binding.coordinatorLayout.setOnTouchListener { _, _ ->
-            binding.inputMessage.clearFocus()
-            false
         }
 
         binding.appBarLayout.stateListAnimator = null
@@ -309,13 +294,9 @@ class MainActiviy : BaseActivity() {
     // ─── AppBar com gradiente transparente ────────────────────────────────────
 
     private fun setupAppBarTransparentGradient() {
-        val solidColor = ContextCompat.getColor(this, R.color.appbar_solid)
+        val solidColor  = ContextCompat.getColor(this, R.color.appbar_solid)
         val transparent = Color.TRANSPARENT
-
-        val gradient = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(solidColor, transparent)
-        )
+        val gradient = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(solidColor, transparent))
         binding.appBarLayout.background = gradient
         binding.appBarGradient.visibility = View.GONE
     }
@@ -335,8 +316,6 @@ class MainActiviy : BaseActivity() {
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
         binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
         binding.btnNewChatIcon.setImageDrawable(svgDrawable("icons/svg/new_chat.svg", 17, iconTint))
-        binding.drawerIconSettings.setImageDrawable(svgDrawable("icons/svg/settings.svg", 14, iconTint))
-        binding.drawerChevronSettings.setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 13, iconSec))
         binding.popupCameraIcon.setImageDrawable(svgDrawable("icons/svg/camera.svg", 20, iconTint))
         binding.popupImportIcon.setImageDrawable(svgDrawable("icons/svg/download.svg", 20, iconTint))
         binding.popupUrlIcon.setImageDrawable(svgDrawable("icons/svg/external.svg", 20, iconTint))
@@ -423,7 +402,7 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Botão ADD (popup com blur total) ─────────────────────────────────────
+    // ─── Botão ADD ────────────────────────────────────────────────────────────
 
     private var addPopup: PopupWindow? = null
     private var addBlurOverlay: View? = null
@@ -441,12 +420,8 @@ class MainActiviy : BaseActivity() {
 
         val overlay = View(this).apply {
             setBackgroundColor(Color.parseColor("#88000000"))
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            alpha = 0f
-            isClickable = true; isFocusable = true
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            alpha = 0f; isClickable = true; isFocusable = true
             setOnClickListener { addPopup?.dismiss() }
         }
         binding.rootFrame.addView(overlay)
@@ -459,8 +434,7 @@ class MainActiviy : BaseActivity() {
                 cornerRadius = dp(16).toFloat()
                 setColor(ContextCompat.getColor(this@MainActiviy, R.color.dialog_background))
             }
-            elevation = dp(12).toFloat()
-            clipToOutline = true
+            elevation = dp(12).toFloat(); clipToOutline = true
         }
 
         fun menuRow(iconPath: String, label: String, dimmed: Boolean = false, action: () -> Unit): View {
@@ -508,8 +482,7 @@ class MainActiviy : BaseActivity() {
             setBackgroundDrawable(null); animationStyle = 0
             setOnDismissListener {
                 addBlurOverlay?.animate()?.alpha(0f)?.setDuration(180)
-                    ?.withEndAction { binding.rootFrame.removeView(addBlurOverlay); addBlurOverlay = null }
-                    ?.start()
+                    ?.withEndAction { binding.rootFrame.removeView(addBlurOverlay); addBlurOverlay = null }?.start()
             }
         }
         addPopup = popup
@@ -519,19 +492,13 @@ class MainActiviy : BaseActivity() {
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
         val popupH = card.measuredHeight
-
-        val anchorLoc = IntArray(2).also { anchor.getLocationOnScreen(it) }
         val yOff = -(popupH + anchor.height + dp(8))
-        val xOff = 0
 
         card.scaleX = 0.85f; card.scaleY = 0.85f; card.alpha = 0f
         card.pivotX = dp(40).toFloat(); card.pivotY = popupH.toFloat()
 
-        popup.showAsDropDown(anchor, xOff, yOff)
-
-        card.animate()
-            .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(320).setInterpolator(OvershootInterpolator(1.1f)).start()
+        popup.showAsDropDown(anchor, 0, yOff)
+        card.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(320).setInterpolator(OvershootInterpolator(1.1f)).start()
     }
 
     // ─── Modal de voz ─────────────────────────────────────────────────────────
@@ -544,8 +511,7 @@ class MainActiviy : BaseActivity() {
         if (voiceDialog?.isShowing == true) return
         hideKeyboard()
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 102)
             return
         }
@@ -590,9 +556,7 @@ class MainActiviy : BaseActivity() {
                 setColor(ContextCompat.getColor(this@MainActiviy, R.color.colorPrimary))
                 alpha = 80
             }
-            layoutParams = LinearLayout.LayoutParams(dp(100), dp(100)).also {
-                it.gravity = Gravity.CENTER_HORIZONTAL
-            }
+            layoutParams = LinearLayout.LayoutParams(dp(100), dp(100)).also { it.gravity = Gravity.CENTER_HORIZONTAL }
         }
 
         val micBtn = FrameLayout(this).apply {
@@ -601,8 +565,7 @@ class MainActiviy : BaseActivity() {
                 setColor(ContextCompat.getColor(this@MainActiviy, R.color.colorPrimary))
             }
             layoutParams = LinearLayout.LayoutParams(dp(72), dp(72)).also {
-                it.gravity = Gravity.CENTER_HORIZONTAL
-                it.topMargin = -dp(86)
+                it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = -dp(86)
             }
             isClickable = true; isFocusable = true
         }
@@ -632,10 +595,7 @@ class MainActiviy : BaseActivity() {
             }
         }
 
-        content.addView(pulseRing)
-        content.addView(micBtn)
-        content.addView(statusTv)
-        content.addView(transcriptTv)
+        content.addView(pulseRing); content.addView(micBtn); content.addView(statusTv); content.addView(transcriptTv)
         root.addView(content); root.addView(handle)
 
         val pulseAnim = ValueAnimator.ofFloat(1f, 1.4f, 1f).apply {
@@ -671,8 +631,7 @@ class MainActiviy : BaseActivity() {
             override fun onResults(results: android.os.Bundle?) {
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val finalText = matches?.firstOrNull() ?: ""
-                transcriptTv.text = finalText
-                statusTv.text = "Concluído"
+                transcriptTv.text = finalText; statusTv.text = "Concluído"
                 pulseAnim.cancel(); isListening = false
                 if (finalText.isNotBlank()) {
                     binding.inputMessage.setText(finalText)
@@ -714,7 +673,7 @@ class MainActiviy : BaseActivity() {
         dialog.show()
     }
 
-    // ─── PopupMenu btnMore (com blur total) ───────────────────────────────────
+    // ─── PopupMenu btnMore ────────────────────────────────────────────────────
 
     private var morePopup: PopupWindow? = null
     private var moreBlurOverlay: View? = null
@@ -739,12 +698,8 @@ class MainActiviy : BaseActivity() {
 
         val overlay = View(this).apply {
             setBackgroundColor(Color.parseColor("#88000000"))
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            alpha = 0f
-            isClickable = true; isFocusable = true
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            alpha = 0f; isClickable = true; isFocusable = true
             setOnClickListener { morePopup?.dismiss() }
         }
         binding.rootFrame.addView(overlay)
@@ -793,7 +748,6 @@ class MainActiviy : BaseActivity() {
             lifecycleScope.launch { AuthApiService.pinConversation(authToken, conv.id, !conv.pinned); drawerManager.loadConversations() }
         })
         card.addView(rowDiv())
-
         val archLabel = if (conv.archived) "Desarquivar" else "Arquivar"
         val archIcon  = if (conv.archived) "icons/svg/bookmark_filled.svg" else "icons/svg/bookmark.svg"
         card.addView(popupRow(archIcon, archLabel, iconTint) {
@@ -816,8 +770,7 @@ class MainActiviy : BaseActivity() {
             setBackgroundDrawable(null); animationStyle = 0
             setOnDismissListener {
                 moreBlurOverlay?.animate()?.alpha(0f)?.setDuration(180)
-                    ?.withEndAction { binding.rootFrame.removeView(moreBlurOverlay); moreBlurOverlay = null }
-                    ?.start()
+                    ?.withEndAction { binding.rootFrame.removeView(moreBlurOverlay); moreBlurOverlay = null }?.start()
             }
         }
         morePopup = popup
@@ -834,10 +787,7 @@ class MainActiviy : BaseActivity() {
         card.pivotX = popupWidth.toFloat(); card.pivotY = 0f
 
         popup.showAsDropDown(anchor, xOff, yOff)
-
-        card.animate()
-            .scaleX(1f).scaleY(1f).alpha(1f)
-            .setDuration(300).setInterpolator(OvershootInterpolator(1.1f)).start()
+        card.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(300).setInterpolator(OvershootInterpolator(1.1f)).start()
     }
 
     fun showConvOptionsSheet() {
@@ -921,44 +871,76 @@ class MainActiviy : BaseActivity() {
         }
     }
 
-    // ─── Swipe drawer ─────────────────────────────────────────────────────────
+    // ─── Swipe drawer (progressivo em toda a largura) ─────────────────────────
 
     private fun setupSwipeDrawer() {
-        val edgePx    = SWIPE_EDGE_WIDTH * density
         val minDistPx = SWIPE_MIN_DIST * density
+
         binding.coordinatorLayout.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    swipeStartX = event.rawX; swipeStartY = event.rawY
-                    isSwipingDrawer = !drawerOpen && swipeStartX < edgePx; false
+                    swipeStartX = event.rawX
+                    swipeStartY = event.rawY
+                    swipeConsumed = false
+                    // Só inicia swipe para abrir se o drawer estiver fechado
+                    isSwipingDrawer = !drawerOpen
+                    false
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (isSwipingDrawer) {
-                        val dx = event.rawX - swipeStartX; val dy = event.rawY - swipeStartY
-                        if (kotlin.math.abs(dx) > kotlin.math.abs(dy) && dx > 0) {
-                            val progress = (dx / drawerWidth).coerceIn(0f, 1f)
-                            binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
-                            binding.coordinatorLayout.elevation    = 8f + progress * 16f
-                            binding.drawerScrim.visibility = View.VISIBLE; true
-                        } else false
-                    } else if (drawerOpen) {
-                        val dx = event.rawX - swipeStartX
-                        if (dx < 0) {
-                            val newX = (drawerWidth + dx).coerceAtLeast(0f)
-                            binding.coordinatorLayout.translationX = newX
-                            binding.coordinatorLayout.elevation    = 8f + (newX / drawerWidth) * 16f; true
-                        } else false
-                    } else false
+                    val dx = event.rawX - swipeStartX
+                    val dy = event.rawY - swipeStartY
+
+                    if (swipeConsumed) return@setOnTouchListener true
+
+                    // Determina direção dominante
+                    if (kotlin.math.abs(dx) < kotlin.math.abs(dy)) {
+                        // Swipe vertical — não é drawer
+                        isSwipingDrawer = false
+                        return@setOnTouchListener false
+                    }
+
+                    if (!drawerOpen && isSwipingDrawer && dx > minDistPx) {
+                        // Abrir drawer — swipe para a direita
+                        swipeConsumed = true
+                        val progress = (dx / drawerWidth).coerceIn(0f, 1f)
+                        binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
+                        binding.coordinatorLayout.elevation = 8f + progress * 16f
+                        binding.drawerScrim.visibility = View.VISIBLE
+                        true
+                    } else if (drawerOpen && dx < -minDistPx) {
+                        // Fechar drawer — swipe para a esquerda
+                        swipeConsumed = true
+                        val newX = (drawerWidth + dx).coerceAtLeast(0f)
+                        binding.coordinatorLayout.translationX = newX
+                        binding.coordinatorLayout.elevation = 8f + (newX / drawerWidth) * 16f
+                        true
+                    } else {
+                        false
+                    }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     val dx = event.rawX - swipeStartX
-                    if (isSwipingDrawer) {
-                        isSwipingDrawer = false
-                        if (dx > minDistPx) { drawerOpen = true; animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat()) }
-                        else animateDrawer(binding.coordinatorLayout.translationX, 0f) { binding.drawerScrim.visibility = View.GONE }
-                        true
-                    } else if (drawerOpen && dx < -minDistPx) { closeDrawer(); true }
-                    else false
+                    isSwipingDrawer = false
+                    swipeConsumed = false
+                    when {
+                        !drawerOpen && dx > minDistPx -> {
+                            drawerOpen = true
+                            animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat())
+                            true
+                        }
+                        !drawerOpen && binding.coordinatorLayout.translationX > 0f -> {
+                            animateDrawer(binding.coordinatorLayout.translationX, 0f) {
+                                binding.drawerScrim.visibility = View.GONE
+                            }
+                            true
+                        }
+                        drawerOpen && dx < -minDistPx -> { closeDrawer(); true }
+                        drawerOpen && binding.coordinatorLayout.translationX < drawerWidth -> {
+                            animateDrawer(binding.coordinatorLayout.translationX, drawerWidth.toFloat())
+                            true
+                        }
+                        else -> false
+                    }
                 }
                 else -> false
             }
