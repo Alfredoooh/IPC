@@ -616,17 +616,11 @@ class ChatFragment(private val activity: MainActiviy) {
     }
     val tint = ContextCompat.getColor(activity, R.color.icon_tint_secondary)
     val iconSize = 16
-    val btnSize = dp(34)
-    val isDark = activity.isDarkMode
-    val btnBgColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F0F0F0")
+    val btnSize = dp(36)
 
     fun addAction(icon: String, listener: () -> Unit) {
         val btn = FrameLayout(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).also { it.marginEnd = dp(4) }
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(btnBgColor)
-            }
             isClickable = true; isFocusable = true
         }
         btn.addView(ImageView(ctx).apply {

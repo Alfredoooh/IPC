@@ -62,11 +62,11 @@
     <color name="auth_input_bg">#1f1f1f</color>
     <color name="auth_link_color">#7EA9F8</color>
     
-    <color name="appbar_btn_bg_color">#18FFFFFF</color>
+    <color name="appbar_btn_bg_color">#2C2C2E</color>
     <color name="appbar_solid">#FF121212</color>
-    <color name="bottom_bar_solid">#FF1f1f1f</color>
+    <color name="bottom_bar_solid">#CC1f1f1f</color>
     
     <color name="tab_preview_pill_bg">#1F2D4A</color>
-    <color name="extras_card_active">#1E2D4F</color> <!-- azul escuro -->
-    <color name="extras_card_active_text">#A8C8FA</color> <!-- azul claro -->
+    <color name="extras_card_active">#1E2D4F</color>
+    <color name="extras_card_active_text">#A8C8FA</color>
 </resources>
