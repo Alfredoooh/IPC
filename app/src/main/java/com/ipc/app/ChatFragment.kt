@@ -233,14 +233,14 @@ class ChatFragment(private val activity: MainActiviy) {
     }
 
     fun applyKeyboardPadding(extraShift: Int) {
-        val rv = binding.chatRecyclerView
-        val base   = dp(160)
-        val target = base + extraShift
-        if (rv.paddingBottom != target) {
-            rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, target)
-            if (displayMessages.isNotEmpty()) smoothScroll(displayMessages.lastIndex)
-        }
+    val rv = binding.chatRecyclerView
+    val base   = dp(200)
+    val target = base + extraShift
+    if (rv.paddingBottom != target) {
+        rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, target)
+        if (displayMessages.isNotEmpty()) smoothScroll(displayMessages.lastIndex)
     }
+}
 
     // ─── Scroll ───────────────────────────────────────────────────────────────
 
@@ -611,16 +611,22 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun buildActionRow(ctx: Context, messageContent: String): View {
     val container = LinearLayout(ctx).apply {
         orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER
-        setPadding(dp(4), dp(6), dp(4), dp(4))
+        gravity = Gravity.START
+        setPadding(dp(2), dp(6), dp(4), dp(4))
     }
     val tint = ContextCompat.getColor(activity, R.color.icon_tint_secondary)
     val iconSize = 16
-    val btnSize = dp(36)
+    val btnSize = dp(34)
+    val isDark = activity.isDarkMode
+    val btnBgColor = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F0F0F0")
 
     fun addAction(icon: String, listener: () -> Unit) {
         val btn = FrameLayout(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize)
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).also { it.marginEnd = dp(4) }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(btnBgColor)
+            }
             isClickable = true; isFocusable = true
         }
         btn.addView(ImageView(ctx).apply {
