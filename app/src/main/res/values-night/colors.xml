@@ -64,7 +64,7 @@
     
     <color name="appbar_btn_bg_color">#2C2C2E</color>
     <color name="appbar_solid">#FF121212</color>
-    <color name="bottom_bar_solid">#CC1f1f1f</color>
+    <color name="bottom_bar_solid">#FF1f1f1f</color>
     
     <color name="tab_preview_pill_bg">#1F2D4A</color>
     <color name="extras_card_active">#1E2D4F</color>

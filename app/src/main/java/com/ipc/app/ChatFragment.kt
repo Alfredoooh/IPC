@@ -234,7 +234,7 @@ class ChatFragment(private val activity: MainActiviy) {
 
     fun applyKeyboardPadding(extraShift: Int) {
     val rv = binding.chatRecyclerView
-    val base   = dp(200)
+    val base   = dp(140)
     val target = base + extraShift
     if (rv.paddingBottom != target) {
         rv.setPadding(rv.paddingLeft, rv.paddingTop, rv.paddingRight, target)
@@ -1629,20 +1629,21 @@ class ChatFragment(private val activity: MainActiviy) {
     // ─── Loader com GooeyLoader ──────────────────────────────────────────────
 
     private fun buildLoaderView(ctx: Context): View {
-        val container = FrameLayout(ctx).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).also {
-                it.topMargin = dp(8)
-                it.bottomMargin = dp(4)
-            }
+    val container = FrameLayout(ctx).apply {
+        layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).also {
+            it.topMargin = dp(4)
+            it.bottomMargin = dp(4)
         }
-        val loader = GooeyLoader(ctx)
-        val size = dp(48)
-        container.addView(loader, FrameLayout.LayoutParams(size, size))
-        return container
     }
+    val lottie = com.airbnb.lottie.LottieAnimationView(ctx).apply {
+        layoutParams = FrameLayout.LayoutParams(dp(48), dp(48))
+        setAnimation("icons/lottie/loader.json")
+        repeatCount = com.airbnb.lottie.LottieDrawable.INFINITE
+        playAnimation()
+    }
+    container.addView(lottie)
+    return container
+}
 
     // ─── Thinking skeleton ────────────────────────────────────────────────────
 

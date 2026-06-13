@@ -230,8 +230,8 @@
     android:layout_height="match_parent"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
-    android:paddingTop="8dp"
-    android:paddingBottom="200dp"
+    android:paddingTop="64dp"
+    android:paddingBottom="140dp"
     android:clipToPadding="false"
     android:overScrollMode="never"
     android:visibility="gone"
@@ -471,6 +471,14 @@
                 android:focusable="true"
                 android:background="#44000000" />
         </FrameLayout>
+        
+        <View
+    android:id="@+id/bottomFadeScrim"
+    android:layout_width="match_parent"
+    android:layout_height="80dp"
+    android:layout_gravity="bottom"
+    android:layout_marginBottom="0dp"
+    android:background="@drawable/bottom_scrim_gradient" />
 
         <!-- BOTTOM BAR FIXA (dentro do Coordinator, fora do contentContainer) -->
         <LinearLayout
