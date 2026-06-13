@@ -21,6 +21,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import com.caverock.androidsvg.SVG
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -30,9 +33,16 @@ class SettingsActivity : BaseActivity() {
 
     private val prefs by lazy { getSharedPreferences("ipc_prefs", Context.MODE_PRIVATE) }
 
+    // Tamanhos de ícone com 16% de redução
+    // Antes: item=12, chevron=18, back=14  → Agora: item=10, chevron=15, back=12
+    private val ICON_ITEM   = 10
+    private val ICON_CHEV   = 15
+    private val ICON_BACK   = 12
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+        setupTransparentAppBar()
         applyTimesNewRomanTitle()
         setupAvatar()
         setupIcons()
@@ -40,12 +50,41 @@ class SettingsActivity : BaseActivity() {
         styleCards()
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    //  AppBar progressive transparent (igual ao chat)
+    // ─────────────────────────────────────────────────────────────────────
+    private fun setupTransparentAppBar() {
+        val toolbar = findViewById<LinearLayout>(R.id.settingsToolbar)
+        val inner   = findViewById<View>(R.id.settingsAppBarInner)
+        val spacer  = findViewById<View>(R.id.appbarSpacer)
+
+        // Aplica padding de status bar ao appbar flutuante
+        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { v, insets ->
+            val sb = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            inner.updatePadding(top = sb.top)
+            // Ajusta o espaçador para ter exatamente a altura do appbar + status bar
+            spacer.layoutParams = spacer.layoutParams.also {
+                it.height = sb.top + resources.getDimensionPixelSize(
+                    androidx.appcompat.R.dimen.abc_action_bar_default_height_material
+                ) + dp(24f).toInt()
+            }
+            insets
+        }
+
+        // Gradiente: cor sólida do appbar → transparente
+        val solidColor = ContextCompat.getColor(this, R.color.appbar_solid)
+        toolbar.background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(solidColor, solidColor, Color.TRANSPARENT)
+        )
+    }
+
     private fun applyTimesNewRomanTitle() {
         runCatching {
             val tf = Typeface.createFromAsset(assets, "fonts/pattern/times_new_roman.ttf")
-            val toolbar = findViewById<ViewGroup>(R.id.settingsToolbar)
-            for (i in 0 until toolbar.childCount) {
-                val child = toolbar.getChildAt(i)
+            val inner = findViewById<View>(R.id.settingsAppBarInner) as? ViewGroup ?: return@runCatching
+            for (i in 0 until inner.childCount) {
+                val child = inner.getChildAt(i)
                 if (child is TextView) { child.typeface = Typeface.create(tf, Typeface.BOLD); break }
             }
         }
@@ -65,7 +104,7 @@ class SettingsActivity : BaseActivity() {
 
         val iconSec = ContextCompat.getColor(this, R.color.icon_tint_secondary)
         findViewById<ImageView>(R.id.chevronProfile)
-            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 18, iconSec))
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", ICON_CHEV, iconSec))
 
         findViewById<View>(R.id.itemProfile).setOnClickListener {
             startActivity(Intent(this, UserProfileActivity::class.java))
@@ -73,8 +112,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  Ícones — reduzidos 10%
-    //  Ícones de item: 14 → 12  |  Chevrons: 20 → 18  |  Back: 16 → 14
+    //  Ícones — reduzidos 16%
     // ─────────────────────────────────────────────────────────────────────
     private fun setupIcons() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
@@ -82,41 +120,44 @@ class SettingsActivity : BaseActivity() {
 
         // Back
         findViewById<ImageView>(R.id.btnBack)
-            .setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", 14, iconTint))
+            .setImageDrawable(svgDrawable("icons/svg/back_arrow.svg", ICON_BACK, iconTint))
 
         // Conta
         findViewById<ImageView>(R.id.iconCustomization)
-            .setImageDrawable(svgDrawable("icons/svg/customise.svg", 12, iconTint))
+            .setImageDrawable(svgDrawable("icons/svg/customise.svg", ICON_ITEM, iconTint))
         findViewById<ImageView>(R.id.chevronCustomization)
-            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 18, iconSec))
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", ICON_CHEV, iconSec))
 
         findViewById<ImageView>(R.id.iconStorage)
-            .setImageDrawable(svgDrawable("icons/svg/database.svg", 12, iconTint))
+            .setImageDrawable(svgDrawable("icons/svg/database.svg", ICON_ITEM, iconTint))
         findViewById<ImageView>(R.id.chevronStorage)
-            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 18, iconSec))
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", ICON_CHEV, iconSec))
 
         findViewById<ImageView>(R.id.iconSecurity)
-            .setImageDrawable(svgDrawable("icons/svg/security.svg", 12, iconTint))
+            .setImageDrawable(svgDrawable("icons/svg/security.svg", ICON_ITEM, iconTint))
         findViewById<ImageView>(R.id.chevronSecurity)
-            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 18, iconSec))
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", ICON_CHEV, iconSec))
 
         // Aparência
         findViewById<ImageView>(R.id.iconTheme)
-            .setImageDrawable(svgDrawable("icons/svg/appearance.svg", 12, iconTint))
+            .setImageDrawable(svgDrawable("icons/svg/appearance.svg", ICON_ITEM, iconTint))
         findViewById<ImageView>(R.id.iconLanguage)
-            .setImageDrawable(svgDrawable("icons/svg/language.svg", 12, iconTint))
+            .setImageDrawable(svgDrawable("icons/svg/language.svg", ICON_ITEM, iconTint))
 
-        // Privacidade
-        findViewById<ImageView>(R.id.iconPrivacy)
-            .setImageDrawable(svgDrawable("icons/svg/privacy.svg", 12, iconTint))
-        findViewById<ImageView>(R.id.iconNotifications)
-            .setImageDrawable(svgDrawable("icons/svg/notifications.svg", 12, iconTint))
-
-        // Chevrons restantes
-        listOf(R.id.chevronTheme, R.id.chevronLanguage, R.id.chevronPrivacy).forEach {
+        listOf(R.id.chevronTheme, R.id.chevronLanguage).forEach {
             findViewById<ImageView>(it)
-                .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", 18, iconSec))
+                .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", ICON_CHEV, iconSec))
         }
+
+        // Notificações
+        findViewById<ImageView>(R.id.iconNotifications)
+            .setImageDrawable(svgDrawable("icons/svg/notifications.svg", ICON_ITEM, iconTint))
+
+        // Sobre
+        findViewById<ImageView>(R.id.iconAbout)
+            .setImageDrawable(svgDrawable("icons/svg/about.svg", ICON_ITEM, iconTint))
+        findViewById<ImageView>(R.id.chevronAbout)
+            .setImageDrawable(svgDrawable("icons/svg/chevron_right.svg", ICON_CHEV, iconSec))
 
         // Labels
         val currentTheme = prefs.getString("theme", "light")
@@ -137,32 +178,33 @@ class SettingsActivity : BaseActivity() {
         findViewById<ImageView>(R.id.btnBack).setOnClickListener { finish() }
         findViewById<View>(R.id.itemTheme).setOnClickListener { showThemeSheet() }
         findViewById<View>(R.id.itemLanguage).setOnClickListener { showLanguageSheet() }
+        findViewById<View>(R.id.itemCustomization).setOnClickListener {
+            startActivity(Intent(this, CustomizationActivity::class.java))
+        }
+        findViewById<View>(R.id.itemSecurity).setOnClickListener {
+            startActivity(Intent(this, SecurityActivity::class.java))
+        }
+        findViewById<View>(R.id.itemAbout).setOnClickListener {
+            startActivity(Intent(this, AboutActivity::class.java))
+        }
+        findViewById<View>(R.id.itemStorage).setOnClickListener { }
+        findViewById<View>(R.id.itemLogout).setOnClickListener { showLogoutSheet() }
 
         val switchNotif = findViewById<MaterialSwitch>(R.id.switchNotifications)
         switchNotif.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("notifications", isChecked).apply()
         }
         findViewById<View>(R.id.itemNotifications).setOnClickListener { switchNotif.toggle() }
-
-        findViewById<View>(R.id.itemPrivacy).setOnClickListener {}
-        findViewById<View>(R.id.itemLogout).setOnClickListener { showLogoutSheet() }
-
-        findViewById<View>(R.id.itemCustomization).setOnClickListener {}
-        findViewById<View>(R.id.itemStorage).setOnClickListener {}
-        findViewById<View>(R.id.itemSecurity).setOnClickListener {}
     }
 
     // ─────────────────────────────────────────────────────────────────────
     //  Cards iOS — cantos por posição + ripple preservado
-    //
-    //  Separadores identificados pela tag="divider" no XML.
-    //  Cada row recebe um RippleDrawable sobre o GradientDrawable
-    //  com os corner radii corretos para não sobrepor os cantos do card.
     // ─────────────────────────────────────────────────────────────────────
     private fun styleCards() {
         applyGroupCorners(R.id.groupAccount)
         applyGroupCorners(R.id.groupAppearance)
         applyGroupCorners(R.id.groupPrivacy)
+        applyGroupCorners(R.id.groupAbout)
     }
 
     private fun applyGroupCorners(groupId: Int) {
@@ -171,7 +213,6 @@ class SettingsActivity : BaseActivity() {
         val strong    = dp(22f)
         val soft      = dp(6f)
 
-        // Filtra separadores pela tag "divider"
         val rows = (0 until group.childCount)
             .map { group.getChildAt(it) }
             .filter { it.tag != "divider" }
@@ -180,25 +221,21 @@ class SettingsActivity : BaseActivity() {
 
         rows.forEachIndexed { idx, view ->
             val radii: FloatArray = when {
-                total == 1   -> floatArrayOf(strong, strong, strong, strong, strong, strong, strong, strong)
-                idx == 0     -> floatArrayOf(strong, strong, strong, strong, soft,   soft,   soft,   soft)
-                idx == total - 1 -> floatArrayOf(soft, soft, soft, soft, strong, strong, strong, strong)
-                else         -> floatArrayOf(soft, soft, soft, soft, soft, soft, soft, soft)
+                total == 1       -> floatArrayOf(strong, strong, strong, strong, strong, strong, strong, strong)
+                idx == 0         -> floatArrayOf(strong, strong, strong, strong, soft,   soft,   soft,   soft)
+                idx == total - 1 -> floatArrayOf(soft,   soft,   soft,   soft,   strong, strong, strong, strong)
+                else             -> floatArrayOf(soft,   soft,   soft,   soft,   soft,   soft,   soft,   soft)
             }
 
-            // Shape base com a cor do card e os cantos corretos
             val shape = GradientDrawable().apply {
                 setColor(cardColor)
                 cornerRadii = radii
             }
 
-            // Ripple por cima do shape — mantém o feedback de toque
             val rippleColor = ColorStateList.valueOf(
                 if (isDarkTheme()) 0x33FFFFFF else 0x1F000000
             )
-            val ripple = RippleDrawable(rippleColor, shape, shape)
-
-            view.background = ripple
+            view.background = RippleDrawable(rippleColor, shape, shape)
         }
     }
 
@@ -209,23 +246,21 @@ class SettingsActivity : BaseActivity() {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  Modal iOS — fecha imediatamente ao selecionar
+    //  Modal iOS base
     // ─────────────────────────────────────────────────────────────────────
     private fun showIosSheet(title: String, block: LinearLayout.() -> Unit) {
-        val dialog = BottomSheetDialog(this, R.style.Theme_IPC_BottomSheet)
-
-        val root = LinearLayout(this).apply {
+        val dialog      = BottomSheetDialog(this, R.style.Theme_IPC_BottomSheet)
+        val root        = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
         }
-
         val dialogBg    = ContextCompat.getColor(this, R.color.dialog_background)
         val handleColor = ContextCompat.getColor(this, R.color.divider)
         val titleColor  = ContextCompat.getColor(this, R.color.settings_section_label)
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
+            background  = GradientDrawable().apply {
                 cornerRadii = floatArrayOf(dp(12f), dp(12f), dp(12f), dp(12f), 0f, 0f, 0f, 0f)
                 setColor(dialogBg)
             }
@@ -237,7 +272,7 @@ class SettingsActivity : BaseActivity() {
 
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
+                shape        = GradientDrawable.RECTANGLE
                 cornerRadius = dp(3f)
                 setColor(handleColor)
             }
@@ -249,11 +284,11 @@ class SettingsActivity : BaseActivity() {
         })
 
         card.addView(TextView(this).apply {
-            text = title
+            text     = title
             textSize = 13f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(titleColor)
-            gravity = Gravity.CENTER
+            gravity  = Gravity.CENTER
             setPadding(dp(20f).toInt(), dp(8f).toInt(), dp(20f).toInt(), dp(12f).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -285,19 +320,19 @@ class SettingsActivity : BaseActivity() {
         val textColor = labelColor ?: ContextCompat.getColor(this, R.color.text_primary)
 
         val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            orientation   = LinearLayout.HORIZONTAL
+            gravity       = Gravity.CENTER_VERTICAL
             minimumHeight = dp(52f).toInt()
             setPadding(dp(20f).toInt(), dp(14f).toInt(), dp(20f).toInt(), dp(14f).toInt())
-            isClickable = true
-            isFocusable = true
+            isClickable   = true
+            isFocusable   = true
             val a = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
             background = a.getDrawable(0)
             a.recycle()
         }
 
         row.addView(TextView(this).apply {
-            text = label
+            text     = label
             textSize = 17f
             setTextColor(textColor)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
@@ -323,24 +358,23 @@ class SettingsActivity : BaseActivity() {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    //  Sheets — dismiss imediato passando o dialog à sheetRow
+    //  Sheets
     // ─────────────────────────────────────────────────────────────────────
     private fun showThemeSheet() {
         val current = prefs.getString("theme", "light")
         val dialog  = BottomSheetDialog(this, R.style.Theme_IPC_BottomSheet)
 
-        val root = LinearLayout(this).apply {
+        val root        = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
         }
-
         val dialogBg    = ContextCompat.getColor(this, R.color.dialog_background)
         val handleColor = ContextCompat.getColor(this, R.color.divider)
         val titleColor  = ContextCompat.getColor(this, R.color.settings_section_label)
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
+            background  = GradientDrawable().apply {
                 cornerRadii = floatArrayOf(dp(12f), dp(12f), dp(12f), dp(12f), 0f, 0f, 0f, 0f)
                 setColor(dialogBg)
             }
@@ -352,7 +386,7 @@ class SettingsActivity : BaseActivity() {
 
         card.addView(View(this).apply {
             background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
+                shape        = GradientDrawable.RECTANGLE
                 cornerRadius = dp(3f)
                 setColor(handleColor)
             }
@@ -364,11 +398,11 @@ class SettingsActivity : BaseActivity() {
         })
 
         card.addView(TextView(this).apply {
-            text = "Tema"
+            text     = "Tema"
             textSize = 13f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(titleColor)
-            gravity = Gravity.CENTER
+            gravity  = Gravity.CENTER
             setPadding(dp(20f).toInt(), dp(8f).toInt(), dp(20f).toInt(), dp(12f).toInt())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,

@@ -1,507 +1,537 @@
+<!-- activity_settings.xml — versão final com FrameLayout raiz para appbar flutuante -->
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/background"
-    android:fitsSystemWindows="true">
+    android:background="@color/background">
 
-    <!-- Toolbar -->
-    <RelativeLayout
-        android:id="@+id/settingsToolbar"
+    <!-- Conteúdo scrollável -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:paddingStart="4dp"
-        android:paddingEnd="8dp"
-        android:background="@color/appbar_background">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <ImageView
-            android:id="@+id/btnBack"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:padding="11dp"
-            android:layout_centerVertical="true"
-            android:layout_alignParentStart="true"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true"
-            android:focusable="true" />
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:overScrollMode="never">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="@string/drawer_settings"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_primary" />
-    </RelativeLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="24dp">
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0.5dp"
-        android:background="@color/divider" />
+                <!-- Espaço reservado para a appbar transparente -->
+                <View
+                    android:id="@+id/appbarSpacer"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp" />
 
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:fillViewport="true"
-        android:overScrollMode="never">
+                <!-- CONTA -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Conta"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:textColor="@color/settings_section_label"
+                    android:paddingStart="24dp"
+                    android:paddingBottom="6dp" />
 
+                <LinearLayout
+                    android:id="@+id/groupAccount"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:clipToOutline="true"
+                    android:outlineProvider="background">
+
+                    <LinearLayout
+                        android:id="@+id/itemProfile"
+                        android:layout_width="match_parent"
+                        android:layout_height="72dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:background="@null"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <FrameLayout
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:background="@drawable/avatar_circle_bg"
+                            android:layout_marginEnd="16dp">
+
+                            <TextView
+                                android:id="@+id/avatarInitial"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:text="U"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:textColor="#FFFFFF" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/settingsUserName"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Nome"
+                                android:textSize="15sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+
+                            <TextView
+                                android:id="@+id/settingsUserEmail"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="email@exemplo.com"
+                                android:textSize="13sp"
+                                android:textColor="@color/text_secondary"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
+
+                        <ImageView
+                            android:id="@+id/chevronProfile"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp" />
+                    </LinearLayout>
+
+                    <View
+                        android:tag="divider"
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_marginStart="72dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:id="@+id/itemCustomization"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:background="@null"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/iconCustomization"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="14dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Personalização"
+                            android:textSize="15sp"
+                            android:textColor="@color/text_primary" />
+
+                        <ImageView
+                            android:id="@+id/chevronCustomization"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp" />
+                    </LinearLayout>
+
+                    <View
+                        android:tag="divider"
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_marginStart="72dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:id="@+id/itemStorage"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:background="@null"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/iconStorage"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="14dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Controlo de Dados"
+                            android:textSize="15sp"
+                            android:textColor="@color/text_primary" />
+
+                        <ImageView
+                            android:id="@+id/chevronStorage"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp" />
+                    </LinearLayout>
+
+                    <View
+                        android:tag="divider"
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_marginStart="72dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:id="@+id/itemSecurity"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:background="@null"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/iconSecurity"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="14dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Segurança"
+                            android:textSize="15sp"
+                            android:textColor="@color/text_primary" />
+
+                        <ImageView
+                            android:id="@+id/chevronSecurity"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- APARÊNCIA -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Aparência"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:textColor="@color/settings_section_label"
+                    android:paddingStart="24dp"
+                    android:paddingBottom="6dp"
+                    android:paddingTop="32dp" />
+
+                <LinearLayout
+                    android:id="@+id/groupAppearance"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:clipToOutline="true"
+                    android:outlineProvider="background">
+
+                    <LinearLayout
+                        android:id="@+id/itemTheme"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:background="@null"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/iconTheme"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="14dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Tema"
+                            android:textSize="15sp"
+                            android:textColor="@color/text_primary" />
+
+                        <TextView
+                            android:id="@+id/labelTheme"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="14sp"
+                            android:textColor="@color/text_secondary"
+                            android:layout_marginEnd="6dp" />
+
+                        <ImageView
+                            android:id="@+id/chevronTheme"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp" />
+                    </LinearLayout>
+
+                    <View
+                        android:tag="divider"
+                        android:layout_width="match_parent"
+                        android:layout_height="0.5dp"
+                        android:layout_marginStart="72dp"
+                        android:background="@color/divider" />
+
+                    <LinearLayout
+                        android:id="@+id/itemLanguage"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:background="@null"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/iconLanguage"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="14dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Idioma"
+                            android:textSize="15sp"
+                            android:textColor="@color/text_primary" />
+
+                        <TextView
+                            android:id="@+id/labelLanguage"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="14sp"
+                            android:textColor="@color/text_secondary"
+                            android:layout_marginEnd="6dp" />
+
+                        <ImageView
+                            android:id="@+id/chevronLanguage"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- NOTIFICAÇÕES -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Notificações"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:textColor="@color/settings_section_label"
+                    android:paddingStart="24dp"
+                    android:paddingBottom="6dp"
+                    android:paddingTop="32dp" />
+
+                <LinearLayout
+                    android:id="@+id/groupPrivacy"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:clipToOutline="true"
+                    android:outlineProvider="background">
+
+                    <LinearLayout
+                        android:id="@+id/itemNotifications"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:background="@null"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/iconNotifications"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="14dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Notificações"
+                            android:textSize="15sp"
+                            android:textColor="@color/text_primary" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchNotifications"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- SOBRE -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sobre"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:textColor="@color/settings_section_label"
+                    android:paddingStart="24dp"
+                    android:paddingBottom="6dp"
+                    android:paddingTop="32dp" />
+
+                <LinearLayout
+                    android:id="@+id/groupAbout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:clipToOutline="true"
+                    android:outlineProvider="background">
+
+                    <LinearLayout
+                        android:id="@+id/itemAbout"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:background="@null"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/iconAbout"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="14dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Sobre"
+                            android:textSize="15sp"
+                            android:textColor="@color/text_primary" />
+
+                        <ImageView
+                            android:id="@+id/chevronAbout"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- Botão Sair -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingTop="24dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
             android:paddingBottom="24dp">
 
-            <!-- ================= SECÇÃO CONTA ================= -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Conta"
-                android:textSize="12sp"
-                android:textAllCaps="true"
-                android:textColor="@color/settings_section_label"
-                android:paddingStart="24dp"
-                android:paddingBottom="6dp" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.5dp"
+                android:layout_marginBottom="16dp"
+                android:background="@color/divider" />
 
             <LinearLayout
-                android:id="@+id/groupAccount"
+                android:id="@+id/itemLogout"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:clipToOutline="true"
-                android:outlineProvider="background">
+                android:layout_height="52dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="@drawable/logout_btn_bg"
+                android:clickable="true"
+                android:focusable="true">
 
-                <!-- Item Perfil -->
-                <LinearLayout
-                    android:id="@+id/itemProfile"
-                    android:layout_width="match_parent"
-                    android:layout_height="72dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:background="@drawable/avatar_circle_bg"
-                        android:layout_marginEnd="16dp">
-
-                        <TextView
-                            android:id="@+id/avatarInitial"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center"
-                            android:text="U"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="#FFFFFF" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/settingsUserName"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Nome"
-                            android:textSize="15sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:id="@+id/settingsUserEmail"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="email@exemplo.com"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:id="@+id/chevronProfile"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp" />
-                </LinearLayout>
-
-                <View
-                    android:tag="divider"
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="72dp"
-                    android:background="@color/divider" />
-
-                <!-- Item Personalização -->
-                <LinearLayout
-                    android:id="@+id/itemCustomization"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:id="@+id/iconCustomization"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginEnd="14dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Personalização"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <ImageView
-                        android:id="@+id/chevronCustomization"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp" />
-                </LinearLayout>
-
-                <View
-                    android:tag="divider"
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="72dp"
-                    android:background="@color/divider" />
-
-                <!-- Item Armazenamento -->
-                <LinearLayout
-                    android:id="@+id/itemStorage"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:id="@+id/iconStorage"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginEnd="14dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Armazenamento"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <ImageView
-                        android:id="@+id/chevronStorage"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp" />
-                </LinearLayout>
-
-                <View
-                    android:tag="divider"
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="72dp"
-                    android:background="@color/divider" />
-
-                <!-- Item Segurança -->
-                <LinearLayout
-                    android:id="@+id/itemSecurity"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:id="@+id/iconSecurity"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginEnd="14dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Segurança"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <ImageView
-                        android:id="@+id/chevronSecurity"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp" />
-                </LinearLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_logout"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF3B30" />
             </LinearLayout>
-
-            <!-- ================= SECÇÃO APARÊNCIA ================= -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Aparência"
-                android:textSize="12sp"
-                android:textAllCaps="true"
-                android:textColor="@color/settings_section_label"
-                android:paddingStart="24dp"
-                android:paddingBottom="6dp"
-                android:paddingTop="20dp" />
-
-            <LinearLayout
-                android:id="@+id/groupAppearance"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:clipToOutline="true"
-                android:outlineProvider="background">
-
-                <!-- Item Tema -->
-                <LinearLayout
-                    android:id="@+id/itemTheme"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:id="@+id/iconTheme"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginEnd="14dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Tema"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <TextView
-                        android:id="@+id/labelTheme"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_secondary"
-                        android:layout_marginEnd="6dp" />
-
-                    <ImageView
-                        android:id="@+id/chevronTheme"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp" />
-                </LinearLayout>
-
-                <View
-                    android:tag="divider"
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="72dp"
-                    android:background="@color/divider" />
-
-                <!-- Item Idioma -->
-                <LinearLayout
-                    android:id="@+id/itemLanguage"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:id="@+id/iconLanguage"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginEnd="14dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Idioma"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <TextView
-                        android:id="@+id/labelLanguage"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_secondary"
-                        android:layout_marginEnd="6dp" />
-
-                    <ImageView
-                        android:id="@+id/chevronLanguage"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- ================= SECÇÃO PRIVACIDADE ================= -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Privacidade"
-                android:textSize="12sp"
-                android:textAllCaps="true"
-                android:textColor="@color/settings_section_label"
-                android:paddingStart="24dp"
-                android:paddingBottom="6dp"
-                android:paddingTop="20dp" />
-
-            <LinearLayout
-                android:id="@+id/groupPrivacy"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:clipToOutline="true"
-                android:outlineProvider="background">
-
-                <LinearLayout
-                    android:id="@+id/itemPrivacy"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:id="@+id/iconPrivacy"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginEnd="14dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Privacidade"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <ImageView
-                        android:id="@+id/chevronPrivacy"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp" />
-                </LinearLayout>
-
-                <View
-                    android:tag="divider"
-                    android:layout_width="match_parent"
-                    android:layout_height="0.5dp"
-                    android:layout_marginStart="72dp"
-                    android:background="@color/divider" />
-
-                <LinearLayout
-                    android:id="@+id/itemNotifications"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:id="@+id/iconNotifications"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginEnd="14dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Notificações"
-                        android:textSize="15sp"
-                        android:textColor="@color/text_primary" />
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchNotifications"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-            </LinearLayout>
-
-        </LinearLayout>
-    </ScrollView>
-
-    <!-- Botão Sair -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="24dp">
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="0.5dp"
-            android:layout_marginBottom="16dp"
-            android:background="@color/divider" />
-
-        <LinearLayout
-            android:id="@+id/itemLogout"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:background="@drawable/logout_btn_bg"
-            android:clickable="true"
-            android:focusable="true">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/settings_logout"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#FF3B30" />
         </LinearLayout>
     </LinearLayout>
 
-</LinearLayout>
+    <!-- AppBar transparente flutuante POR CIMA do scroll -->
+    <LinearLayout
+        android:id="@+id/settingsToolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_gravity="top">
+
+        <!-- Gradiente: sólido em cima → transparente em baixo -->
+        <!-- O fundo é aplicado programaticamente em setupTransparentAppBar() -->
+        <RelativeLayout
+            android:id="@+id/settingsAppBarInner"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp">
+
+            <ImageView
+                android:id="@+id/btnBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="11dp"
+                android:layout_centerVertical="true"
+                android:layout_alignParentStart="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="@string/drawer_settings"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+        </RelativeLayout>
+
+        <!-- Cauda do gradiente transparente (24dp abaixo da toolbar) -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="24dp" />
+    </LinearLayout>
+
+</FrameLayout>

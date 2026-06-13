@@ -54,6 +54,10 @@
             android:exported="false"
             android:theme="@style/Theme.IPC"
             android:windowSoftInputMode="adjustResize" />
+       
+        <activity android:name=".ui.CustomizationActivity" android:exported="false" />
+        <activity android:name=".ui.SecurityActivity" android:exported="false" />
+        <activity android:name=".ui.AboutActivity" android:exported="false" />
 
     </application>
 
