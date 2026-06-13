@@ -314,7 +314,7 @@ class MainActiviy : BaseActivity() {
     fun setupIcons() {
         val iconTint = ContextCompat.getColor(this, R.color.icon_tint)
         val iconSec  = ContextCompat.getColor(this, R.color.icon_tint_secondary)
-        binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/side_panel.svg", 16, iconTint))
+        binding.btnMenu.setImageDrawable(svgDrawable("icons/svg/menu.svg", 16, iconTint))
         binding.btnNewChatIcon.setImageDrawable(svgDrawable("icons/svg/new_chat.svg", 17, iconTint))
         binding.popupCameraIcon.setImageDrawable(svgDrawable("icons/svg/camera.svg", 20, iconTint))
         binding.popupImportIcon.setImageDrawable(svgDrawable("icons/svg/download.svg", 20, iconTint))
