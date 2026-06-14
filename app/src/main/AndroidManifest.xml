@@ -35,29 +35,27 @@
             android:theme="@style/Theme.IPC"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- adjustPan: o sistema levanta o conteúdo inteiro sem resize da janela -->
-        <!-- O WindowInsets manual trata do bottomNavWrapper e do RecyclerView    -->
         <activity
-    android:name=".MainActiviy"
-    android:exported="true"
-    android:theme="@style/Theme.IPC"
-    android:windowSoftInputMode="adjustNothing|stateHidden" />
+            android:name=".MainActiviy"
+            android:exported="true"
+            android:theme="@style/Theme.IPC.Splash"
+            android:windowSoftInputMode="adjustNothing|stateHidden" />
 
         <activity
             android:name=".ui.SettingsActivity"
             android:exported="false"
-            android:theme="@style/Theme.IPC"
+            android:theme="@style/Theme.IPC.Splash"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".ui.UserProfileActivity"
             android:exported="false"
-            android:theme="@style/Theme.IPC"
+            android:theme="@style/Theme.IPC.Splash"
             android:windowSoftInputMode="adjustResize" />
-       
-        <activity android:name=".ui.CustomizationActivity" android:exported="false" />
-        <activity android:name=".ui.SecurityActivity" android:exported="false" />
-        <activity android:name=".ui.AboutActivity" android:exported="false" />
+
+        <activity android:name=".ui.CustomizationActivity" android:exported="false" android:theme="@style/Theme.IPC.Splash" />
+        <activity android:name=".ui.SecurityActivity" android:exported="false" android:theme="@style/Theme.IPC.Splash" />
+        <activity android:name=".ui.AboutActivity" android:exported="false" android:theme="@style/Theme.IPC.Splash" />
 
     </application>
 

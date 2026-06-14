@@ -49,6 +49,8 @@ workflows:
 
           if not os.path.exists(LAUNCHER):
               raise FileNotFoundError("ic_launcher.png nao encontrado na raiz do repo!")
+          if not os.path.exists(SPLASH):
+              raise FileNotFoundError("splash_icon.png nao encontrado na raiz do repo!")
 
           DENSITIES = {
               "mipmap-ldpi":36,"mipmap-mdpi":48,"mipmap-hdpi":72,
@@ -73,30 +75,28 @@ workflows:
               img.save(path, "PNG", optimize=True)
               print(f"  -> {path}")
 
-          src = Image.open(LAUNCHER)
+          # ic_launcher normal (usa ic_launcher.png com cantos arredondados)
+          src_launcher = Image.open(LAUNCHER)
           for d, sz in DENSITIES.items():
-              save(rounded(src, sz, 0.23), os.path.join(RES, d, "ic_launcher.png"))
-              save(rounded(src, sz, 0.50), os.path.join(RES, d, "ic_launcher_round.png"))
+              save(rounded(src_launcher, sz, 0.23), os.path.join(RES, d, "ic_launcher.png"))
+              save(rounded(src_launcher, sz, 0.50), os.path.join(RES, d, "ic_launcher_round.png"))
 
+          # ic_launcher_foreground usa splash_icon.png — assim o adaptive icon
+          # e o splash do Android 12+ mostram sempre o splash icon, nunca o launcher
+          src_splash = Image.open(SPLASH).convert("RGBA")
           for d, fg in FG_SIZES.items():
               icon_sz = int(fg * 0.66)
-              fg_img  = src.copy().convert("RGBA").resize((icon_sz, icon_sz), Image.LANCZOS)
+              fg_img  = src_splash.copy().resize((icon_sz, icon_sz), Image.LANCZOS)
               canvas  = Image.new("RGBA", (fg, fg), (0,0,0,0))
               off     = (fg - icon_sz) // 2
               canvas.paste(fg_img, (off, off), fg_img)
               save(canvas, os.path.join(RES, d, "ic_launcher_foreground.png"))
 
-          if os.path.exists(SPLASH):
-              dest = os.path.join(RES, "drawable", "splash_icon.png")
-              os.makedirs(os.path.dirname(dest), exist_ok=True)
-              shutil.copy2(SPLASH, dest)
-              print(f"  -> {dest}")
-          else:
-              print("AVISO: splash_icon.png nao encontrado, a usar placeholder...")
-              placeholder = Image.new("RGBA", (192, 192), (0,0,0,0))
-              dest = os.path.join(RES, "drawable", "splash_icon.png")
-              os.makedirs(os.path.dirname(dest), exist_ok=True)
-              placeholder.save(dest, "PNG")
+          # splash_icon.png em drawable para o windowSplashScreenAnimatedIcon
+          dest = os.path.join(RES, "drawable", "splash_icon.png")
+          os.makedirs(os.path.dirname(dest), exist_ok=True)
+          shutil.copy2(SPLASH, dest)
+          print(f"  -> {dest}")
 
           print("Icones processados com sucesso!")
           PYEOF
@@ -172,6 +172,8 @@ workflows:
 
           if not os.path.exists(LAUNCHER):
               raise FileNotFoundError("ic_launcher.png nao encontrado na raiz do repo!")
+          if not os.path.exists(SPLASH):
+              raise FileNotFoundError("splash_icon.png nao encontrado na raiz do repo!")
 
           DENSITIES = {
               "mipmap-ldpi":36,"mipmap-mdpi":48,"mipmap-hdpi":72,
@@ -196,30 +198,28 @@ workflows:
               img.save(path, "PNG", optimize=True)
               print(f"  -> {path}")
 
-          src = Image.open(LAUNCHER)
+          # ic_launcher normal (usa ic_launcher.png com cantos arredondados)
+          src_launcher = Image.open(LAUNCHER)
           for d, sz in DENSITIES.items():
-              save(rounded(src, sz, 0.23), os.path.join(RES, d, "ic_launcher.png"))
-              save(rounded(src, sz, 0.50), os.path.join(RES, d, "ic_launcher_round.png"))
+              save(rounded(src_launcher, sz, 0.23), os.path.join(RES, d, "ic_launcher.png"))
+              save(rounded(src_launcher, sz, 0.50), os.path.join(RES, d, "ic_launcher_round.png"))
 
+          # ic_launcher_foreground usa splash_icon.png — assim o adaptive icon
+          # e o splash do Android 12+ mostram sempre o splash icon, nunca o launcher
+          src_splash = Image.open(SPLASH).convert("RGBA")
           for d, fg in FG_SIZES.items():
               icon_sz = int(fg * 0.66)
-              fg_img  = src.copy().convert("RGBA").resize((icon_sz, icon_sz), Image.LANCZOS)
+              fg_img  = src_splash.copy().resize((icon_sz, icon_sz), Image.LANCZOS)
               canvas  = Image.new("RGBA", (fg, fg), (0,0,0,0))
               off     = (fg - icon_sz) // 2
               canvas.paste(fg_img, (off, off), fg_img)
               save(canvas, os.path.join(RES, d, "ic_launcher_foreground.png"))
 
-          if os.path.exists(SPLASH):
-              dest = os.path.join(RES, "drawable", "splash_icon.png")
-              os.makedirs(os.path.dirname(dest), exist_ok=True)
-              shutil.copy2(SPLASH, dest)
-              print(f"  -> {dest}")
-          else:
-              print("AVISO: splash_icon.png nao encontrado, a usar placeholder...")
-              placeholder = Image.new("RGBA", (192, 192), (0,0,0,0))
-              dest = os.path.join(RES, "drawable", "splash_icon.png")
-              os.makedirs(os.path.dirname(dest), exist_ok=True)
-              placeholder.save(dest, "PNG")
+          # splash_icon.png em drawable para o windowSplashScreenAnimatedIcon
+          dest = os.path.join(RES, "drawable", "splash_icon.png")
+          os.makedirs(os.path.dirname(dest), exist_ok=True)
+          shutil.copy2(SPLASH, dest)
+          print(f"  -> {dest}")
 
           print("Icones processados com sucesso!")
           PYEOF

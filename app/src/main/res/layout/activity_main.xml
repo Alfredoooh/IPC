@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/drawer_background">
 
-    <!-- DRAWER -->
+    <!-- DRAWER — começa fora do ecrã (translationX definido em onResume via código) -->
     <LinearLayout
         android:id="@+id/drawerContainer"
         android:layout_width="match_parent"
@@ -77,7 +77,6 @@
             android:layout_marginEnd="24dp"
             android:background="@color/divider" />
 
-        <!-- Avatar + Nome do utilizador (sem ícone de settings) -->
         <LinearLayout
             android:id="@+id/drawerItemSettings"
             android:layout_width="match_parent"
@@ -222,6 +221,8 @@
                 android:paddingStart="32dp"
                 android:paddingEnd="32dp"
                 android:visibility="gone"
+                android:clickable="false"
+                android:focusable="false"
                 app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
                 <ImageView
@@ -264,6 +265,8 @@
                 android:paddingBottom="160dp"
                 android:paddingStart="32dp"
                 android:paddingEnd="32dp"
+                android:clickable="false"
+                android:focusable="false"
                 app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
                 <ImageView
@@ -462,7 +465,7 @@
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="20dp"
-            android:elevation="8dp"
+            android:elevation="12dp"
             android:background="@color/bottom_bar_solid">
 
             <View

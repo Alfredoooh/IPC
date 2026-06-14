@@ -287,8 +287,29 @@ class MainActiviy : BaseActivity() {
         setupBottomTabs()
         setupBottomAddButton()
         setupPopupMenu()
+        setupOutsideTapDismiss()   // ← NOVO: interceta toques fora do bottom bar
         chatFragment.setup()
         drawerManager.loadConversations()
+    }
+
+    // ─── Interceta toques fora do bottom bar para limpar foco ────────────────
+    // Isto resolve: cursor persistente + estado ativo persistente no input
+    private fun setupOutsideTapDismiss() {
+        binding.coordinatorLayout.setOnTouchListener { v, event ->
+            // Verifica se o toque foi FORA do bottomNavWrapper
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                val rect = android.graphics.Rect()
+                binding.bottomNavWrapper.getGlobalVisibleRect(rect)
+                if (!rect.contains(event.rawX.toInt(), event.rawY.toInt())) {
+                    // Toque fora do bottom bar → limpa foco e esconde teclado
+                    if (binding.inputMessage.hasFocus()) {
+                        hideKeyboard()
+                    }
+                }
+            }
+            // Não consumir — deixar propagar normalmente para swipe etc.
+            false
+        }
     }
 
     // ─── AppBar com gradiente transparente ────────────────────────────────────
@@ -302,11 +323,18 @@ class MainActiviy : BaseActivity() {
     }
 
     fun setupBottomBarSolid() {
+        // Cria o GradientDrawable com corner radius para aparência de card
         val bg = GradientDrawable().apply {
             cornerRadius = currentBarRadiusPx
             setColor(ContextCompat.getColor(this@MainActiviy, R.color.bottom_bar_solid))
         }
         binding.bottomNavWrapper.background = bg
+        // Garante que elevation cria sombra real (card effect)
+        binding.bottomNavWrapper.elevation = dp(12).toFloat()
+        // clipToOutline garante que o conteúdo respeita os cantos arredondados
+        binding.bottomNavWrapper.clipToOutline = true
+        // outlineProvider correto para que a sombra siga o shape
+        binding.bottomNavWrapper.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
     }
 
     // ─── Ícones ───────────────────────────────────────────────────────────────
@@ -861,11 +889,23 @@ class MainActiviy : BaseActivity() {
             duration = 300; interpolator = DecelerateInterpolator(1.8f)
             addUpdateListener { anim ->
                 val v = anim.animatedValue as Float
+                val progress = v / drawerWidth   // 0..1
+
+                // Conteúdo principal desliza para a direita (push effect)
                 binding.coordinatorLayout.translationX = v
-                binding.coordinatorLayout.elevation    = 8f + ((v / drawerWidth) * 16f)
+                binding.coordinatorLayout.elevation    = 8f + (progress * 16f)
+
+                // Drawer desliza progressivamente da esquerda (push effect no drawer)
+                // O drawer começa fora do ecrã (-drawerWidth) e entra até 0
+                binding.drawerContainer.translationX = -drawerWidth * (1f - progress)
             }
             addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) { onEnd?.invoke() }
+                override fun onAnimationEnd(animation: Animator) {
+                    onEnd?.invoke()
+                    // Garante posição final correta
+                    if (to == 0f) binding.drawerContainer.translationX = -drawerWidth.toFloat()
+                    else binding.drawerContainer.translationX = 0f
+                }
             })
             start()
         }
@@ -882,7 +922,6 @@ class MainActiviy : BaseActivity() {
                     swipeStartX = event.rawX
                     swipeStartY = event.rawY
                     swipeConsumed = false
-                    // Só inicia swipe para abrir se o drawer estiver fechado
                     isSwipingDrawer = !drawerOpen
                     false
                 }
@@ -892,27 +931,28 @@ class MainActiviy : BaseActivity() {
 
                     if (swipeConsumed) return@setOnTouchListener true
 
-                    // Determina direção dominante
                     if (kotlin.math.abs(dx) < kotlin.math.abs(dy)) {
-                        // Swipe vertical — não é drawer
                         isSwipingDrawer = false
                         return@setOnTouchListener false
                     }
 
                     if (!drawerOpen && isSwipingDrawer && dx > minDistPx) {
-                        // Abrir drawer — swipe para a direita
                         swipeConsumed = true
                         val progress = (dx / drawerWidth).coerceIn(0f, 1f)
                         binding.coordinatorLayout.translationX = dx.coerceAtMost(drawerWidth.toFloat())
                         binding.coordinatorLayout.elevation = 8f + progress * 16f
+                        // Drawer acompanha progressivamente
+                        binding.drawerContainer.translationX = -drawerWidth * (1f - progress)
                         binding.drawerScrim.visibility = View.VISIBLE
                         true
                     } else if (drawerOpen && dx < -minDistPx) {
-                        // Fechar drawer — swipe para a esquerda
                         swipeConsumed = true
                         val newX = (drawerWidth + dx).coerceAtLeast(0f)
+                        val progress = newX / drawerWidth
                         binding.coordinatorLayout.translationX = newX
                         binding.coordinatorLayout.elevation = 8f + (newX / drawerWidth) * 16f
+                        // Drawer recua progressivamente
+                        binding.drawerContainer.translationX = -drawerWidth * (1f - progress)
                         true
                     } else {
                         false
@@ -974,7 +1014,12 @@ class MainActiviy : BaseActivity() {
 
     // ─── Ciclo de vida ────────────────────────────────────────────────────────
 
-    override fun onResume() { super.onResume(); refreshTabPreviewPill() }
+    override fun onResume() {
+        super.onResume()
+        refreshTabPreviewPill()
+        // Reset posição do drawer ao voltar (ex: vindo de SettingsActivity)
+        binding.drawerContainer.translationX = -drawerWidth.toFloat()
+    }
 
     override fun onPause() { super.onPause(); chatFragment.saveCurrentConversation() }
 
