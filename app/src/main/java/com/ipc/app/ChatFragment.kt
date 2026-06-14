@@ -993,7 +993,7 @@ class ChatFragment(private val activity: MainActiviy) {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(tableBg)
-                setStroke(dp(1.2f).toInt(), borderColor) // HTML usa 1.2px
+                setStroke(dp(1), borderColor) // HTML usa 1.2px
             }
             clipToOutline = true
         }
@@ -1007,7 +1007,7 @@ class ChatFragment(private val activity: MainActiviy) {
                 if (colIndex > 0) {
                     row.addView(View(ctx).apply {
                         setBackgroundColor(borderColor)
-                        layoutParams = LinearLayout.LayoutParams(dp(1.2f).toInt(), LinearLayout.LayoutParams.MATCH_PARENT)
+                        layoutParams = LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT)
                     })
                 }
                 val cell = TextView(ctx).apply {
