@@ -679,43 +679,21 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun renderMessageContent(parent: LinearLayout, rawContent: String) {
         val text = rawContent.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
 
-        // Sistema de widgets por tag: <widget_calendar>JSON</widget_calendar> etc.
+        // Único sistema de widgets: <widget_xxx>JSON</widget_xxx>
         val tagWidgetRegex = Regex(
             "<(widget_calendar|widget_bar|widget_pie|widget_table|widget_code|widget_timer|widget_map|widget_graph|widget_mindmap|widget_market|widget_sheet)>([\\s\\S]*?)</(widget_calendar|widget_bar|widget_pie|widget_table|widget_code|widget_timer|widget_map|widget_graph|widget_mindmap|widget_market|widget_sheet)>",
             RegexOption.MULTILINE
         )
 
-        // Sistema de widgets antigo por ``` (mantido para retrocompatibilidade)
-        val codeWidgetRegex = Regex(
-            "```(widget_bar|widget_pie|widget_table|widget_sheet)\\s*\\n([\\s\\S]*?)```",
-            RegexOption.MULTILINE
-        )
-
-        val hasTagWidgets = tagWidgetRegex.containsMatchIn(text)
-        val hasCodeWidgets = sheetsEnabled && codeWidgetRegex.containsMatchIn(text)
-
-        if (hasTagWidgets || hasCodeWidgets) {
-            // Combina ambos os sistemas de widgets
-            val allMatches = mutableListOf<Triple<IntRange, String, String>>() // range, type, json
-
-            tagWidgetRegex.findAll(text).forEach { match ->
-                allMatches.add(Triple(match.range, match.groupValues[1], match.groupValues[2].trim()))
-            }
-            if (sheetsEnabled) {
-                codeWidgetRegex.findAll(text).forEach { match ->
-                    allMatches.add(Triple(match.range, match.groupValues[1], match.groupValues[2].trim()))
-                }
-            }
-            allMatches.sortBy { it.first.first }
-
+        if (tagWidgetRegex.containsMatchIn(text)) {
             var lastEnd = 0
-            allMatches.forEach { (range, widgetType, jsonStr) ->
-                val before = text.substring(lastEnd, range.first).trim()
+            tagWidgetRegex.findAll(text).forEach { match ->
+                val before = text.substring(lastEnd, match.range.first).trim()
                 if (before.isNotEmpty()) {
                     splitIntoBlocks(before).forEach { block -> renderBlock(parent, block) }
                 }
-                parent.addView(buildNativeWidget(parent.context, widgetType, jsonStr))
-                lastEnd = range.last + 1
+                parent.addView(buildNativeWidget(parent.context, match.groupValues[1], match.groupValues[2].trim()))
+                lastEnd = match.range.last + 1
             }
             val after = text.substring(lastEnd).trim()
             if (after.isNotEmpty()) {
@@ -1125,10 +1103,8 @@ class ChatFragment(private val activity: MainActiviy) {
         val primaryColor = ContextCompat.getColor(ctx, R.color.colorPrimary)
         val todayBg = if (isDark) Color.parseColor("#2A2A40") else Color.parseColor("#EDE9FF")
         val selectedBg = primaryColor
-        val hoverBg = if (isDark) Color.parseColor("#2a2a3a") else Color.parseColor("#F0EEFF")
         val headerBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F5F7FA")
 
-        // Parse events do JSON: { "events": { "2025-06-13": [{"name":"...","time":"...","color":"..."}] } }
         val eventsMap = mutableMapOf<String, MutableList<Triple<String, String, Int>>>()
         val eventsJson = json.optJSONObject("events")
         if (eventsJson != null) {
@@ -1153,9 +1129,7 @@ class ChatFragment(private val activity: MainActiviy) {
         val weekDays = listOf("Dom","Seg","Ter","Qua","Qui","Sex","Sáb")
 
         val today = Calendar.getInstance()
-        val currentCal = Calendar.getInstance().apply {
-            set(Calendar.DAY_OF_MONTH, 1)
-        }
+        val currentCal = Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1) }
 
         var selectedDateKey = "%04d-%02d-%02d".format(
             today.get(Calendar.YEAR), today.get(Calendar.MONTH) + 1, today.get(Calendar.DAY_OF_MONTH)
@@ -1173,28 +1147,22 @@ class ChatFragment(private val activity: MainActiviy) {
             clipToOutline = true
         }
 
-        // Header com mês/ano e botões de navegação
         val headerRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            setBackgroundColor(headerBg)
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14)); setBackgroundColor(headerBg)
         }
         val prevBtn = TextView(ctx).apply {
-            text = "‹"; textSize = 22f; setTextColor(textPrimary)
-            gravity = Gravity.CENTER
+            text = "‹"; textSize = 22f; setTextColor(textPrimary); gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
             background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#F0F0F0")) }
             isClickable = true; isFocusable = true
         }
         val titleTv = TextView(ctx).apply {
-            textSize = 16f; setTypeface(null, Typeface.BOLD)
-            setTextColor(textPrimary); gravity = Gravity.CENTER
+            textSize = 16f; setTypeface(null, Typeface.BOLD); setTextColor(textPrimary); gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         val nextBtn = TextView(ctx).apply {
-            text = "›"; textSize = 22f; setTextColor(textPrimary)
-            gravity = Gravity.CENTER
+            text = "›"; textSize = 22f; setTextColor(textPrimary); gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
             background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#F0F0F0")) }
             isClickable = true; isFocusable = true
@@ -1206,46 +1174,34 @@ class ChatFragment(private val activity: MainActiviy) {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
         })
 
-        // Dias da semana
         val weekRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(8), dp(8), dp(8), dp(4))
-            setBackgroundColor(headerBg)
+            orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), dp(8), dp(8), dp(4)); setBackgroundColor(headerBg)
         }
         weekDays.forEach { day ->
             weekRow.addView(TextView(ctx).apply {
                 text = day; textSize = 11f; setTypeface(null, Typeface.BOLD)
-                setTextColor(ContextCompat.getColor(ctx, R.color.text_hint))
-                gravity = Gravity.CENTER
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_hint)); gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
         }
         container.addView(weekRow)
 
-        // Grid de dias
         val gridContainer = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(8), dp(4), dp(8), dp(8))
+            orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(4), dp(8), dp(8))
         }
         container.addView(gridContainer)
-
-        // Separador
         container.addView(View(ctx).apply {
             setBackgroundColor(dividerColor)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
         })
 
-        // Secção de eventos
         val eventsSection = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(16))
+            orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(12), dp(16), dp(16))
         }
-        val eventsTitleTv = TextView(ctx).apply {
+        eventsSection.addView(TextView(ctx).apply {
             text = "Eventos do dia"; textSize = 11f; setTypeface(null, Typeface.BOLD)
-            setTextColor(ContextCompat.getColor(ctx, R.color.text_hint))
-            setPadding(0, 0, 0, dp(8))
-        }
-        eventsSection.addView(eventsTitleTv)
+            setTextColor(ContextCompat.getColor(ctx, R.color.text_hint)); setPadding(0, 0, 0, dp(8))
+        })
         val eventsListContainer = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         eventsSection.addView(eventsListContainer)
         container.addView(eventsSection)
@@ -1256,8 +1212,7 @@ class ChatFragment(private val activity: MainActiviy) {
             if (dayEvents.isNullOrEmpty()) {
                 eventsListContainer.addView(TextView(ctx).apply {
                     text = "Nenhum evento neste dia"; textSize = 13f
-                    setTextColor(textSecondary); gravity = Gravity.CENTER
-                    setPadding(0, dp(8), 0, dp(8))
+                    setTextColor(textSecondary); gravity = Gravity.CENTER; setPadding(0, dp(8), 0, dp(8))
                 })
             } else {
                 dayEvents.forEach { (name, time, color) ->
@@ -1278,9 +1233,7 @@ class ChatFragment(private val activity: MainActiviy) {
                     })
                     val infoCol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
                     infoCol.addView(TextView(ctx).apply { text = name; textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(textPrimary) })
-                    if (time.isNotEmpty()) {
-                        infoCol.addView(TextView(ctx).apply { text = time; textSize = 12f; setTextColor(textSecondary) })
-                    }
+                    if (time.isNotEmpty()) infoCol.addView(TextView(ctx).apply { text = time; textSize = 12f; setTextColor(textSecondary) })
                     eventRow.addView(infoCol)
                     eventsListContainer.addView(eventRow)
                 }
@@ -1290,30 +1243,27 @@ class ChatFragment(private val activity: MainActiviy) {
         fun buildGrid() {
             gridContainer.removeAllViews()
             titleTv.text = "${months[currentCal.get(Calendar.MONTH)]} ${currentCal.get(Calendar.YEAR)}"
-
             val year = currentCal.get(Calendar.YEAR)
             val month = currentCal.get(Calendar.MONTH)
             val firstDay = currentCal.get(Calendar.DAY_OF_WEEK) - 1
             val daysInMonth = currentCal.getActualMaximum(Calendar.DAY_OF_MONTH)
-            val prevDays = Calendar.getInstance().apply { set(year, month - 1, 1) }.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val prevMonthDays = Calendar.getInstance().apply { set(year, month - 1, 1) }.getActualMaximum(Calendar.DAY_OF_MONTH)
 
             val cellSize = dp(38)
             var currentRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
             var cellCount = 0
 
-            // Dias anteriores
+            // Dias do mês anterior
             for (i in firstDay - 1 downTo 0) {
-                val dayNum = prevDays - i
                 currentRow.addView(TextView(ctx).apply {
-                    text = dayNum.toString(); textSize = 13f; gravity = Gravity.CENTER
-                    setTextColor(ContextCompat.getColor(ctx, R.color.text_hint))
-                    alpha = 0.4f
+                    text = (prevMonthDays - i).toString(); textSize = 13f; gravity = Gravity.CENTER
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_hint)); alpha = 0.4f
                     layoutParams = LinearLayout.LayoutParams(0, cellSize, 1f)
                 })
                 cellCount++
             }
 
-            // Dias do mês
+            // Dias do mês actual
             for (d in 1..daysInMonth) {
                 if (cellCount == 7) {
                     gridContainer.addView(currentRow)
@@ -1329,19 +1279,14 @@ class ChatFragment(private val activity: MainActiviy) {
                     layoutParams = LinearLayout.LayoutParams(0, cellSize, 1f)
                     isClickable = true; isFocusable = true
                 }
-                val bg = GradientDrawable().apply {
+                dayCell.background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
                     setColor(when { isSelected -> selectedBg; isToday -> todayBg; else -> Color.TRANSPARENT })
                 }
-                dayCell.background = bg
                 dayCell.addView(TextView(ctx).apply {
                     text = d.toString(); textSize = 13f; gravity = Gravity.CENTER
                     layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-                    setTextColor(when {
-                        isSelected -> Color.WHITE
-                        isToday -> primaryColor
-                        else -> textPrimary
-                    })
+                    setTextColor(when { isSelected -> Color.WHITE; isToday -> primaryColor; else -> textPrimary })
                     if (isSelected || isToday) setTypeface(null, Typeface.BOLD)
                 })
                 if (hasEvent) {
@@ -1353,38 +1298,28 @@ class ChatFragment(private val activity: MainActiviy) {
                         layoutParams = FrameLayout.LayoutParams(dp(5), dp(5), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).also { it.bottomMargin = dp(3) }
                     })
                 }
-                dayCell.setOnClickListener {
-                    selectedDateKey = dateKey
-                    buildGrid()
-                    updateEventsList()
-                }
+                dayCell.setOnClickListener { selectedDateKey = dateKey; buildGrid(); updateEventsList() }
                 currentRow.addView(dayCell)
                 cellCount++
             }
 
-            // Completar última linha
+            // Preencher última linha com dias do mês seguinte
+            var nextDay = 1
             while (cellCount < 7) {
-                val d = cellCount - (7 - (7 - currentRow.childCount))
                 currentRow.addView(TextView(ctx).apply {
-                    text = (cellCount - (daysInMonth + firstDay - 7) + 1).coerceAtLeast(1).toString()
-                    textSize = 13f; gravity = Gravity.CENTER
-                    setTextColor(ContextCompat.getColor(ctx, R.color.text_hint))
-                    alpha = 0.4f
+                    text = nextDay.toString(); textSize = 13f; gravity = Gravity.CENTER
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_hint)); alpha = 0.4f
                     layoutParams = LinearLayout.LayoutParams(0, cellSize, 1f)
                 })
+                nextDay++
                 cellCount++
             }
             if (currentRow.childCount > 0) gridContainer.addView(currentRow)
             updateEventsList()
         }
 
-        prevBtn.setOnClickListener {
-            currentCal.add(Calendar.MONTH, -1); buildGrid()
-        }
-        nextBtn.setOnClickListener {
-            currentCal.add(Calendar.MONTH, 1); buildGrid()
-        }
-
+        prevBtn.setOnClickListener { currentCal.add(Calendar.MONTH, -1); buildGrid() }
+        nextBtn.setOnClickListener { currentCal.add(Calendar.MONTH, 1); buildGrid() }
         buildGrid()
         return container
     }
@@ -1409,27 +1344,21 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
             background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat(); setColor(bgColor)
-                setStroke(dp(1), borderColor)
+                cornerRadius = dp(14).toFloat(); setColor(bgColor); setStroke(dp(1), borderColor)
             }
             clipToOutline = true
         }
 
-        // Header
         val header = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), 0, dp(12), 0)
-            minimumHeight = dp(42)
-            setBackgroundColor(headerBg)
+            setPadding(dp(14), 0, dp(12), 0); minimumHeight = dp(42); setBackgroundColor(headerBg)
         }
         header.addView(TextView(ctx).apply {
-            text = lang; textSize = 12f; setTypeface(null, Typeface.BOLD)
-            setTextColor(titleColor)
+            text = lang; textSize = 12f; setTypeface(null, Typeface.BOLD); setTextColor(titleColor)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             letterSpacing = 0.05f
         })
 
-        // Botão copiar
         val copyBtn = FrameLayout(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(dp(32), dp(32))
             background = GradientDrawable().apply {
@@ -1439,12 +1368,11 @@ class ChatFragment(private val activity: MainActiviy) {
             }
             isClickable = true; isFocusable = true
         }
-        val copyIcon = ImageView(ctx).apply {
+        copyBtn.addView(ImageView(ctx).apply {
             setImageDrawable(activity.svgDrawable("icons/svg/copy.svg", 14,
                 if (isDark) Color.parseColor("#f2f2f2") else Color.parseColor("#2a2a2a")))
             layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
-        }
-        copyBtn.addView(copyIcon)
+        })
         copyBtn.setOnClickListener {
             val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("code", code))
@@ -1452,64 +1380,49 @@ class ChatFragment(private val activity: MainActiviy) {
         }
         header.addView(copyBtn)
         container.addView(header)
-
-        // Separador
         container.addView(View(ctx).apply {
             setBackgroundColor(borderColor)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
         })
 
-        // Corpo do código com scroll horizontal
         val hScroll = HorizontalScrollView(ctx).apply {
-            overScrollMode = View.OVER_SCROLL_NEVER
-            setBackgroundColor(bgColor)
+            overScrollMode = View.OVER_SCROLL_NEVER; setBackgroundColor(bgColor)
         }
         val codeLines = code.split("\n")
         val codeLayout = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(52), dp(12), dp(16), dp(12))
+            orientation = LinearLayout.VERTICAL; setPadding(dp(52), dp(12), dp(16), dp(12))
         }
-
         codeLines.forEachIndexed { idx, line ->
             val lineRow = FrameLayout(ctx)
-            // Número de linha
             lineRow.addView(TextView(ctx).apply {
                 text = (idx + 1).toString(); textSize = 12f
-                setTextColor(lineNumColor); typeface = Typeface.MONOSPACE
-                gravity = Gravity.END
+                setTextColor(lineNumColor); typeface = Typeface.MONOSPACE; gravity = Gravity.END
                 setPadding(0, 0, dp(8), 0)
                 layoutParams = FrameLayout.LayoutParams(dp(36), LinearLayout.LayoutParams.WRAP_CONTENT).also {
                     it.marginStart = -dp(44)
                 }
             })
-            // Texto da linha com syntax highlighting básico
             lineRow.addView(TextView(ctx).apply {
                 text = applyCodeHighlighting(line, lang, isDark)
-                textSize = 13f; typeface = Typeface.MONOSPACE
-                setLineSpacing(0f, 1.6f)
-                setPadding(0, 0, 0, 0)
+                textSize = 13f; typeface = Typeface.MONOSPACE; setLineSpacing(0f, 1.6f)
                 layoutParams = FrameLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
                 )
             })
             codeLayout.addView(lineRow)
         }
-
         hScroll.addView(codeLayout)
         container.addView(hScroll)
         return container
     }
 
     private fun applyCodeHighlighting(line: String, lang: String, isDark: Boolean): CharSequence {
-        // Highlighting básico — keywords coloridas via SpannableString
         val sb = SpannableStringBuilder(line)
         val keywordColor = if (isDark) Color.parseColor("#ff7b72") else Color.parseColor("#b00020")
         val stringColor = if (isDark) Color.parseColor("#a5d6ff") else Color.parseColor("#005cc5")
         val commentColor = if (isDark) Color.parseColor("#8b949e") else Color.parseColor("#6a737d")
-        val funcColor = if (isDark) Color.parseColor("#d2a8ff") else Color.parseColor("#6f42c1")
         val textColor = if (isDark) Color.parseColor("#e8e8e8") else Color.parseColor("#222222")
 
-        // Aplica cor base
         sb.setSpan(android.text.style.ForegroundColorSpan(textColor), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 
         val keywords = when (lang) {
@@ -1521,29 +1434,22 @@ class ChatFragment(private val activity: MainActiviy) {
             else -> listOf("if","else","for","while","return","class","function","import","const","var","let")
         }
 
-        // Comentários (linha inteira)
-        val commentPrefixes = listOf("//", "#", "<!--", "/*", "*")
         val trimmed = line.trimStart()
+        val commentPrefixes = listOf("//", "#", "<!--", "/*", "*")
         if (commentPrefixes.any { trimmed.startsWith(it) }) {
             sb.setSpan(android.text.style.ForegroundColorSpan(commentColor), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             sb.setSpan(StyleSpan(Typeface.ITALIC), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             return sb
         }
 
-        // Strings
-        val stringRegex = Regex("(\"[^\"]*\"|'[^']*'|`[^`]*`)")
-        stringRegex.findAll(line).forEach { match ->
+        Regex("(\"[^\"]*\"|'[^']*'|`[^`]*`)").findAll(line).forEach { match ->
             sb.setSpan(android.text.style.ForegroundColorSpan(stringColor), match.range.first, match.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
-
-        // Keywords
         keywords.forEach { kw ->
-            val kwRegex = Regex("\\b${Regex.escape(kw)}\\b")
-            kwRegex.findAll(line).forEach { match ->
+            Regex("\\b${Regex.escape(kw)}\\b").findAll(line).forEach { match ->
                 sb.setSpan(android.text.style.ForegroundColorSpan(keywordColor), match.range.first, match.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
-
         return sb
     }
 
@@ -1561,14 +1467,12 @@ class ChatFragment(private val activity: MainActiviy) {
         val label = json.optString("label", "")
 
         val container = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
             background = GradientDrawable().apply {
-                cornerRadius = dp(20).toFloat(); setColor(cardBg)
-                setStroke(dp(1), borderColor)
+                cornerRadius = dp(20).toFloat(); setColor(cardBg); setStroke(dp(1), borderColor)
             }
             setPadding(dp(20), dp(20), dp(20), dp(20))
         }
@@ -1583,18 +1487,14 @@ class ChatFragment(private val activity: MainActiviy) {
         }
 
         val timeTv = TextView(ctx).apply {
-            textSize = 36f; setTypeface(null, Typeface.BOLD)
-            setTextColor(textPrimary)
-            gravity = Gravity.CENTER
-            typeface = Typeface.MONOSPACE
+            textSize = 36f; setTypeface(null, Typeface.BOLD); setTextColor(textPrimary)
+            gravity = Gravity.CENTER; typeface = Typeface.MONOSPACE
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60))
         }
         container.addView(timeTv)
 
-        // Botões de controlo
         val btnRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(12) }
         }
 
@@ -1615,24 +1515,19 @@ class ChatFragment(private val activity: MainActiviy) {
 
         fun updateDisplay() { timeTv.text = formatTime(elapsedMs) }
 
-        fun stopTimer() {
-            running = false
-            animator?.cancel()
-        }
+        fun stopTimer() { running = false; animator?.cancel() }
 
         fun startTimer() {
             if (running) return
-            running = true
-            startTime = System.currentTimeMillis()
+            running = true; startTime = System.currentTimeMillis()
             val startElapsed = elapsedMs
             animator = ValueAnimator.ofFloat(0f, 1f).apply {
                 duration = Long.MAX_VALUE; repeatCount = 0
                 addUpdateListener {
-                    val now = System.currentTimeMillis()
-                    val delta = now - startTime
+                    val delta = System.currentTimeMillis() - startTime
                     if (isCountdown && initialMs > 0) {
                         elapsedMs = (startElapsed - delta).coerceAtLeast(0L)
-                        if (elapsedMs == 0L) { stopTimer() }
+                        if (elapsedMs == 0L) stopTimer()
                     } else {
                         elapsedMs = startElapsed + delta
                     }
@@ -1642,20 +1537,14 @@ class ChatFragment(private val activity: MainActiviy) {
             }
         }
 
-        fun resetTimer() {
-            stopTimer()
-            elapsedMs = if (isCountdown && initialMs > 0) initialMs else 0L
-            updateDisplay()
-        }
+        fun resetTimer() { stopTimer(); elapsedMs = if (isCountdown && initialMs > 0) initialMs else 0L; updateDisplay() }
 
         val primaryColor = ContextCompat.getColor(ctx, R.color.colorPrimary)
 
         fun makeBtn(icon: String, onClick: () -> Unit): View {
             return FrameLayout(ctx).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).also { it.marginEnd = dp(8) }
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL; setColor(primaryColor)
-                }
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(primaryColor) }
                 isClickable = true; isFocusable = true
                 addView(ImageView(ctx).apply {
                     setImageDrawable(activity.svgDrawable(icon, 18, Color.WHITE))
@@ -1665,21 +1554,11 @@ class ChatFragment(private val activity: MainActiviy) {
             }
         }
 
-        val playIcon = "icons/svg/flash_filled.svg"
-        val pauseIcon = "icons/svg/flash.svg"
-
-        val playPauseBtn = makeBtn(playIcon) {
-            if (running) stopTimer() else startTimer()
-        }
-        val resetBtn = makeBtn("icons/svg/refresh.svg") { resetTimer() }
-
-        btnRow.addView(playPauseBtn)
-        btnRow.addView(resetBtn)
+        btnRow.addView(makeBtn("icons/svg/flash_filled.svg") { if (running) stopTimer() else startTimer() })
+        btnRow.addView(makeBtn("icons/svg/refresh.svg") { resetTimer() })
         container.addView(btnRow)
-
         updateDisplay()
         if (autoStart) startTimer()
-
         return container
     }
 
@@ -1700,12 +1579,10 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
             background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat(); setColor(cardBg)
-                setStroke(dp(1), borderColor)
+                cornerRadius = dp(14).toFloat(); setColor(cardBg); setStroke(dp(1), borderColor)
             }
             clipToOutline = true
         }
-
         if (title.isNotEmpty()) container.addView(widgetHeader(ctx, title))
 
         val graphH = dp(220)
@@ -1716,8 +1593,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 super.onDraw(canvas)
                 val w = width.toFloat(); val h = height.toFloat()
                 val plotW = w - pad * 2; val plotH = h - pad * 2
-
-                // Calcula range Y automaticamente
                 val steps = 200
                 val points = mutableListOf<Pair<Float, Float>>()
                 for (i in 0..steps) {
@@ -1734,46 +1609,29 @@ class ChatFragment(private val activity: MainActiviy) {
                 fun mapX(x: Float) = pad + ((x - xMin) / xRange) * plotW
                 fun mapY(y: Float) = pad + plotH - ((y - yMin) / yRange) * plotH
 
-                // Grid
                 val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA")
-                    strokeWidth = 1f
+                    color = if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA"); strokeWidth = 1f
                 }
                 for (i in 0..4) {
-                    val gy = pad + plotH * i / 4
-                    canvas.drawLine(pad, gy, pad + plotW, gy, gridPaint)
-                    val gx = pad + plotW * i / 4
-                    canvas.drawLine(gx, pad, gx, pad + plotH, gridPaint)
+                    canvas.drawLine(pad, pad + plotH * i / 4, pad + plotW, pad + plotH * i / 4, gridPaint)
+                    canvas.drawLine(pad + plotW * i / 4, pad, pad + plotW * i / 4, pad + plotH, gridPaint)
                 }
 
-                // Eixos
                 val axisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = if (isDark) Color.parseColor("#cccccc") else Color.parseColor("#555555")
                     strokeWidth = dp(1).toFloat()
                 }
-                // Eixo X (y=0)
-                if (yMin <= 0f && yMax >= 0f) {
-                    val yZero = mapY(0f)
-                    canvas.drawLine(pad, yZero, pad + plotW, yZero, axisPaint)
-                }
-                // Eixo Y (x=0)
-                if (xMin <= 0f && xMax >= 0f) {
-                    val xZero = mapX(0f)
-                    canvas.drawLine(xZero, pad, xZero, pad + plotH, axisPaint)
-                }
+                if (yMin <= 0f && yMax >= 0f) canvas.drawLine(pad, mapY(0f), pad + plotW, mapY(0f), axisPaint)
+                if (xMin <= 0f && xMax >= 0f) canvas.drawLine(mapX(0f), pad, mapX(0f), pad + plotH, axisPaint)
 
-                // Labels dos eixos
                 val lblPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = if (isDark) Color.parseColor("#888888") else Color.parseColor("#999999")
                     textSize = dp(10).toFloat(); textAlign = Paint.Align.CENTER
                 }
                 for (i in 0..4) {
-                    val gx = pad + plotW * i / 4
-                    val xVal = xMin + xRange * i / 4
-                    canvas.drawText(xVal.toInt().toString(), gx, h - dp(6), lblPaint)
+                    canvas.drawText((xMin + xRange * i / 4).toInt().toString(), pad + plotW * i / 4, h - dp(6), lblPaint)
                 }
 
-                // Curva
                 val curvePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = ContextCompat.getColor(ctx, R.color.colorPrimary)
                     strokeWidth = dp(2).toFloat(); style = Paint.Style.STROKE
@@ -1783,17 +1641,13 @@ class ChatFragment(private val activity: MainActiviy) {
                 var firstPoint = true
                 points.forEach { (x, y) ->
                     val px = mapX(x); val py = mapY(y)
-                    if (firstPoint) { path.moveTo(px, py); firstPoint = false }
-                    else path.lineTo(px, py)
+                    if (firstPoint) { path.moveTo(px, py); firstPoint = false } else path.lineTo(px, py)
                 }
                 canvas.drawPath(path, curvePaint)
-
-                // Label da expressão
-                val exprPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = ContextCompat.getColor(ctx, R.color.colorPrimary)
-                    textSize = dp(11).toFloat()
-                }
-                canvas.drawText("f(x) = $expression", pad + dp(4), pad - dp(6), exprPaint)
+                canvas.drawText("f(x) = $expression", pad + dp(4), pad - dp(6),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = ContextCompat.getColor(ctx, R.color.colorPrimary); textSize = dp(11).toFloat()
+                    })
             }
         }
         graphView.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, graphH)
@@ -1801,62 +1655,36 @@ class ChatFragment(private val activity: MainActiviy) {
         return container
     }
 
-    // Avaliador de expressões matemáticas simples
     private fun evaluateSimpleExpr(expr: String, x: Float): Float {
         return try {
             val e = expr.trim()
-                .replace("sin(", "sin_(")
-                .replace("cos(", "cos_(")
-                .replace("tan(", "tan_(")
-                .replace("sqrt(", "sqrt_(")
-                .replace("abs(", "abs_(")
+                .replace("sin(", "sin_(").replace("cos(", "cos_(").replace("tan(", "tan_(")
+                .replace("sqrt(", "sqrt_(").replace("abs(", "abs_(")
                 .replace("x", x.toString())
-                .replace("π", Math.PI.toString())
-                .replace("pi", Math.PI.toString())
-                .replace("e", Math.E.toString())
-                .replace("sin_(", "sin(")
-                .replace("cos_(", "cos(")
-                .replace("tan_(", "tan(")
-                .replace("sqrt_(", "sqrt(")
-                .replace("abs_(", "abs(")
+                .replace("π", Math.PI.toString()).replace("pi", Math.PI.toString()).replace("e", Math.E.toString())
+                .replace("sin_(", "sin(").replace("cos_(", "cos(").replace("tan_(", "tan(")
+                .replace("sqrt_(", "sqrt(").replace("abs_(", "abs(")
             evalMath(e).toFloat()
         } catch (e: Exception) { Float.NaN }
     }
 
     private fun evalMath(expr: String): Double {
         val e = expr.trim()
-        // Resolve funções
-        val sinMatch = Regex("sin\\(([^()]+)\\)").find(e)
-        if (sinMatch != null) return evalMath(e.replace(sinMatch.value, Math.sin(evalMath(sinMatch.groupValues[1])).toString()))
-        val cosMatch = Regex("cos\\(([^()]+)\\)").find(e)
-        if (cosMatch != null) return evalMath(e.replace(cosMatch.value, Math.cos(evalMath(cosMatch.groupValues[1])).toString()))
-        val tanMatch = Regex("tan\\(([^()]+)\\)").find(e)
-        if (tanMatch != null) return evalMath(e.replace(tanMatch.value, Math.tan(evalMath(tanMatch.groupValues[1])).toString()))
-        val sqrtMatch = Regex("sqrt\\(([^()]+)\\)").find(e)
-        if (sqrtMatch != null) return evalMath(e.replace(sqrtMatch.value, Math.sqrt(evalMath(sqrtMatch.groupValues[1])).toString()))
-        val absMatch = Regex("abs\\(([^()]+)\\)").find(e)
-        if (absMatch != null) return evalMath(e.replace(absMatch.value, Math.abs(evalMath(absMatch.groupValues[1])).toString()))
-        // Resolve potências
-        val powMatch = Regex("(-?[\\d.]+)\\^(-?[\\d.]+)").find(e)
-        if (powMatch != null) return evalMath(e.replace(powMatch.value, Math.pow(powMatch.groupValues[1].toDouble(), powMatch.groupValues[2].toDouble()).toString()))
-        // Resolve parênteses
-        val parenMatch = Regex("\\(([^()]+)\\)").find(e)
-        if (parenMatch != null) return evalMath(e.replace(parenMatch.value, evalMath(parenMatch.groupValues[1]).toString()))
-        // Operações básicas
-        val addSub = Regex("(-?[\\d.]+)([+\\-])(-?[\\d.]+)$")
-        val asMatch = addSub.find(e)
-        if (asMatch != null) {
-            val a = asMatch.groupValues[1].toDouble()
-            val b = asMatch.groupValues[3].toDouble()
-            return if (asMatch.groupValues[2] == "+") a + b else a - b
+        Regex("sin\\(([^()]+)\\)").find(e)?.let { return evalMath(e.replace(it.value, Math.sin(evalMath(it.groupValues[1])).toString())) }
+        Regex("cos\\(([^()]+)\\)").find(e)?.let { return evalMath(e.replace(it.value, Math.cos(evalMath(it.groupValues[1])).toString())) }
+        Regex("tan\\(([^()]+)\\)").find(e)?.let { return evalMath(e.replace(it.value, Math.tan(evalMath(it.groupValues[1])).toString())) }
+        Regex("sqrt\\(([^()]+)\\)").find(e)?.let { return evalMath(e.replace(it.value, Math.sqrt(evalMath(it.groupValues[1])).toString())) }
+        Regex("abs\\(([^()]+)\\)").find(e)?.let { return evalMath(e.replace(it.value, Math.abs(evalMath(it.groupValues[1])).toString())) }
+        Regex("(-?[\\d.]+)\\^(-?[\\d.]+)").find(e)?.let { return evalMath(e.replace(it.value, Math.pow(it.groupValues[1].toDouble(), it.groupValues[2].toDouble()).toString())) }
+        Regex("\\(([^()]+)\\)").find(e)?.let { return evalMath(e.replace(it.value, evalMath(it.groupValues[1]).toString())) }
+        Regex("(-?[\\d.]+)([+\\-])(-?[\\d.]+)$").find(e)?.let {
+            val a = it.groupValues[1].toDouble(); val b = it.groupValues[3].toDouble()
+            return if (it.groupValues[2] == "+") a + b else a - b
         }
-        val mulDiv = Regex("(-?[\\d.]+)([*/])(-?[\\d.]+)")
-        val mdMatch = mulDiv.find(e)
-        if (mdMatch != null) {
-            val a = mdMatch.groupValues[1].toDouble()
-            val b = mdMatch.groupValues[3].toDouble()
-            val result = if (mdMatch.groupValues[2] == "*") a * b else if (b != 0.0) a / b else Double.NaN
-            return evalMath(e.replace(mdMatch.value, result.toString()))
+        Regex("(-?[\\d.]+)([*/])(-?[\\d.]+)").find(e)?.let {
+            val a = it.groupValues[1].toDouble(); val b = it.groupValues[3].toDouble()
+            val r = if (it.groupValues[2] == "*") a * b else if (b != 0.0) a / b else Double.NaN
+            return evalMath(e.replace(it.value, r.toString()))
         }
         return e.trim().toDoubleOrNull() ?: Double.NaN
     }
@@ -1876,9 +1704,7 @@ class ChatFragment(private val activity: MainActiviy) {
             val color = if (colorStr.isNotEmpty()) runCatching { Color.parseColor(colorStr) }.getOrDefault(primaryColor) else primaryColor
             val children = mutableListOf<MindNode>()
             val childArr = obj.optJSONArray("children")
-            if (childArr != null) {
-                for (i in 0 until childArr.length()) children.add(parseNode(childArr.getJSONObject(i)))
-            }
+            if (childArr != null) for (i in 0 until childArr.length()) children.add(parseNode(childArr.getJSONObject(i)))
             return MindNode(obj.optString("label", ""), color, children)
         }
 
@@ -1891,29 +1717,24 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
             background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat(); setColor(cardBg)
-                setStroke(dp(1), borderColor)
+                cornerRadius = dp(14).toFloat(); setColor(cardBg); setStroke(dp(1), borderColor)
             }
             clipToOutline = true
         }
-
         if (title.isNotEmpty()) container.addView(widgetHeader(ctx, title))
 
         val mapH = dp(280)
-
         val mapView = object : View(ctx) {
             private val positions = mutableMapOf<MindNode, Pair<Float, Float>>()
 
-            private fun layoutTree(node: MindNode, x: Float, yStart: Float, yEnd: Float): Pair<Float, Float> {
-                val y = (yStart + yEnd) / 2
-                positions[node] = Pair(x, y)
+            private fun layoutTree(node: MindNode, x: Float, yStart: Float, yEnd: Float) {
+                positions[node] = Pair(x, (yStart + yEnd) / 2)
                 if (node.children.isNotEmpty()) {
                     val childH = (yEnd - yStart) / node.children.size
                     node.children.forEachIndexed { i, child ->
                         layoutTree(child, x + dp(140), yStart + i * childH, yStart + (i + 1) * childH)
                     }
                 }
-                return Pair(x, y)
             }
 
             override fun onDraw(canvas: Canvas) {
@@ -1931,7 +1752,6 @@ class ChatFragment(private val activity: MainActiviy) {
                     textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
                 }
 
-                // Linhas primeiro
                 positions.forEach { (node, pos) ->
                     node.children.forEach { child ->
                         val childPos = positions[child] ?: return@forEach
@@ -1942,11 +1762,8 @@ class ChatFragment(private val activity: MainActiviy) {
                         canvas.drawPath(path, linePaint)
                     }
                 }
-
-                // Nós
                 positions.forEach { (node, pos) ->
-                    val textLen = node.label.length * dp(6).toFloat() + dp(16)
-                    val nodeW = textLen.coerceIn(dp(40).toFloat(), dp(100).toFloat())
+                    val nodeW = (node.label.length * dp(6).toFloat() + dp(16)).coerceIn(dp(40).toFloat(), dp(100).toFloat())
                     val nodeH = dp(28).toFloat()
                     val rect = RectF(pos.first, pos.second - nodeH / 2, pos.first + nodeW, pos.second + nodeH / 2)
                     nodePaint.color = node.color
@@ -1982,14 +1799,12 @@ class ChatFragment(private val activity: MainActiviy) {
         val upGreenText = Color.parseColor("#22c55e")
         val downRedText = Color.parseColor("#ef4444")
 
-        // Histórico simulado (sparkline)
         val historyArr = json.optJSONArray("history")
         val historyPrices = mutableListOf<Float>()
         if (historyArr != null) {
             for (i in 0 until historyArr.length()) historyPrices.add(historyArr.optDouble(i, 0.0).toFloat())
         }
         if (historyPrices.isEmpty()) {
-            // Gera histórico simulado
             var p = (if (price > 0) price else 100.0).toFloat()
             for (i in 0..40) {
                 p += (Math.random() - if (isUp) 0.45 else 0.55).toFloat() * p * 0.02f
@@ -2004,19 +1819,16 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
             background = GradientDrawable().apply {
-                cornerRadius = dp(20).toFloat(); setColor(widgetBg)
-                setStroke(dp(1), borderColor)
+                cornerRadius = dp(20).toFloat(); setColor(widgetBg); setStroke(dp(1), borderColor)
             }
             clipToOutline = true
         }
 
-        // Asset info row
         val infoRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16), dp(18), dp(16), dp(8))
         }
 
-        // Logo/avatar
         val logoSize = dp(44)
         val logoView = FrameLayout(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(logoSize, logoSize).also { it.marginEnd = dp(12) }
@@ -2025,14 +1837,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 setColor(if (isDark) Color.parseColor("#1e2128") else Color.parseColor("#f0f0f0"))
             }
         }
-
-        // Tenta carregar logo de cripto via URL (CoinGecko)
-        val cryptoIds = mapOf(
-            "BTC" to "bitcoin", "ETH" to "ethereum", "SOL" to "solana",
-            "BNB" to "binancecoin", "XRP" to "ripple", "ADA" to "cardano",
-            "DOGE" to "dogecoin", "AVAX" to "avalanche-2", "DOT" to "polkadot",
-            "MATIC" to "matic-network", "LTC" to "litecoin", "LINK" to "chainlink"
-        )
         val logoFallback = TextView(ctx).apply {
             text = if (symbol.isNotEmpty()) symbol.take(3) else name.take(2)
             textSize = 13f; setTypeface(null, Typeface.BOLD)
@@ -2042,7 +1846,11 @@ class ChatFragment(private val activity: MainActiviy) {
         }
         logoView.addView(logoFallback)
 
-        // Se for cripto, carrega logo via ImageView com URL (requer Glide/Picasso — fallback para texto)
+        val cryptoIds = mapOf(
+            "BTC" to "bitcoin","ETH" to "ethereum","SOL" to "solana","BNB" to "binancecoin",
+            "XRP" to "ripple","ADA" to "cardano","DOGE" to "dogecoin","AVAX" to "avalanche-2",
+            "DOT" to "polkadot","MATIC" to "matic-network","LTC" to "litecoin","LINK" to "chainlink"
+        )
         val logoImageView = ImageView(ctx).apply {
             layoutParams = FrameLayout.LayoutParams(logoSize, logoSize)
             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -2050,32 +1858,22 @@ class ChatFragment(private val activity: MainActiviy) {
         val coinId = cryptoIds[symbol.uppercase()]
         if (coinId != null) {
             logoView.addView(logoImageView)
-            // Tenta carregar logo via thread (sem Glide/Picasso)
             Thread {
                 try {
                     val logoUrl = "https://assets.coingecko.com/coins/images/${getCoinGeckoImgId(coinId)}/small/$coinId.png"
                     val conn = java.net.URL(logoUrl).openConnection().apply { connectTimeout = 3000; readTimeout = 3000 }
                     val bmp = android.graphics.BitmapFactory.decodeStream(conn.getInputStream())
-                    if (bmp != null) {
-                        activity.runOnUiThread {
-                            logoImageView.setImageBitmap(bmp)
-                            logoFallback.visibility = View.GONE
-                        }
-                    }
+                    if (bmp != null) activity.runOnUiThread { logoImageView.setImageBitmap(bmp); logoFallback.visibility = View.GONE }
                 } catch (e: Exception) { /* mantém fallback */ }
             }.start()
         }
-
         infoRow.addView(logoView)
 
         val nameCol = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        nameCol.addView(TextView(ctx).apply {
-            text = name; textSize = 15f; setTypeface(null, Typeface.BOLD)
-            setTextColor(textPrimary)
-        })
+        nameCol.addView(TextView(ctx).apply { text = name; textSize = 15f; setTypeface(null, Typeface.BOLD); setTextColor(textPrimary) })
         nameCol.addView(TextView(ctx).apply {
             text = buildString {
                 if (symbol.isNotEmpty()) append(symbol)
@@ -2085,18 +1883,12 @@ class ChatFragment(private val activity: MainActiviy) {
         })
         infoRow.addView(nameCol)
 
-        val priceCol = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.END
-        }
-        priceCol.addView(TextView(ctx).apply {
-            text = priceStr; textSize = 22f; setTypeface(null, Typeface.BOLD)
-            setTextColor(textPrimary)
-        })
+        val priceCol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
+        priceCol.addView(TextView(ctx).apply { text = priceStr; textSize = 22f; setTypeface(null, Typeface.BOLD); setTextColor(textPrimary) })
         if (change != 0.0) {
             priceCol.addView(FrameLayout(ctx).apply {
                 background = GradientDrawable().apply {
-                    cornerRadius = dp(6).toFloat()
-                    setColor(if (isUp) upGreenBg else downRedBg)
+                    cornerRadius = dp(6).toFloat(); setColor(if (isUp) upGreenBg else downRedBg)
                 }
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 addView(TextView(ctx).apply {
@@ -2110,7 +1902,6 @@ class ChatFragment(private val activity: MainActiviy) {
         infoRow.addView(priceCol)
         container.addView(infoRow)
 
-        // Sparkline chart
         val chartH = dp(130)
         val chartView = object : View(ctx) {
             override fun onDraw(canvas: Canvas) {
@@ -2120,59 +1911,49 @@ class ChatFragment(private val activity: MainActiviy) {
                 val padH = dp(10).toFloat(); val padV = dp(10).toFloat()
                 val minP = historyPrices.min(); val maxP = historyPrices.max()
                 val range = (maxP - minP).coerceAtLeast(0.001f)
-
                 val lineColor = if (isUp) upGreenText else downRedText
                 val pts = historyPrices.mapIndexed { i, p ->
-                    val x = padH + (i.toFloat() / (historyPrices.size - 1)) * (w - padH * 2)
-                    val y = padV + (1f - (p - minP) / range) * (h - padV * 2)
-                    Pair(x, y)
+                    Pair(
+                        padH + (i.toFloat() / (historyPrices.size - 1)) * (w - padH * 2),
+                        padV + (1f - (p - minP) / range) * (h - padV * 2)
+                    )
                 }
-
-                // Fill gradient
                 val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    val grad = android.graphics.LinearGradient(0f, 0f, 0f, h,
+                    shader = android.graphics.LinearGradient(0f, 0f, 0f, h,
                         android.graphics.Color.argb(80, android.graphics.Color.red(lineColor), android.graphics.Color.green(lineColor), android.graphics.Color.blue(lineColor)),
                         android.graphics.Color.TRANSPARENT, android.graphics.Shader.TileMode.CLAMP)
-                    shader = grad; style = Paint.Style.FILL
+                    style = Paint.Style.FILL
                 }
-                val fillPath = Path()
-                fillPath.moveTo(pts[0].first, h)
-                pts.forEach { fillPath.lineTo(it.first, it.second) }
-                fillPath.lineTo(pts.last().first, h)
-                fillPath.close()
+                val fillPath = Path().apply {
+                    moveTo(pts[0].first, h)
+                    pts.forEach { lineTo(it.first, it.second) }
+                    lineTo(pts.last().first, h); close()
+                }
                 canvas.drawPath(fillPath, fillPaint)
-
-                // Linha
                 val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = lineColor; strokeWidth = dp(2).toFloat()
                     style = Paint.Style.STROKE; strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
                 }
-                val linePath = Path()
-                linePath.moveTo(pts[0].first, pts[0].second)
-                pts.drop(1).forEach { linePath.lineTo(it.first, it.second) }
+                val linePath = Path().apply {
+                    moveTo(pts[0].first, pts[0].second)
+                    pts.drop(1).forEach { lineTo(it.first, it.second) }
+                }
                 canvas.drawPath(linePath, linePaint)
-
-                // Ponto final
                 val last = pts.last()
-                canvas.drawCircle(last.first, last.second, dp(4).toFloat(),
-                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = lineColor })
-                canvas.drawCircle(last.first, last.second, dp(2).toFloat(),
-                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = widgetBg })
+                canvas.drawCircle(last.first, last.second, dp(4).toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = lineColor })
+                canvas.drawCircle(last.first, last.second, dp(2).toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = widgetBg })
             }
         }
-        chartView.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, chartH)
-            .also { it.setMargins(dp(10), 0, dp(10), 0) }
+        chartView.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, chartH).also { it.setMargins(dp(10), 0, dp(10), 0) }
         container.addView(chartView)
 
-        // Timeframes (decorativos)
         val tfRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             setPadding(dp(16), dp(8), dp(16), dp(16))
         }
         listOf("1D","1S","1M","3M","1A").forEachIndexed { i, tf ->
             tfRow.addView(TextView(ctx).apply {
-                text = tf; textSize = 12f; setTypeface(null, Typeface.BOLD)
-                gravity = Gravity.CENTER
+                text = tf; textSize = 12f; setTypeface(null, Typeface.BOLD); gravity = Gravity.CENTER
                 setPadding(dp(12), dp(5), dp(12), dp(5))
                 setTextColor(if (i == 0) textPrimary else textSecondary)
                 background = if (i == 0) GradientDrawable().apply {
@@ -2187,17 +1968,14 @@ class ChatFragment(private val activity: MainActiviy) {
     }
 
     private fun getCoinGeckoImgId(coinId: String): String {
-        val map = mapOf(
-            "bitcoin" to "1", "ethereum" to "279", "solana" to "4128",
-            "binancecoin" to "825", "ripple" to "44", "cardano" to "975",
-            "dogecoin" to "5", "avalanche-2" to "12559", "polkadot" to "12171",
-            "matic-network" to "4713", "litecoin" to "2", "chainlink" to "877"
-        )
-        return map[coinId] ?: "1"
+        return mapOf(
+            "bitcoin" to "1","ethereum" to "279","solana" to "4128","binancecoin" to "825",
+            "ripple" to "44","cardano" to "975","dogecoin" to "5","avalanche-2" to "12559",
+            "polkadot" to "12171","matic-network" to "4713","litecoin" to "2","chainlink" to "877"
+        )[coinId] ?: "1"
     }
 
-    // ─── Widget: Map Placeholder ─────────────────────────────────────────────
-    // (MapLibre não está disponível no projeto — mostra card com coordenadas)
+    // ─── Widget: Map Placeholder ──────────────────────────────────────────────
 
     private fun buildNativeMapPlaceholder(ctx: Context, json: JSONObject): View {
         val isDark = activity.isDarkMode
@@ -2218,52 +1996,37 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
             background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat(); setColor(cardBg)
-                setStroke(dp(1), borderColor)
+                cornerRadius = dp(14).toFloat(); setColor(cardBg); setStroke(dp(1), borderColor)
             }
             clipToOutline = true
         }
 
-        // Mapa fake com gradiente e pin
         val mapView = object : View(ctx) {
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
                 val w = width.toFloat(); val h = height.toFloat()
-
-                // Background gradiente simulando mapa
                 val mapBg = if (isDark) Color.parseColor("#1a2744") else Color.parseColor("#cdd8e0")
                 val roadColor = if (isDark) Color.parseColor("#243050") else Color.parseColor("#b8c8d4")
                 val greenColor = if (isDark) Color.parseColor("#1a3020") else Color.parseColor("#d4e8cc")
 
                 canvas.drawRect(0f, 0f, w, h, Paint().apply { color = mapBg })
-
-                // Blocos verdes (parques simulados)
                 val greenPaint = Paint().apply { color = greenColor }
                 canvas.drawRect(w * 0.1f, h * 0.3f, w * 0.35f, h * 0.7f, greenPaint)
                 canvas.drawRect(w * 0.65f, h * 0.1f, w * 0.9f, h * 0.45f, greenPaint)
 
-                // Estradas simuladas
-                val roadPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = roadColor; strokeWidth = dp(6).toFloat(); style = Paint.Style.STROKE
-                }
+                val roadPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = roadColor; strokeWidth = dp(6).toFloat(); style = Paint.Style.STROKE }
                 canvas.drawLine(0f, h * 0.5f, w, h * 0.5f, roadPaint)
                 canvas.drawLine(w * 0.5f, 0f, w * 0.5f, h, roadPaint)
-                canvas.drawLine(0f, h * 0.25f, w, h * 0.75f,
-                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = roadColor; strokeWidth = dp(3).toFloat(); style = Paint.Style.STROKE })
+                canvas.drawLine(0f, h * 0.25f, w, h * 0.75f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = roadColor; strokeWidth = dp(3).toFloat(); style = Paint.Style.STROKE })
 
-                // Pin de localização
                 val pinX = w / 2f; val pinY = h / 2f - dp(20)
                 val pinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF3B30") }
                 canvas.drawCircle(pinX, pinY - dp(8), dp(12).toFloat(), pinPaint)
                 canvas.drawCircle(pinX, pinY - dp(8), dp(5).toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
-                val pathPin = Path()
-                pathPin.moveTo(pinX - dp(6), pinY - dp(8))
-                pathPin.lineTo(pinX + dp(6), pinY - dp(8))
-                pathPin.lineTo(pinX, pinY)
-                pathPin.close()
+                val pathPin = Path().apply {
+                    moveTo(pinX - dp(6), pinY - dp(8)); lineTo(pinX + dp(6), pinY - dp(8)); lineTo(pinX, pinY); close()
+                }
                 canvas.drawPath(pathPin, pinPaint)
-
-                // Shadow do pin
                 canvas.drawOval(RectF(pinX - dp(6), pinY - dp(2), pinX + dp(6), pinY + dp(3)),
                     Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#40000000") })
             }
@@ -2271,7 +2034,6 @@ class ChatFragment(private val activity: MainActiviy) {
         mapView.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(180))
         container.addView(mapView)
 
-        // Info row
         val infoRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(14))
@@ -2289,17 +2051,10 @@ class ChatFragment(private val activity: MainActiviy) {
             })
         }
         infoRow.addView(infoCol)
-
-        // Botão "Abrir no Maps"
         infoRow.addView(TextView(ctx).apply {
-            text = "Abrir"; textSize = 12f; setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setPadding(dp(12), dp(6), dp(12), dp(6))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat()
-                setColor(primaryColor)
-            }
+            text = "Abrir"; textSize = 12f; setTypeface(null, Typeface.BOLD); setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER; setPadding(dp(12), dp(6), dp(12), dp(6))
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(primaryColor) }
             isClickable = true; isFocusable = true
             setOnClickListener {
                 val uri = android.net.Uri.parse("geo:$lat,$lng?z=$zoom&q=${android.net.Uri.encode(locationName)}")
@@ -2427,7 +2182,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(6); it.bottomMargin = dp(6) }
         }
-
         val card = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(10), dp(14), dp(10))
@@ -2436,24 +2190,20 @@ class ChatFragment(private val activity: MainActiviy) {
             }
             clipToOutline = true
         }
-
         val cleaned = mathText
             .replace(Regex("^\\$\\$|\\$\\$$", RegexOption.MULTILINE), "")
             .replace(Regex("^\\\\\\[|\\\\\\]$", RegexOption.MULTILINE), "")
             .trim()
 
-        val lines = cleaned.split("\n").filter { it.isNotBlank() }
-        lines.forEachIndexed { idx, line ->
-            val tv = TextView(ctx).apply {
+        cleaned.split("\n").filter { it.isNotBlank() }.forEachIndexed { idx, line ->
+            card.addView(TextView(ctx).apply {
                 textSize = 15.5f; setLineSpacing(0f, 1.4f)
                 setTextColor(textColor); gravity = Gravity.CENTER_HORIZONTAL
                 timesTypeface?.let { typeface = it }
                 if (idx > 0) setPadding(0, dp(2), 0, 0)
-            }
-            tv.setText(parseInlineMarkdown(line), TextView.BufferType.SPANNABLE)
-            card.addView(tv)
+                setText(parseInlineMarkdown(line), TextView.BufferType.SPANNABLE)
+            })
         }
-
         hScroll.addView(card)
         return hScroll
     }
@@ -2481,7 +2231,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(6); it.bottomMargin = dp(6) }
         }
-
         val table = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -2501,7 +2250,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 setBackgroundColor(if (isHeader) headerBg else Color.TRANSPARENT)
                 minimumHeight = dp(36)
             }
-
             cells.forEachIndexed { colIndex, cellText ->
                 if (colIndex > 0) {
                     row.addView(View(ctx).apply {
@@ -2510,8 +2258,7 @@ class ChatFragment(private val activity: MainActiviy) {
                     })
                 }
                 val cell = TextView(ctx).apply {
-                    setPadding(dp(10), dp(7), dp(10), dp(7))
-                    textSize = 13f
+                    setPadding(dp(10), dp(7), dp(10), dp(7)); textSize = 13f
                     setTextColor(if (isHeader) textPrimary else textSecondary)
                     if (isHeader) setTypeface(typeface, Typeface.BOLD)
                     gravity = Gravity.CENTER_VERTICAL
@@ -2520,7 +2267,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 cell.setText(parseInlineMarkdown(cellText), TextView.BufferType.SPANNABLE)
                 row.addView(cell)
             }
-
             table.addView(row)
             if (rowIndex < dataLines.lastIndex) {
                 table.addView(View(ctx).apply {
@@ -2529,7 +2275,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 })
             }
         }
-
         hScroll.addView(table)
         return hScroll
     }
@@ -2549,7 +2294,6 @@ class ChatFragment(private val activity: MainActiviy) {
                 setColor(ContextCompat.getColor(activity, R.color.dialog_background))
             }
         }
-
         card.addView(View(activity).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE; cornerRadius = dp(3).toFloat()
@@ -2570,8 +2314,7 @@ class ChatFragment(private val activity: MainActiviy) {
             layoutParams = LinearLayout.LayoutParams(dp(18), dp(18)).also { it.marginEnd = dp(10) }
         })
         headerRow.addView(TextView(activity).apply {
-            text = "Processo de raciocínio"; textSize = 15f
-            setTypeface(null, Typeface.BOLD)
+            text = "Processo de raciocínio"; textSize = 15f; setTypeface(null, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
@@ -2595,9 +2338,7 @@ class ChatFragment(private val activity: MainActiviy) {
         card.addView(scroll)
 
         val root = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.TRANSPARENT)
-            addView(card)
+            orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.TRANSPARENT); addView(card)
         }
         dialog.setContentView(root)
         dialog.setOnShowListener {
@@ -2606,8 +2347,7 @@ class ChatFragment(private val activity: MainActiviy) {
                 sheet.setBackgroundColor(Color.TRANSPARENT)
                 sheet.layoutParams.height = (screenH * 0.72f).toInt(); sheet.requestLayout()
                 val beh = BottomSheetBehavior.from(sheet)
-                beh.peekHeight = (screenH * 0.72f).toInt()
-                beh.state = BottomSheetBehavior.STATE_EXPANDED
+                beh.peekHeight = (screenH * 0.72f).toInt(); beh.state = BottomSheetBehavior.STATE_EXPANDED
             }
         }
         dialog.show()
@@ -2616,18 +2356,14 @@ class ChatFragment(private val activity: MainActiviy) {
     // ─── Extras Sheet ─────────────────────────────────────────────────────────
 
     fun showExtrasSheet() {
-        activity.hideKeyboard()
-        activity.hidePopup()
-
+        activity.hideKeyboard(); activity.hidePopup()
         if (extrasDialog?.isShowing == true) { refreshExtraCards(); return }
 
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         extrasDialog = dialog
 
-        val root = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.TRANSPARENT)
-        }
+        val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.TRANSPARENT) }
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -2645,8 +2381,7 @@ class ChatFragment(private val activity: MainActiviy) {
         })
 
         val cardsRow = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(20), 0, dp(20), dp(24)); weightSum = 3f
+            orientation = LinearLayout.HORIZONTAL; setPadding(dp(20), 0, dp(20), dp(24)); weightSum = 3f
         }
 
         val flashData = buildExtraCard("Flash","icons/svg/flash.svg","icons/svg/flash_filled.svg",flashMode,20) {
@@ -2744,13 +2479,12 @@ class ChatFragment(private val activity: MainActiviy) {
                 it.topMargin = dp(4); it.bottomMargin = dp(4)
             }
         }
-        val lottie = com.airbnb.lottie.LottieAnimationView(ctx).apply {
+        container.addView(com.airbnb.lottie.LottieAnimationView(ctx).apply {
             layoutParams = FrameLayout.LayoutParams(dp(48), dp(48))
             setAnimation("icons/lottie/loader.json")
             repeatCount = com.airbnb.lottie.LottieDrawable.INFINITE
             playAnimation()
-        }
-        container.addView(lottie)
+        })
         return container
     }
 
@@ -2772,10 +2506,9 @@ class ChatFragment(private val activity: MainActiviy) {
                     cornerRadius = dp(6).toFloat()
                     setColor(ContextCompat.getColor(activity, R.color.card_background))
                 }
-                layoutParams = LinearLayout.LayoutParams(0, dp(12)).also {
-                    it.width = (activity.resources.displayMetrics.widthPixels * widthFraction * 0.78f).toInt()
-                    it.bottomMargin = dp(6)
-                }
+                layoutParams = LinearLayout.LayoutParams(
+                    (activity.resources.displayMetrics.widthPixels * widthFraction * 0.78f).toInt(), dp(12)
+                ).also { it.bottomMargin = dp(6) }
             }
             wrap.addView(bar)
             ValueAnimator.ofFloat(0.4f, 1f, 0.4f).apply {

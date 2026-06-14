@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- activity_settings.xml — versão final com FrameLayout raiz para appbar flutuante -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -498,8 +497,6 @@
         android:orientation="vertical"
         android:layout_gravity="top">
 
-        <!-- Gradiente: sólido em cima → transparente em baixo -->
-        <!-- O fundo é aplicado programaticamente em setupTransparentAppBar() -->
         <RelativeLayout
             android:id="@+id/settingsAppBarInner"
             android:layout_width="match_parent"
@@ -528,10 +525,8 @@
                 android:textColor="@color/text_primary" />
         </RelativeLayout>
 
-        <!-- Cauda do gradiente transparente (24dp abaixo da toolbar) -->
         <View
             android:layout_width="match_parent"
             android:layout_height="24dp" />
     </LinearLayout>
-
 </FrameLayout>
