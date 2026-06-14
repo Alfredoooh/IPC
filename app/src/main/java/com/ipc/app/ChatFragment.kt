@@ -948,12 +948,12 @@ class ChatFragment(private val activity: MainActiviy) {
         return container
     }
 
-    // ─── Widget: Table (JSON) → AGORA PIXEL PERFECT COMO WIDGET HTML ─────────
+    // ─── Widget: Table (JSON) → PIXEL PERFECT ────────────────────────────────
 
     private fun buildNativeTable(ctx: Context, json: JSONObject): View {
         val headersArr = json.optJSONArray("headers")
         val rowsArr = json.optJSONArray("rows")
-        val alignArr  = json.optJSONArray("align") // opcional ["left","center",...]
+        val alignArr  = json.optJSONArray("align")
 
         val headers = mutableListOf<String>()
         if (headersArr != null) for (i in 0 until headersArr.length()) headers.add(headersArr.getString(i))
@@ -977,9 +977,8 @@ class ChatFragment(private val activity: MainActiviy) {
         val headerBgColor = if (isDark) Color.parseColor("#252525") else Color.parseColor("#f2f2f2")
         val borderColor   = if (isDark) Color.parseColor("#4a4a4a") else Color.parseColor("#bdbdbd")
         val textColor     = if (isDark) Color.parseColor("#f4f4f4") else Color.parseColor("#222222")
-        val headerTextColor = textColor // mesmo, mas bold
+        val headerTextColor = textColor
 
-        // Fonte Georgia (ou serif fallback)
         val georgiaTypeface = timesTypeface ?: Typeface.create("serif", Typeface.NORMAL)
 
         val hScroll = HorizontalScrollView(ctx).apply {
@@ -993,7 +992,7 @@ class ChatFragment(private val activity: MainActiviy) {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(tableBg)
-                setStroke(dp(1), borderColor) // HTML usa 1.2px
+                setStroke(dp(1), borderColor) // Corrigido: dp(1) em vez de dp(1.2f)
             }
             clipToOutline = true
         }
@@ -1007,13 +1006,13 @@ class ChatFragment(private val activity: MainActiviy) {
                 if (colIndex > 0) {
                     row.addView(View(ctx).apply {
                         setBackgroundColor(borderColor)
-                        layoutParams = LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT)
+                        layoutParams = LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT) // Corrigido: dp(1)
                     })
                 }
                 val cell = TextView(ctx).apply {
-                    setPadding(dp(10), dp(10), dp(10), dp(10)) // HTML: padding 10px 12px → simplificamos 10dp 10dp
-                    textSize = 16f // HTML: font-size 16px
-                    setLineSpacing(0f, 1.2f) // HTML: line-height 1.2
+                    setPadding(dp(10), dp(10), dp(10), dp(10))
+                    textSize = 16f
+                    setLineSpacing(0f, 1.2f)
                     setTextColor(if (isHeader) headerTextColor else textColor)
                     if (isHeader) setTypeface(georgiaTypeface, Typeface.BOLD) else typeface = georgiaTypeface
                     gravity = when (aligns.getOrElse(colIndex) { if (colIndex == 0) "left" else "center" }) {
@@ -1038,7 +1037,7 @@ class ChatFragment(private val activity: MainActiviy) {
             if (idx > 0 || headers.isNotEmpty()) {
                 tableContainer.addView(View(ctx).apply {
                     setBackgroundColor(borderColor)
-                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1.2f).toInt())
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)) // Corrigido: dp(1)
                 })
             }
             makeRow(List(colCount) { row.getOrElse(it) { "" } }, false)
@@ -1414,7 +1413,7 @@ class ChatFragment(private val activity: MainActiviy) {
         }
         val codeLines = code.split("\n")
         val codeLayout = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(52), dp(16), dp(16), dp(16)) // HTML padding-left 52px
+            orientation = LinearLayout.VERTICAL; setPadding(dp(52), dp(16), dp(16), dp(16))
         }
         codeLines.forEachIndexed { idx, line ->
             val lineRow = FrameLayout(ctx)
