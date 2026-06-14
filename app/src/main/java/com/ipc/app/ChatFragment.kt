@@ -10,6 +10,7 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
@@ -26,6 +27,7 @@ import android.text.style.StyleSpan
 import android.text.style.SuperscriptSpan
 import android.text.style.TypefaceSpan
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
@@ -52,8 +54,11 @@ import com.ipc.app.data.GeminiApiService
 import com.ipc.app.data.StreamChunk
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 
 class ChatFragment(private val activity: MainActiviy) {
 
@@ -134,13 +139,7 @@ class ChatFragment(private val activity: MainActiviy) {
             val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             val appBarHeight = binding.appBarLayout.height.takeIf { it > 0 }
                 ?: (statusBar.top + activity.dp(56))
-
-            v.setPadding(
-                v.paddingLeft,
-                appBarHeight + activity.dp(8),
-                v.paddingRight,
-                v.paddingBottom
-            )
+            v.setPadding(v.paddingLeft, appBarHeight + activity.dp(8), v.paddingRight, v.paddingBottom)
             insets
         }
     }
@@ -257,13 +256,11 @@ class ChatFragment(private val activity: MainActiviy) {
         }
     }
 
-    // ─── Scroll ───────────────────────────────────────────────────────────────
-
     private fun smoothScroll(position: Int) {
         binding.chatRecyclerView.smoothScrollToPosition(position)
     }
 
-    // ─── Input + Brilho na borda ──────────────────────────────────────────────
+    // ─── Input ────────────────────────────────────────────────────────────────
 
     private fun setupInput() {
         binding.inputMessage.addTextChangedListener(object : TextWatcher {
@@ -298,9 +295,7 @@ class ChatFragment(private val activity: MainActiviy) {
                 targetColor
             )
             anim.duration = 260L
-            anim.addUpdateListener {
-                bg.setStroke(strokePx, it.animatedValue as Int)
-            }
+            anim.addUpdateListener { bg.setStroke(strokePx, it.animatedValue as Int) }
             anim.start()
         }
         bg.setStroke(strokePx, defaultStrokeColor)
@@ -621,7 +616,7 @@ class ChatFragment(private val activity: MainActiviy) {
         override fun getItemCount() = msgs.size
     }
 
-    // ─── Action row (copiar, gostei, não gostei, partilhar, regenerar) ──────
+    // ─── Action row ───────────────────────────────────────────────────────────
 
     private fun buildActionRow(ctx: Context, messageContent: String): View {
         val container = LinearLayout(ctx).apply {
@@ -647,8 +642,8 @@ class ChatFragment(private val activity: MainActiviy) {
         }
 
         addAction("icons/svg/copy.svg") { copyToClipboard(messageContent) }
-        addAction("icons/svg/thumbs_up.svg") { /* like */ }
-        addAction("icons/svg/thumbs_down.svg") { /* dislike */ }
+        addAction("icons/svg/thumbs_up.svg") { }
+        addAction("icons/svg/thumbs_down.svg") { }
         addAction("icons/svg/share.svg") { shareText(messageContent) }
         addAction("icons/svg/regenerate.svg") { regenerateResponse() }
 
@@ -657,15 +652,13 @@ class ChatFragment(private val activity: MainActiviy) {
 
     private fun copyToClipboard(text: String) {
         val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("IPC", text)
-        clipboard.setPrimaryClip(clip)
+        clipboard.setPrimaryClip(ClipData.newPlainText("IPC", text))
         Toast.makeText(activity, "Copiado!", Toast.LENGTH_SHORT).show()
     }
 
     private fun shareText(text: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
+            type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text)
         }
         activity.startActivity(Intent.createChooser(intent, "Partilhar resposta"))
     }
@@ -681,57 +674,88 @@ class ChatFragment(private val activity: MainActiviy) {
         sendChatMessage(lastUserMsg)
     }
 
-    // ─── Renderização de mensagens (widgets corrigidos) ──────────────────────
+    // ─── Renderização de mensagens com widgets por tag ────────────────────────
 
     private fun renderMessageContent(parent: LinearLayout, rawContent: String) {
         val text = rawContent.replace(Regex("<think>[\\s\\S]*?</think>", RegexOption.MULTILINE), "").trim()
 
-        if (sheetsEnabled) {
-            val widgetRegex = Regex("```(widget_bar|widget_pie|widget_table|widget_sheet)\\s*\\n([\\s\\S]*?)```", RegexOption.MULTILINE)
-            val matches = widgetRegex.findAll(text)
-            if (matches.any()) {
-                var lastEnd = 0
-                matches.forEach { match ->
-                    val before = text.substring(lastEnd, match.range.first).trim()
-                    if (before.isNotEmpty()) {
-                        splitIntoBlocks(before).forEach { block -> renderBlock(parent, block) }
-                    }
-                    val widgetType = match.groupValues[1]
-                    val jsonStr    = match.groupValues[2].trim()
-                    parent.addView(buildNativeWidget(parent.context, widgetType, jsonStr))
-                    lastEnd = match.range.last + 1
-                }
-                val after = text.substring(lastEnd).trim()
-                if (after.isNotEmpty()) {
-                    splitIntoBlocks(after).forEach { block -> renderBlock(parent, block) }
-                }
-                return
+        // Sistema de widgets por tag: <widget_calendar>JSON</widget_calendar> etc.
+        val tagWidgetRegex = Regex(
+            "<(widget_calendar|widget_bar|widget_pie|widget_table|widget_code|widget_timer|widget_map|widget_graph|widget_mindmap|widget_market|widget_sheet)>([\\s\\S]*?)</(widget_calendar|widget_bar|widget_pie|widget_table|widget_code|widget_timer|widget_map|widget_graph|widget_mindmap|widget_market|widget_sheet)>",
+            RegexOption.MULTILINE
+        )
+
+        // Sistema de widgets antigo por ``` (mantido para retrocompatibilidade)
+        val codeWidgetRegex = Regex(
+            "```(widget_bar|widget_pie|widget_table|widget_sheet)\\s*\\n([\\s\\S]*?)```",
+            RegexOption.MULTILINE
+        )
+
+        val hasTagWidgets = tagWidgetRegex.containsMatchIn(text)
+        val hasCodeWidgets = sheetsEnabled && codeWidgetRegex.containsMatchIn(text)
+
+        if (hasTagWidgets || hasCodeWidgets) {
+            // Combina ambos os sistemas de widgets
+            val allMatches = mutableListOf<Triple<IntRange, String, String>>() // range, type, json
+
+            tagWidgetRegex.findAll(text).forEach { match ->
+                allMatches.add(Triple(match.range, match.groupValues[1], match.groupValues[2].trim()))
             }
+            if (sheetsEnabled) {
+                codeWidgetRegex.findAll(text).forEach { match ->
+                    allMatches.add(Triple(match.range, match.groupValues[1], match.groupValues[2].trim()))
+                }
+            }
+            allMatches.sortBy { it.first.first }
+
+            var lastEnd = 0
+            allMatches.forEach { (range, widgetType, jsonStr) ->
+                val before = text.substring(lastEnd, range.first).trim()
+                if (before.isNotEmpty()) {
+                    splitIntoBlocks(before).forEach { block -> renderBlock(parent, block) }
+                }
+                parent.addView(buildNativeWidget(parent.context, widgetType, jsonStr))
+                lastEnd = range.last + 1
+            }
+            val after = text.substring(lastEnd).trim()
+            if (after.isNotEmpty()) {
+                splitIntoBlocks(after).forEach { block -> renderBlock(parent, block) }
+            }
+            return
         }
 
         splitIntoBlocks(text).forEach { block -> renderBlock(parent, block) }
     }
 
-    // ─── Widgets nativos ──────────────────────────────────────────────────────
+    // ─── Dispatcher de widgets ────────────────────────────────────────────────
 
     private fun buildNativeWidget(ctx: Context, widgetType: String, jsonData: String): View {
         return try {
-            val json = JSONObject(jsonData)
+            val json = runCatching { JSONObject(jsonData) }.getOrElse { JSONObject() }
             when (widgetType) {
-                "widget_bar"   -> buildNativeBarChart(ctx, json)
-                "widget_pie"   -> buildNativePieChart(ctx, json)
-                "widget_table" -> buildNativeTable(ctx, json)
-                "widget_sheet" -> buildNativeSheet(ctx, json)
-                else           -> buildNativeBarChart(ctx, json)
+                "widget_bar"      -> buildNativeBarChart(ctx, json)
+                "widget_pie"      -> buildNativePieChart(ctx, json)
+                "widget_table"    -> buildNativeTable(ctx, json)
+                "widget_sheet"    -> buildNativeSheet(ctx, json)
+                "widget_calendar" -> buildNativeCalendar(ctx, json)
+                "widget_code"     -> buildNativeCodeBlock(ctx, json)
+                "widget_timer"    -> buildNativeTimer(ctx, json)
+                "widget_graph"    -> buildNativeMathGraph(ctx, json)
+                "widget_mindmap"  -> buildNativeMindMap(ctx, json)
+                "widget_market"   -> buildNativeMarket(ctx, json)
+                "widget_map"      -> buildNativeMapPlaceholder(ctx, json)
+                else              -> buildNativeBarChart(ctx, json)
             }
         } catch (e: Exception) {
             TextView(ctx).apply {
-                text = "⚠️ Widget inválido"
+                text = "⚠️ Widget inválido: $widgetType"
                 textSize = 13f
                 setTextColor(ContextCompat.getColor(activity, R.color.text_secondary))
             }
         }
     }
+
+    // ─── Helpers de container ─────────────────────────────────────────────────
 
     private fun widgetContainer(ctx: Context): LinearLayout {
         val isDark = activity.isDarkMode
@@ -753,23 +777,23 @@ class ChatFragment(private val activity: MainActiviy) {
     private fun widgetHeader(ctx: Context, title: String): View {
         val isDark = activity.isDarkMode
         val headerBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F5F7FA")
-        val dividerColor = ContextCompat.getColor(ctx, R.color.divider)
         return LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             addView(TextView(ctx).apply {
-                text = title
-                textSize = 15f
+                text = title; textSize = 15f
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
                 setPadding(dp(16), dp(14), dp(16), dp(14))
                 setBackgroundColor(headerBg)
             })
             addView(View(ctx).apply {
-                setBackgroundColor(dividerColor)
+                setBackgroundColor(ContextCompat.getColor(ctx, R.color.divider))
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
             })
         }
     }
+
+    // ─── Widget: Bar Chart ────────────────────────────────────────────────────
 
     private fun buildNativeBarChart(ctx: Context, json: JSONObject): View {
         val container = widgetContainer(ctx)
@@ -832,8 +856,8 @@ class ChatFragment(private val activity: MainActiviy) {
                     canvas.drawPath(path, barPaint)
 
                     val valPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = textPrimary; textSize = dp(11).toFloat(); textAlign = Paint.Align.CENTER
-                        typeface = Typeface.DEFAULT_BOLD
+                        color = textPrimary; textSize = dp(11).toFloat()
+                        textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
                     }
                     val valStr = if (item.value == item.value.toLong().toFloat()) item.value.toInt().toString() else item.value.toString()
                     canvas.drawText(valStr, barX + barW / 2, top - dp(6), valPaint)
@@ -851,6 +875,8 @@ class ChatFragment(private val activity: MainActiviy) {
         container.addView(chartView)
         return container
     }
+
+    // ─── Widget: Pie Chart ────────────────────────────────────────────────────
 
     private fun buildNativePieChart(ctx: Context, json: JSONObject): View {
         val container = widgetContainer(ctx)
@@ -873,25 +899,24 @@ class ChatFragment(private val activity: MainActiviy) {
         val total = sliceItems.sumOf { it.value.toDouble() }.toFloat()
 
         val pieSize = dp(180)
+        val cardBgColor = ContextCompat.getColor(ctx, R.color.card_background)
+
         val pieView = object : View(ctx) {
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
-                val cx = width / 2f
-                val cy = height / 2f
+                val cx = width / 2f; val cy = height / 2f
                 val radius = (pieSize / 2f) - dp(4)
                 val oval = RectF(cx - radius, cy - radius, cx + radius, cy + radius)
                 var startAngle = -90f
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG)
                 val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = ContextCompat.getColor(ctx, R.color.card_background)
-                    style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat()
+                    color = cardBgColor; style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat()
                 }
                 sliceItems.forEach { slice ->
                     val sweep = if (total > 0) (slice.value / total) * 360f else 0f
                     paint.color = slice.color; paint.style = Paint.Style.FILL
                     canvas.drawArc(oval, startAngle, sweep, true, paint)
                     canvas.drawArc(oval, startAngle, sweep, true, strokePaint)
-
                     val pct = if (total > 0) (slice.value / total * 100).toInt() else 0
                     if (pct >= 5) {
                         val midAngle = Math.toRadians((startAngle + sweep / 2).toDouble())
@@ -908,8 +933,7 @@ class ChatFragment(private val activity: MainActiviy) {
             }
         }
         pieView.layoutParams = LinearLayout.LayoutParams(pieSize, pieSize).also {
-            it.gravity = Gravity.CENTER_HORIZONTAL
-            it.topMargin = dp(16)
+            it.gravity = Gravity.CENTER_HORIZONTAL; it.topMargin = dp(16)
         }
 
         val body = LinearLayout(ctx).apply {
@@ -927,8 +951,7 @@ class ChatFragment(private val activity: MainActiviy) {
         sliceItems.forEach { slice ->
             val pct = if (total > 0) (slice.value / total * 100).toInt() else 0
             val row = LinearLayout(ctx).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
                 ).also { it.bottomMargin = dp(6); it.marginEnd = dp(16) }
@@ -938,9 +961,7 @@ class ChatFragment(private val activity: MainActiviy) {
                 layoutParams = LinearLayout.LayoutParams(dp(10), dp(10)).also { it.marginEnd = dp(6) }
             })
             row.addView(TextView(ctx).apply {
-                text = "${slice.label} ($pct%)"
-                textSize = 12f
-                setTextColor(textSecondary)
+                text = "${slice.label} ($pct%)"; textSize = 12f; setTextColor(textSecondary)
             })
             legend.addView(row)
         }
@@ -949,10 +970,11 @@ class ChatFragment(private val activity: MainActiviy) {
         return container
     }
 
+    // ─── Widget: Table (JSON) ─────────────────────────────────────────────────
+
     private fun buildNativeTable(ctx: Context, json: JSONObject): View {
         val headersArr = json.optJSONArray("headers")
         val rowsArr = json.optJSONArray("rows")
-
         val headers = mutableListOf<String>()
         if (headersArr != null) for (i in 0 until headersArr.length()) headers.add(headersArr.getString(i))
         val rows = mutableListOf<List<String>>()
@@ -969,7 +991,6 @@ class ChatFragment(private val activity: MainActiviy) {
         val dividerColor = ContextCompat.getColor(ctx, R.color.divider)
         val headerBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#ECEAFF")
         val cardBg = ContextCompat.getColor(ctx, R.color.card_background)
-
         val colCount = maxOf(headers.size, rows.maxOfOrNull { it.size } ?: 0)
 
         val hScroll = HorizontalScrollView(ctx).apply {
@@ -978,17 +999,14 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(6); it.bottomMargin = dp(6) }
         }
-
         val table = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(cardBg)
+                cornerRadius = dp(14).toFloat(); setColor(cardBg)
                 setStroke(dp(1), if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA"))
             }
             clipToOutline = true
         }
-
         fun makeRow(cells: List<String>, isHeader: Boolean) {
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -1003,8 +1021,7 @@ class ChatFragment(private val activity: MainActiviy) {
                     })
                 }
                 val cell = TextView(ctx).apply {
-                    setPadding(dp(10), dp(8), dp(10), dp(8))
-                    textSize = 13f
+                    setPadding(dp(10), dp(8), dp(10), dp(8)); textSize = 13f
                     setTextColor(if (isHeader) textPrimary else textSecondary)
                     if (isHeader) setTypeface(typeface, Typeface.BOLD)
                     gravity = Gravity.CENTER_VERTICAL
@@ -1015,7 +1032,6 @@ class ChatFragment(private val activity: MainActiviy) {
             }
             table.addView(row)
         }
-
         if (headers.isNotEmpty()) makeRow(List(colCount) { headers.getOrElse(it) { "" } }, true)
         rows.forEachIndexed { idx, row ->
             if (idx > 0 || headers.isNotEmpty()) {
@@ -1026,10 +1042,11 @@ class ChatFragment(private val activity: MainActiviy) {
             }
             makeRow(List(colCount) { row.getOrElse(it) { "" } }, false)
         }
-
         hScroll.addView(table)
         return hScroll
     }
+
+    // ─── Widget: Sheet ────────────────────────────────────────────────────────
 
     private fun buildNativeSheet(ctx: Context, json: JSONObject): View {
         val linesArr = json.optJSONArray("lines") ?: return View(ctx)
@@ -1051,41 +1068,30 @@ class ChatFragment(private val activity: MainActiviy) {
             val obj = linesArr.getJSONObject(i)
             lines.add(SheetLine(obj.optString("text", ""), obj.optBoolean("title", false)))
         }
-
         val totalHeight = topPad * 2 + lines.size * lineHeight + dp(16)
 
         val sheetView = object : View(ctx) {
             override fun onDraw(canvas: Canvas) {
                 super.onDraw(canvas)
-                val w = width.toFloat()
-                val h = height.toFloat()
-
-                val bgPaint = Paint().apply { color = surfaceColor }
-                canvas.drawRect(0f, 0f, w, h, bgPaint)
-
+                val w = width.toFloat(); val h = height.toFloat()
+                canvas.drawRect(0f, 0f, w, h, Paint().apply { color = surfaceColor })
                 val rulePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ruleColor; strokeWidth = dp(1).toFloat() }
                 var ry = topPad.toFloat()
-                while (ry < h) {
-                    canvas.drawLine(0f, ry, w, ry, rulePaint)
-                    ry += lineHeight
-                }
-
-                val marginPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = marginColor; strokeWidth = dp(1).toFloat() }
-                canvas.drawLine(dp(56).toFloat(), 0f, dp(56).toFloat(), h, marginPaint)
-
-                val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = borderColor; style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat()
-                }
-                canvas.drawRect(0f, 0f, w, h, borderPaint)
-
+                while (ry < h) { canvas.drawLine(0f, ry, w, ry, rulePaint); ry += lineHeight }
+                canvas.drawLine(dp(56).toFloat(), 0f, dp(56).toFloat(), h,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = marginColor; strokeWidth = dp(1).toFloat() })
+                canvas.drawRect(0f, 0f, w, h,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = borderColor; style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat()
+                    })
                 lines.forEachIndexed { i, line ->
                     val y = topPad + (i + 1) * lineHeight - dp(8)
-                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = if (line.isTitle) textPrimary else textSecondary
-                        typeface = if (line.isTitle) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-                        textSize = if (line.isTitle) dp(16).toFloat() else dp(14).toFloat()
-                    }
-                    canvas.drawText(line.text, leftPad.toFloat(), y.toFloat(), paint)
+                    canvas.drawText(line.text, leftPad.toFloat(), y.toFloat(),
+                        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                            color = if (line.isTitle) textPrimary else textSecondary
+                            typeface = if (line.isTitle) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                            textSize = if (line.isTitle) dp(16).toFloat() else dp(14).toFloat()
+                        })
                 }
             }
         }
@@ -1099,14 +1105,1209 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
             background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(surfaceColor)
+                cornerRadius = dp(14).toFloat(); setColor(surfaceColor)
                 setStroke(dp(1), borderColor)
             }
             clipToOutline = true
         }
         wrapper.addView(sheetView)
         return wrapper
+    }
+
+    // ─── Widget: Calendar ─────────────────────────────────────────────────────
+
+    private fun buildNativeCalendar(ctx: Context, json: JSONObject): View {
+        val isDark = activity.isDarkMode
+        val cardBg = ContextCompat.getColor(ctx, R.color.card_background)
+        val textPrimary = ContextCompat.getColor(ctx, R.color.text_primary)
+        val textSecondary = ContextCompat.getColor(ctx, R.color.text_secondary)
+        val dividerColor = ContextCompat.getColor(ctx, R.color.divider)
+        val primaryColor = ContextCompat.getColor(ctx, R.color.colorPrimary)
+        val todayBg = if (isDark) Color.parseColor("#2A2A40") else Color.parseColor("#EDE9FF")
+        val selectedBg = primaryColor
+        val hoverBg = if (isDark) Color.parseColor("#2a2a3a") else Color.parseColor("#F0EEFF")
+        val headerBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#F5F7FA")
+
+        // Parse events do JSON: { "events": { "2025-06-13": [{"name":"...","time":"...","color":"..."}] } }
+        val eventsMap = mutableMapOf<String, MutableList<Triple<String, String, Int>>>()
+        val eventsJson = json.optJSONObject("events")
+        if (eventsJson != null) {
+            val keys = eventsJson.keys()
+            while (keys.hasNext()) {
+                val dateKey = keys.next()
+                val arr = eventsJson.optJSONArray(dateKey)
+                if (arr != null) {
+                    val list = mutableListOf<Triple<String, String, Int>>()
+                    for (i in 0 until arr.length()) {
+                        val ev = arr.getJSONObject(i)
+                        val evColor = runCatching { Color.parseColor(ev.optString("color", "#6F5AF6")) }.getOrDefault(primaryColor)
+                        list.add(Triple(ev.optString("name", ""), ev.optString("time", ""), evColor))
+                    }
+                    eventsMap[dateKey] = list
+                }
+            }
+        }
+
+        val months = listOf("Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+            "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro")
+        val weekDays = listOf("Dom","Seg","Ter","Qua","Qui","Sex","Sáb")
+
+        val today = Calendar.getInstance()
+        val currentCal = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+
+        var selectedDateKey = "%04d-%02d-%02d".format(
+            today.get(Calendar.YEAR), today.get(Calendar.MONTH) + 1, today.get(Calendar.DAY_OF_MONTH)
+        )
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat(); setColor(cardBg)
+                setStroke(dp(1), if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA"))
+            }
+            clipToOutline = true
+        }
+
+        // Header com mês/ano e botões de navegação
+        val headerRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            setBackgroundColor(headerBg)
+        }
+        val prevBtn = TextView(ctx).apply {
+            text = "‹"; textSize = 22f; setTextColor(textPrimary)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
+            background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#F0F0F0")) }
+            isClickable = true; isFocusable = true
+        }
+        val titleTv = TextView(ctx).apply {
+            textSize = 16f; setTypeface(null, Typeface.BOLD)
+            setTextColor(textPrimary); gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val nextBtn = TextView(ctx).apply {
+            text = "›"; textSize = 22f; setTextColor(textPrimary)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
+            background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#F0F0F0")) }
+            isClickable = true; isFocusable = true
+        }
+        headerRow.addView(prevBtn); headerRow.addView(titleTv); headerRow.addView(nextBtn)
+        container.addView(headerRow)
+        container.addView(View(ctx).apply {
+            setBackgroundColor(dividerColor)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
+        })
+
+        // Dias da semana
+        val weekRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(8), dp(8), dp(8), dp(4))
+            setBackgroundColor(headerBg)
+        }
+        weekDays.forEach { day ->
+            weekRow.addView(TextView(ctx).apply {
+                text = day; textSize = 11f; setTypeface(null, Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_hint))
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+        }
+        container.addView(weekRow)
+
+        // Grid de dias
+        val gridContainer = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(4), dp(8), dp(8))
+        }
+        container.addView(gridContainer)
+
+        // Separador
+        container.addView(View(ctx).apply {
+            setBackgroundColor(dividerColor)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
+        })
+
+        // Secção de eventos
+        val eventsSection = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(16))
+        }
+        val eventsTitleTv = TextView(ctx).apply {
+            text = "Eventos do dia"; textSize = 11f; setTypeface(null, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(ctx, R.color.text_hint))
+            setPadding(0, 0, 0, dp(8))
+        }
+        eventsSection.addView(eventsTitleTv)
+        val eventsListContainer = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        eventsSection.addView(eventsListContainer)
+        container.addView(eventsSection)
+
+        fun updateEventsList() {
+            eventsListContainer.removeAllViews()
+            val dayEvents = eventsMap[selectedDateKey]
+            if (dayEvents.isNullOrEmpty()) {
+                eventsListContainer.addView(TextView(ctx).apply {
+                    text = "Nenhum evento neste dia"; textSize = 13f
+                    setTextColor(textSecondary); gravity = Gravity.CENTER
+                    setPadding(0, dp(8), 0, dp(8))
+                })
+            } else {
+                dayEvents.forEach { (name, time, color) ->
+                    val eventRow = LinearLayout(ctx).apply {
+                        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                        setPadding(dp(12), dp(10), dp(12), dp(10))
+                        background = GradientDrawable().apply {
+                            cornerRadius = dp(10).toFloat()
+                            setColor(if (isDark) Color.parseColor("#252535") else Color.parseColor("#F7F6FF"))
+                        }
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).also { it.bottomMargin = dp(6) }
+                    }
+                    eventRow.addView(View(ctx).apply {
+                        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
+                        layoutParams = LinearLayout.LayoutParams(dp(10), dp(10)).also { it.marginEnd = dp(10) }
+                    })
+                    val infoCol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
+                    infoCol.addView(TextView(ctx).apply { text = name; textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(textPrimary) })
+                    if (time.isNotEmpty()) {
+                        infoCol.addView(TextView(ctx).apply { text = time; textSize = 12f; setTextColor(textSecondary) })
+                    }
+                    eventRow.addView(infoCol)
+                    eventsListContainer.addView(eventRow)
+                }
+            }
+        }
+
+        fun buildGrid() {
+            gridContainer.removeAllViews()
+            titleTv.text = "${months[currentCal.get(Calendar.MONTH)]} ${currentCal.get(Calendar.YEAR)}"
+
+            val year = currentCal.get(Calendar.YEAR)
+            val month = currentCal.get(Calendar.MONTH)
+            val firstDay = currentCal.get(Calendar.DAY_OF_WEEK) - 1
+            val daysInMonth = currentCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val prevDays = Calendar.getInstance().apply { set(year, month - 1, 1) }.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+            val cellSize = dp(38)
+            var currentRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+            var cellCount = 0
+
+            // Dias anteriores
+            for (i in firstDay - 1 downTo 0) {
+                val dayNum = prevDays - i
+                currentRow.addView(TextView(ctx).apply {
+                    text = dayNum.toString(); textSize = 13f; gravity = Gravity.CENTER
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_hint))
+                    alpha = 0.4f
+                    layoutParams = LinearLayout.LayoutParams(0, cellSize, 1f)
+                })
+                cellCount++
+            }
+
+            // Dias do mês
+            for (d in 1..daysInMonth) {
+                if (cellCount == 7) {
+                    gridContainer.addView(currentRow)
+                    currentRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+                    cellCount = 0
+                }
+                val dateKey = "%04d-%02d-%02d".format(year, month + 1, d)
+                val isToday = year == today.get(Calendar.YEAR) && month == today.get(Calendar.MONTH) && d == today.get(Calendar.DAY_OF_MONTH)
+                val isSelected = dateKey == selectedDateKey
+                val hasEvent = eventsMap.containsKey(dateKey)
+
+                val dayCell = FrameLayout(ctx).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, cellSize, 1f)
+                    isClickable = true; isFocusable = true
+                }
+                val bg = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(when { isSelected -> selectedBg; isToday -> todayBg; else -> Color.TRANSPARENT })
+                }
+                dayCell.background = bg
+                dayCell.addView(TextView(ctx).apply {
+                    text = d.toString(); textSize = 13f; gravity = Gravity.CENTER
+                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+                    setTextColor(when {
+                        isSelected -> Color.WHITE
+                        isToday -> primaryColor
+                        else -> textPrimary
+                    })
+                    if (isSelected || isToday) setTypeface(null, Typeface.BOLD)
+                })
+                if (hasEvent) {
+                    dayCell.addView(View(ctx).apply {
+                        background = GradientDrawable().apply {
+                            shape = GradientDrawable.OVAL
+                            setColor(if (isSelected) Color.WHITE else primaryColor)
+                        }
+                        layoutParams = FrameLayout.LayoutParams(dp(5), dp(5), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).also { it.bottomMargin = dp(3) }
+                    })
+                }
+                dayCell.setOnClickListener {
+                    selectedDateKey = dateKey
+                    buildGrid()
+                    updateEventsList()
+                }
+                currentRow.addView(dayCell)
+                cellCount++
+            }
+
+            // Completar última linha
+            while (cellCount < 7) {
+                val d = cellCount - (7 - (7 - currentRow.childCount))
+                currentRow.addView(TextView(ctx).apply {
+                    text = (cellCount - (daysInMonth + firstDay - 7) + 1).coerceAtLeast(1).toString()
+                    textSize = 13f; gravity = Gravity.CENTER
+                    setTextColor(ContextCompat.getColor(ctx, R.color.text_hint))
+                    alpha = 0.4f
+                    layoutParams = LinearLayout.LayoutParams(0, cellSize, 1f)
+                })
+                cellCount++
+            }
+            if (currentRow.childCount > 0) gridContainer.addView(currentRow)
+            updateEventsList()
+        }
+
+        prevBtn.setOnClickListener {
+            currentCal.add(Calendar.MONTH, -1); buildGrid()
+        }
+        nextBtn.setOnClickListener {
+            currentCal.add(Calendar.MONTH, 1); buildGrid()
+        }
+
+        buildGrid()
+        return container
+    }
+
+    // ─── Widget: Code Block ───────────────────────────────────────────────────
+
+    private fun buildNativeCodeBlock(ctx: Context, json: JSONObject): View {
+        val isDark = activity.isDarkMode
+        val lang = json.optString("language", "CODE").uppercase()
+        val code = json.optString("code", "")
+
+        val bgColor = if (isDark) Color.parseColor("#1b1b1b") else Color.parseColor("#ffffff")
+        val headerBg = if (isDark) Color.parseColor("#2a2a2a") else Color.parseColor("#f0f0f0")
+        val borderColor = if (isDark) Color.parseColor("#2f2f2f") else Color.parseColor("#d7d7d7")
+        val textColor = if (isDark) Color.parseColor("#e8e8e8") else Color.parseColor("#222222")
+        val lineNumColor = if (isDark) Color.parseColor("#7d7d7d") else Color.parseColor("#8a8a8a")
+        val titleColor = if (isDark) Color.parseColor("#f2f2f2") else Color.parseColor("#2a2a2a")
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat(); setColor(bgColor)
+                setStroke(dp(1), borderColor)
+            }
+            clipToOutline = true
+        }
+
+        // Header
+        val header = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), 0, dp(12), 0)
+            minimumHeight = dp(42)
+            setBackgroundColor(headerBg)
+        }
+        header.addView(TextView(ctx).apply {
+            text = lang; textSize = 12f; setTypeface(null, Typeface.BOLD)
+            setTextColor(titleColor)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            letterSpacing = 0.05f
+        })
+
+        // Botão copiar
+        val copyBtn = FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(32), dp(32))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(if (isDark) Color.parseColor("#353535") else Color.parseColor("#ffffff"))
+                setStroke(dp(1), if (isDark) Color.parseColor("#4a4a4a") else Color.parseColor("#cfcfcf"))
+            }
+            isClickable = true; isFocusable = true
+        }
+        val copyIcon = ImageView(ctx).apply {
+            setImageDrawable(activity.svgDrawable("icons/svg/copy.svg", 14,
+                if (isDark) Color.parseColor("#f2f2f2") else Color.parseColor("#2a2a2a")))
+            layoutParams = FrameLayout.LayoutParams(dp(14), dp(14), Gravity.CENTER)
+        }
+        copyBtn.addView(copyIcon)
+        copyBtn.setOnClickListener {
+            val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("code", code))
+            Toast.makeText(activity, "Copiado!", Toast.LENGTH_SHORT).show()
+        }
+        header.addView(copyBtn)
+        container.addView(header)
+
+        // Separador
+        container.addView(View(ctx).apply {
+            setBackgroundColor(borderColor)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
+        })
+
+        // Corpo do código com scroll horizontal
+        val hScroll = HorizontalScrollView(ctx).apply {
+            overScrollMode = View.OVER_SCROLL_NEVER
+            setBackgroundColor(bgColor)
+        }
+        val codeLines = code.split("\n")
+        val codeLayout = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(52), dp(12), dp(16), dp(12))
+        }
+
+        codeLines.forEachIndexed { idx, line ->
+            val lineRow = FrameLayout(ctx)
+            // Número de linha
+            lineRow.addView(TextView(ctx).apply {
+                text = (idx + 1).toString(); textSize = 12f
+                setTextColor(lineNumColor); typeface = Typeface.MONOSPACE
+                gravity = Gravity.END
+                setPadding(0, 0, dp(8), 0)
+                layoutParams = FrameLayout.LayoutParams(dp(36), LinearLayout.LayoutParams.WRAP_CONTENT).also {
+                    it.marginStart = -dp(44)
+                }
+            })
+            // Texto da linha com syntax highlighting básico
+            lineRow.addView(TextView(ctx).apply {
+                text = applyCodeHighlighting(line, lang, isDark)
+                textSize = 13f; typeface = Typeface.MONOSPACE
+                setLineSpacing(0f, 1.6f)
+                setPadding(0, 0, 0, 0)
+                layoutParams = FrameLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            })
+            codeLayout.addView(lineRow)
+        }
+
+        hScroll.addView(codeLayout)
+        container.addView(hScroll)
+        return container
+    }
+
+    private fun applyCodeHighlighting(line: String, lang: String, isDark: Boolean): CharSequence {
+        // Highlighting básico — keywords coloridas via SpannableString
+        val sb = SpannableStringBuilder(line)
+        val keywordColor = if (isDark) Color.parseColor("#ff7b72") else Color.parseColor("#b00020")
+        val stringColor = if (isDark) Color.parseColor("#a5d6ff") else Color.parseColor("#005cc5")
+        val commentColor = if (isDark) Color.parseColor("#8b949e") else Color.parseColor("#6a737d")
+        val funcColor = if (isDark) Color.parseColor("#d2a8ff") else Color.parseColor("#6f42c1")
+        val textColor = if (isDark) Color.parseColor("#e8e8e8") else Color.parseColor("#222222")
+
+        // Aplica cor base
+        sb.setSpan(android.text.style.ForegroundColorSpan(textColor), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+        val keywords = when (lang) {
+            "KOTLIN", "JAVA" -> listOf("fun","val","var","class","object","if","else","when","for","while","return","import","package","override","private","public","internal","data","suspend","companion")
+            "JAVASCRIPT", "JS", "TYPESCRIPT", "TS" -> listOf("const","let","var","function","class","if","else","for","while","return","import","export","async","await","new","this")
+            "PYTHON", "PY" -> listOf("def","class","if","else","elif","for","while","return","import","from","with","as","try","except","lambda","and","or","not","in","is")
+            "HTML" -> listOf("<!DOCTYPE","<html","<head","<body","<div","<span","<p>","<a","<img","<script","<style","<link","<meta")
+            "CSS" -> listOf("background","color","margin","padding","font","border","display","flex","grid","position","width","height")
+            else -> listOf("if","else","for","while","return","class","function","import","const","var","let")
+        }
+
+        // Comentários (linha inteira)
+        val commentPrefixes = listOf("//", "#", "<!--", "/*", "*")
+        val trimmed = line.trimStart()
+        if (commentPrefixes.any { trimmed.startsWith(it) }) {
+            sb.setSpan(android.text.style.ForegroundColorSpan(commentColor), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.setSpan(StyleSpan(Typeface.ITALIC), 0, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            return sb
+        }
+
+        // Strings
+        val stringRegex = Regex("(\"[^\"]*\"|'[^']*'|`[^`]*`)")
+        stringRegex.findAll(line).forEach { match ->
+            sb.setSpan(android.text.style.ForegroundColorSpan(stringColor), match.range.first, match.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+
+        // Keywords
+        keywords.forEach { kw ->
+            val kwRegex = Regex("\\b${Regex.escape(kw)}\\b")
+            kwRegex.findAll(line).forEach { match ->
+                sb.setSpan(android.text.style.ForegroundColorSpan(keywordColor), match.range.first, match.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+
+        return sb
+    }
+
+    // ─── Widget: Timer ────────────────────────────────────────────────────────
+
+    private fun buildNativeTimer(ctx: Context, json: JSONObject): View {
+        val isDark = activity.isDarkMode
+        val cardBg = ContextCompat.getColor(ctx, R.color.card_background)
+        val textPrimary = ContextCompat.getColor(ctx, R.color.text_primary)
+        val borderColor = if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA")
+
+        val initialMs = json.optLong("milliseconds", 0L)
+        val autoStart = json.optBoolean("autoStart", true)
+        val isCountdown = json.optBoolean("countdown", false)
+        val label = json.optString("label", "")
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            background = GradientDrawable().apply {
+                cornerRadius = dp(20).toFloat(); setColor(cardBg)
+                setStroke(dp(1), borderColor)
+            }
+            setPadding(dp(20), dp(20), dp(20), dp(20))
+        }
+
+        if (label.isNotEmpty()) {
+            container.addView(TextView(ctx).apply {
+                text = label; textSize = 13f
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).also { it.bottomMargin = dp(8) }
+            })
+        }
+
+        val timeTv = TextView(ctx).apply {
+            textSize = 36f; setTypeface(null, Typeface.BOLD)
+            setTextColor(textPrimary)
+            gravity = Gravity.CENTER
+            typeface = Typeface.MONOSPACE
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(60))
+        }
+        container.addView(timeTv)
+
+        // Botões de controlo
+        val btnRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(12) }
+        }
+
+        var elapsedMs = if (isCountdown && initialMs > 0) initialMs else 0L
+        var startTime = 0L
+        var running = false
+        var animator: ValueAnimator? = null
+
+        fun formatTime(ms: Long): String {
+            val totalCs = ms / 10
+            val cs = totalCs % 100
+            val totalSec = totalCs / 100
+            val sec = totalSec % 60
+            val min = (totalSec / 60) % 60
+            val hr = totalSec / 3600
+            return "%02d:%02d:%02d:%02d".format(hr, min, sec, cs)
+        }
+
+        fun updateDisplay() { timeTv.text = formatTime(elapsedMs) }
+
+        fun stopTimer() {
+            running = false
+            animator?.cancel()
+        }
+
+        fun startTimer() {
+            if (running) return
+            running = true
+            startTime = System.currentTimeMillis()
+            val startElapsed = elapsedMs
+            animator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = Long.MAX_VALUE; repeatCount = 0
+                addUpdateListener {
+                    val now = System.currentTimeMillis()
+                    val delta = now - startTime
+                    if (isCountdown && initialMs > 0) {
+                        elapsedMs = (startElapsed - delta).coerceAtLeast(0L)
+                        if (elapsedMs == 0L) { stopTimer() }
+                    } else {
+                        elapsedMs = startElapsed + delta
+                    }
+                    updateDisplay()
+                }
+                start()
+            }
+        }
+
+        fun resetTimer() {
+            stopTimer()
+            elapsedMs = if (isCountdown && initialMs > 0) initialMs else 0L
+            updateDisplay()
+        }
+
+        val primaryColor = ContextCompat.getColor(ctx, R.color.colorPrimary)
+
+        fun makeBtn(icon: String, onClick: () -> Unit): View {
+            return FrameLayout(ctx).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).also { it.marginEnd = dp(8) }
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL; setColor(primaryColor)
+                }
+                isClickable = true; isFocusable = true
+                addView(ImageView(ctx).apply {
+                    setImageDrawable(activity.svgDrawable(icon, 18, Color.WHITE))
+                    layoutParams = FrameLayout.LayoutParams(dp(18), dp(18), Gravity.CENTER)
+                })
+                setOnClickListener { onClick() }
+            }
+        }
+
+        val playIcon = "icons/svg/flash_filled.svg"
+        val pauseIcon = "icons/svg/flash.svg"
+
+        val playPauseBtn = makeBtn(playIcon) {
+            if (running) stopTimer() else startTimer()
+        }
+        val resetBtn = makeBtn("icons/svg/refresh.svg") { resetTimer() }
+
+        btnRow.addView(playPauseBtn)
+        btnRow.addView(resetBtn)
+        container.addView(btnRow)
+
+        updateDisplay()
+        if (autoStart) startTimer()
+
+        return container
+    }
+
+    // ─── Widget: Math Graph ───────────────────────────────────────────────────
+
+    private fun buildNativeMathGraph(ctx: Context, json: JSONObject): View {
+        val isDark = activity.isDarkMode
+        val cardBg = ContextCompat.getColor(ctx, R.color.card_background)
+        val borderColor = if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA")
+        val expression = json.optString("expression", "x")
+        val xMin = json.optDouble("xMin", -10.0).toFloat()
+        val xMax = json.optDouble("xMax", 10.0).toFloat()
+        val title = json.optString("title", "")
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat(); setColor(cardBg)
+                setStroke(dp(1), borderColor)
+            }
+            clipToOutline = true
+        }
+
+        if (title.isNotEmpty()) container.addView(widgetHeader(ctx, title))
+
+        val graphH = dp(220)
+        val pad = dp(40).toFloat()
+
+        val graphView = object : View(ctx) {
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                val w = width.toFloat(); val h = height.toFloat()
+                val plotW = w - pad * 2; val plotH = h - pad * 2
+
+                // Calcula range Y automaticamente
+                val steps = 200
+                val points = mutableListOf<Pair<Float, Float>>()
+                for (i in 0..steps) {
+                    val x = xMin + (xMax - xMin) * i / steps
+                    val y = evaluateSimpleExpr(expression, x)
+                    if (y.isFinite()) points.add(Pair(x, y))
+                }
+                if (points.isEmpty()) return
+                val yMin = points.minOf { it.second }
+                val yMax = points.maxOf { it.second }
+                val yRange = (yMax - yMin).coerceAtLeast(0.001f)
+                val xRange = xMax - xMin
+
+                fun mapX(x: Float) = pad + ((x - xMin) / xRange) * plotW
+                fun mapY(y: Float) = pad + plotH - ((y - yMin) / yRange) * plotH
+
+                // Grid
+                val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA")
+                    strokeWidth = 1f
+                }
+                for (i in 0..4) {
+                    val gy = pad + plotH * i / 4
+                    canvas.drawLine(pad, gy, pad + plotW, gy, gridPaint)
+                    val gx = pad + plotW * i / 4
+                    canvas.drawLine(gx, pad, gx, pad + plotH, gridPaint)
+                }
+
+                // Eixos
+                val axisPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = if (isDark) Color.parseColor("#cccccc") else Color.parseColor("#555555")
+                    strokeWidth = dp(1).toFloat()
+                }
+                // Eixo X (y=0)
+                if (yMin <= 0f && yMax >= 0f) {
+                    val yZero = mapY(0f)
+                    canvas.drawLine(pad, yZero, pad + plotW, yZero, axisPaint)
+                }
+                // Eixo Y (x=0)
+                if (xMin <= 0f && xMax >= 0f) {
+                    val xZero = mapX(0f)
+                    canvas.drawLine(xZero, pad, xZero, pad + plotH, axisPaint)
+                }
+
+                // Labels dos eixos
+                val lblPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = if (isDark) Color.parseColor("#888888") else Color.parseColor("#999999")
+                    textSize = dp(10).toFloat(); textAlign = Paint.Align.CENTER
+                }
+                for (i in 0..4) {
+                    val gx = pad + plotW * i / 4
+                    val xVal = xMin + xRange * i / 4
+                    canvas.drawText(xVal.toInt().toString(), gx, h - dp(6), lblPaint)
+                }
+
+                // Curva
+                val curvePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = ContextCompat.getColor(ctx, R.color.colorPrimary)
+                    strokeWidth = dp(2).toFloat(); style = Paint.Style.STROKE
+                    strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
+                }
+                val path = Path()
+                var firstPoint = true
+                points.forEach { (x, y) ->
+                    val px = mapX(x); val py = mapY(y)
+                    if (firstPoint) { path.moveTo(px, py); firstPoint = false }
+                    else path.lineTo(px, py)
+                }
+                canvas.drawPath(path, curvePaint)
+
+                // Label da expressão
+                val exprPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = ContextCompat.getColor(ctx, R.color.colorPrimary)
+                    textSize = dp(11).toFloat()
+                }
+                canvas.drawText("f(x) = $expression", pad + dp(4), pad - dp(6), exprPaint)
+            }
+        }
+        graphView.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, graphH)
+        container.addView(graphView)
+        return container
+    }
+
+    // Avaliador de expressões matemáticas simples
+    private fun evaluateSimpleExpr(expr: String, x: Float): Float {
+        return try {
+            val e = expr.trim()
+                .replace("sin(", "sin_(")
+                .replace("cos(", "cos_(")
+                .replace("tan(", "tan_(")
+                .replace("sqrt(", "sqrt_(")
+                .replace("abs(", "abs_(")
+                .replace("x", x.toString())
+                .replace("π", Math.PI.toString())
+                .replace("pi", Math.PI.toString())
+                .replace("e", Math.E.toString())
+                .replace("sin_(", "sin(")
+                .replace("cos_(", "cos(")
+                .replace("tan_(", "tan(")
+                .replace("sqrt_(", "sqrt(")
+                .replace("abs_(", "abs(")
+            evalMath(e).toFloat()
+        } catch (e: Exception) { Float.NaN }
+    }
+
+    private fun evalMath(expr: String): Double {
+        val e = expr.trim()
+        // Resolve funções
+        val sinMatch = Regex("sin\\(([^()]+)\\)").find(e)
+        if (sinMatch != null) return evalMath(e.replace(sinMatch.value, Math.sin(evalMath(sinMatch.groupValues[1])).toString()))
+        val cosMatch = Regex("cos\\(([^()]+)\\)").find(e)
+        if (cosMatch != null) return evalMath(e.replace(cosMatch.value, Math.cos(evalMath(cosMatch.groupValues[1])).toString()))
+        val tanMatch = Regex("tan\\(([^()]+)\\)").find(e)
+        if (tanMatch != null) return evalMath(e.replace(tanMatch.value, Math.tan(evalMath(tanMatch.groupValues[1])).toString()))
+        val sqrtMatch = Regex("sqrt\\(([^()]+)\\)").find(e)
+        if (sqrtMatch != null) return evalMath(e.replace(sqrtMatch.value, Math.sqrt(evalMath(sqrtMatch.groupValues[1])).toString()))
+        val absMatch = Regex("abs\\(([^()]+)\\)").find(e)
+        if (absMatch != null) return evalMath(e.replace(absMatch.value, Math.abs(evalMath(absMatch.groupValues[1])).toString()))
+        // Resolve potências
+        val powMatch = Regex("(-?[\\d.]+)\\^(-?[\\d.]+)").find(e)
+        if (powMatch != null) return evalMath(e.replace(powMatch.value, Math.pow(powMatch.groupValues[1].toDouble(), powMatch.groupValues[2].toDouble()).toString()))
+        // Resolve parênteses
+        val parenMatch = Regex("\\(([^()]+)\\)").find(e)
+        if (parenMatch != null) return evalMath(e.replace(parenMatch.value, evalMath(parenMatch.groupValues[1]).toString()))
+        // Operações básicas
+        val addSub = Regex("(-?[\\d.]+)([+\\-])(-?[\\d.]+)$")
+        val asMatch = addSub.find(e)
+        if (asMatch != null) {
+            val a = asMatch.groupValues[1].toDouble()
+            val b = asMatch.groupValues[3].toDouble()
+            return if (asMatch.groupValues[2] == "+") a + b else a - b
+        }
+        val mulDiv = Regex("(-?[\\d.]+)([*/])(-?[\\d.]+)")
+        val mdMatch = mulDiv.find(e)
+        if (mdMatch != null) {
+            val a = mdMatch.groupValues[1].toDouble()
+            val b = mdMatch.groupValues[3].toDouble()
+            val result = if (mdMatch.groupValues[2] == "*") a * b else if (b != 0.0) a / b else Double.NaN
+            return evalMath(e.replace(mdMatch.value, result.toString()))
+        }
+        return e.trim().toDoubleOrNull() ?: Double.NaN
+    }
+
+    // ─── Widget: Mind Map ─────────────────────────────────────────────────────
+
+    private fun buildNativeMindMap(ctx: Context, json: JSONObject): View {
+        val isDark = activity.isDarkMode
+        val cardBg = ContextCompat.getColor(ctx, R.color.card_background)
+        val borderColor = if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA")
+        val primaryColor = ContextCompat.getColor(ctx, R.color.colorPrimary)
+
+        data class MindNode(val label: String, val color: Int, val children: List<MindNode>)
+
+        fun parseNode(obj: JSONObject): MindNode {
+            val colorStr = obj.optString("color", "")
+            val color = if (colorStr.isNotEmpty()) runCatching { Color.parseColor(colorStr) }.getOrDefault(primaryColor) else primaryColor
+            val children = mutableListOf<MindNode>()
+            val childArr = obj.optJSONArray("children")
+            if (childArr != null) {
+                for (i in 0 until childArr.length()) children.add(parseNode(childArr.getJSONObject(i)))
+            }
+            return MindNode(obj.optString("label", ""), color, children)
+        }
+
+        val root = parseNode(json)
+        val title = json.optString("title", "")
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat(); setColor(cardBg)
+                setStroke(dp(1), borderColor)
+            }
+            clipToOutline = true
+        }
+
+        if (title.isNotEmpty()) container.addView(widgetHeader(ctx, title))
+
+        val mapH = dp(280)
+
+        val mapView = object : View(ctx) {
+            private val positions = mutableMapOf<MindNode, Pair<Float, Float>>()
+
+            private fun layoutTree(node: MindNode, x: Float, yStart: Float, yEnd: Float): Pair<Float, Float> {
+                val y = (yStart + yEnd) / 2
+                positions[node] = Pair(x, y)
+                if (node.children.isNotEmpty()) {
+                    val childH = (yEnd - yStart) / node.children.size
+                    node.children.forEachIndexed { i, child ->
+                        layoutTree(child, x + dp(140), yStart + i * childH, yStart + (i + 1) * childH)
+                    }
+                }
+                return Pair(x, y)
+            }
+
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                positions.clear()
+                layoutTree(root, dp(20).toFloat(), dp(20).toFloat(), height.toFloat() - dp(20))
+
+                val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = if (isDark) Color.parseColor("#666666") else Color.parseColor("#bbbbbb")
+                    strokeWidth = dp(1).toFloat(); style = Paint.Style.STROKE
+                }
+                val nodePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+                val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE; textSize = dp(11).toFloat()
+                    textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD
+                }
+
+                // Linhas primeiro
+                positions.forEach { (node, pos) ->
+                    node.children.forEach { child ->
+                        val childPos = positions[child] ?: return@forEach
+                        val path = Path()
+                        path.moveTo(pos.first + dp(50), pos.second)
+                        val cx = (pos.first + dp(50) + childPos.first) / 2
+                        path.cubicTo(cx, pos.second, cx, childPos.second, childPos.first, childPos.second)
+                        canvas.drawPath(path, linePaint)
+                    }
+                }
+
+                // Nós
+                positions.forEach { (node, pos) ->
+                    val textLen = node.label.length * dp(6).toFloat() + dp(16)
+                    val nodeW = textLen.coerceIn(dp(40).toFloat(), dp(100).toFloat())
+                    val nodeH = dp(28).toFloat()
+                    val rect = RectF(pos.first, pos.second - nodeH / 2, pos.first + nodeW, pos.second + nodeH / 2)
+                    nodePaint.color = node.color
+                    canvas.drawRoundRect(rect, dp(8).toFloat(), dp(8).toFloat(), nodePaint)
+                    canvas.drawText(node.label.take(12), pos.first + nodeW / 2, pos.second + dp(4), textPaint)
+                }
+            }
+        }
+        mapView.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, mapH)
+        container.addView(mapView)
+        return container
+    }
+
+    // ─── Widget: Market ───────────────────────────────────────────────────────
+
+    private fun buildNativeMarket(ctx: Context, json: JSONObject): View {
+        val isDark = activity.isDarkMode
+        val widgetBg = if (isDark) Color.parseColor("#111318") else Color.parseColor("#ffffff")
+        val textPrimary = if (isDark) Color.parseColor("#ffffff") else Color.parseColor("#111318")
+        val textSecondary = if (isDark) Color.parseColor("#555555") else Color.parseColor("#888888")
+        val borderColor = if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA")
+
+        val name = json.optString("name", "Ativo")
+        val symbol = json.optString("symbol", "")
+        val type = json.optString("type", "")
+        val price = json.optDouble("price", 0.0)
+        val change = json.optDouble("change", 0.0)
+        val priceStr = json.optString("price_str", if (price > 0) "$${"%.2f".format(price)}" else "—")
+
+        val isUp = change >= 0
+        val upGreenBg = if (isDark) Color.parseColor("#0d2e1a") else Color.parseColor("#e6faf0")
+        val downRedBg = if (isDark) Color.parseColor("#2e0d0d") else Color.parseColor("#faeae8")
+        val upGreenText = Color.parseColor("#22c55e")
+        val downRedText = Color.parseColor("#ef4444")
+
+        // Histórico simulado (sparkline)
+        val historyArr = json.optJSONArray("history")
+        val historyPrices = mutableListOf<Float>()
+        if (historyArr != null) {
+            for (i in 0 until historyArr.length()) historyPrices.add(historyArr.optDouble(i, 0.0).toFloat())
+        }
+        if (historyPrices.isEmpty()) {
+            // Gera histórico simulado
+            var p = (if (price > 0) price else 100.0).toFloat()
+            for (i in 0..40) {
+                p += (Math.random() - if (isUp) 0.45 else 0.55).toFloat() * p * 0.02f
+                historyPrices.add(p.coerceAtLeast(0.01f))
+            }
+            historyPrices.add(price.toFloat().coerceAtLeast(0.01f))
+        }
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            background = GradientDrawable().apply {
+                cornerRadius = dp(20).toFloat(); setColor(widgetBg)
+                setStroke(dp(1), borderColor)
+            }
+            clipToOutline = true
+        }
+
+        // Asset info row
+        val infoRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(18), dp(16), dp(8))
+        }
+
+        // Logo/avatar
+        val logoSize = dp(44)
+        val logoView = FrameLayout(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(logoSize, logoSize).also { it.marginEnd = dp(12) }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(if (isDark) Color.parseColor("#1e2128") else Color.parseColor("#f0f0f0"))
+            }
+        }
+
+        // Tenta carregar logo de cripto via URL (CoinGecko)
+        val cryptoIds = mapOf(
+            "BTC" to "bitcoin", "ETH" to "ethereum", "SOL" to "solana",
+            "BNB" to "binancecoin", "XRP" to "ripple", "ADA" to "cardano",
+            "DOGE" to "dogecoin", "AVAX" to "avalanche-2", "DOT" to "polkadot",
+            "MATIC" to "matic-network", "LTC" to "litecoin", "LINK" to "chainlink"
+        )
+        val logoFallback = TextView(ctx).apply {
+            text = if (symbol.isNotEmpty()) symbol.take(3) else name.take(2)
+            textSize = 13f; setTypeface(null, Typeface.BOLD)
+            setTextColor(if (isDark) Color.WHITE else Color.parseColor("#333333"))
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        }
+        logoView.addView(logoFallback)
+
+        // Se for cripto, carrega logo via ImageView com URL (requer Glide/Picasso — fallback para texto)
+        val logoImageView = ImageView(ctx).apply {
+            layoutParams = FrameLayout.LayoutParams(logoSize, logoSize)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+        }
+        val coinId = cryptoIds[symbol.uppercase()]
+        if (coinId != null) {
+            logoView.addView(logoImageView)
+            // Tenta carregar logo via thread (sem Glide/Picasso)
+            Thread {
+                try {
+                    val logoUrl = "https://assets.coingecko.com/coins/images/${getCoinGeckoImgId(coinId)}/small/$coinId.png"
+                    val conn = java.net.URL(logoUrl).openConnection().apply { connectTimeout = 3000; readTimeout = 3000 }
+                    val bmp = android.graphics.BitmapFactory.decodeStream(conn.getInputStream())
+                    if (bmp != null) {
+                        activity.runOnUiThread {
+                            logoImageView.setImageBitmap(bmp)
+                            logoFallback.visibility = View.GONE
+                        }
+                    }
+                } catch (e: Exception) { /* mantém fallback */ }
+            }.start()
+        }
+
+        infoRow.addView(logoView)
+
+        val nameCol = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        nameCol.addView(TextView(ctx).apply {
+            text = name; textSize = 15f; setTypeface(null, Typeface.BOLD)
+            setTextColor(textPrimary)
+        })
+        nameCol.addView(TextView(ctx).apply {
+            text = buildString {
+                if (symbol.isNotEmpty()) append(symbol)
+                if (type.isNotEmpty()) { if (symbol.isNotEmpty()) append(" · "); append(type.uppercase()) }
+            }
+            textSize = 12f; setTextColor(textSecondary)
+        })
+        infoRow.addView(nameCol)
+
+        val priceCol = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.END
+        }
+        priceCol.addView(TextView(ctx).apply {
+            text = priceStr; textSize = 22f; setTypeface(null, Typeface.BOLD)
+            setTextColor(textPrimary)
+        })
+        if (change != 0.0) {
+            priceCol.addView(FrameLayout(ctx).apply {
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(6).toFloat()
+                    setColor(if (isUp) upGreenBg else downRedBg)
+                }
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                addView(TextView(ctx).apply {
+                    text = (if (isUp) "▲ +" else "▼ ") + "${"%.2f".format(Math.abs(change))}%"
+                    textSize = 12f; setTypeface(null, Typeface.BOLD)
+                    setTextColor(if (isUp) upGreenText else downRedText)
+                    setPadding(dp(8), dp(3), dp(8), dp(3))
+                })
+            })
+        }
+        infoRow.addView(priceCol)
+        container.addView(infoRow)
+
+        // Sparkline chart
+        val chartH = dp(130)
+        val chartView = object : View(ctx) {
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                if (historyPrices.size < 2) return
+                val w = width.toFloat(); val h = height.toFloat()
+                val padH = dp(10).toFloat(); val padV = dp(10).toFloat()
+                val minP = historyPrices.min(); val maxP = historyPrices.max()
+                val range = (maxP - minP).coerceAtLeast(0.001f)
+
+                val lineColor = if (isUp) upGreenText else downRedText
+                val pts = historyPrices.mapIndexed { i, p ->
+                    val x = padH + (i.toFloat() / (historyPrices.size - 1)) * (w - padH * 2)
+                    val y = padV + (1f - (p - minP) / range) * (h - padV * 2)
+                    Pair(x, y)
+                }
+
+                // Fill gradient
+                val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    val grad = android.graphics.LinearGradient(0f, 0f, 0f, h,
+                        android.graphics.Color.argb(80, android.graphics.Color.red(lineColor), android.graphics.Color.green(lineColor), android.graphics.Color.blue(lineColor)),
+                        android.graphics.Color.TRANSPARENT, android.graphics.Shader.TileMode.CLAMP)
+                    shader = grad; style = Paint.Style.FILL
+                }
+                val fillPath = Path()
+                fillPath.moveTo(pts[0].first, h)
+                pts.forEach { fillPath.lineTo(it.first, it.second) }
+                fillPath.lineTo(pts.last().first, h)
+                fillPath.close()
+                canvas.drawPath(fillPath, fillPaint)
+
+                // Linha
+                val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = lineColor; strokeWidth = dp(2).toFloat()
+                    style = Paint.Style.STROKE; strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND
+                }
+                val linePath = Path()
+                linePath.moveTo(pts[0].first, pts[0].second)
+                pts.drop(1).forEach { linePath.lineTo(it.first, it.second) }
+                canvas.drawPath(linePath, linePaint)
+
+                // Ponto final
+                val last = pts.last()
+                canvas.drawCircle(last.first, last.second, dp(4).toFloat(),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = lineColor })
+                canvas.drawCircle(last.first, last.second, dp(2).toFloat(),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = widgetBg })
+            }
+        }
+        chartView.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, chartH)
+            .also { it.setMargins(dp(10), 0, dp(10), 0) }
+        container.addView(chartView)
+
+        // Timeframes (decorativos)
+        val tfRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            setPadding(dp(16), dp(8), dp(16), dp(16))
+        }
+        listOf("1D","1S","1M","3M","1A").forEachIndexed { i, tf ->
+            tfRow.addView(TextView(ctx).apply {
+                text = tf; textSize = 12f; setTypeface(null, Typeface.BOLD)
+                gravity = Gravity.CENTER
+                setPadding(dp(12), dp(5), dp(12), dp(5))
+                setTextColor(if (i == 0) textPrimary else textSecondary)
+                background = if (i == 0) GradientDrawable().apply {
+                    cornerRadius = dp(8).toFloat()
+                    setColor(if (isDark) Color.parseColor("#1e2128") else Color.parseColor("#f0f0f0"))
+                } else null
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).also { it.marginEnd = dp(4) }
+            })
+        }
+        container.addView(tfRow)
+        return container
+    }
+
+    private fun getCoinGeckoImgId(coinId: String): String {
+        val map = mapOf(
+            "bitcoin" to "1", "ethereum" to "279", "solana" to "4128",
+            "binancecoin" to "825", "ripple" to "44", "cardano" to "975",
+            "dogecoin" to "5", "avalanche-2" to "12559", "polkadot" to "12171",
+            "matic-network" to "4713", "litecoin" to "2", "chainlink" to "877"
+        )
+        return map[coinId] ?: "1"
+    }
+
+    // ─── Widget: Map Placeholder ─────────────────────────────────────────────
+    // (MapLibre não está disponível no projeto — mostra card com coordenadas)
+
+    private fun buildNativeMapPlaceholder(ctx: Context, json: JSONObject): View {
+        val isDark = activity.isDarkMode
+        val cardBg = ContextCompat.getColor(ctx, R.color.card_background)
+        val borderColor = if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA")
+        val primaryColor = ContextCompat.getColor(ctx, R.color.colorPrimary)
+        val textPrimary = ContextCompat.getColor(ctx, R.color.text_primary)
+        val textSecondary = ContextCompat.getColor(ctx, R.color.text_secondary)
+
+        val locationName = json.optString("location", "Localização")
+        val lat = json.optDouble("lat", 0.0)
+        val lng = json.optDouble("lng", 0.0)
+        val zoom = json.optInt("zoom", 14)
+
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).also { it.topMargin = dp(8); it.bottomMargin = dp(8) }
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat(); setColor(cardBg)
+                setStroke(dp(1), borderColor)
+            }
+            clipToOutline = true
+        }
+
+        // Mapa fake com gradiente e pin
+        val mapView = object : View(ctx) {
+            override fun onDraw(canvas: Canvas) {
+                super.onDraw(canvas)
+                val w = width.toFloat(); val h = height.toFloat()
+
+                // Background gradiente simulando mapa
+                val mapBg = if (isDark) Color.parseColor("#1a2744") else Color.parseColor("#cdd8e0")
+                val roadColor = if (isDark) Color.parseColor("#243050") else Color.parseColor("#b8c8d4")
+                val greenColor = if (isDark) Color.parseColor("#1a3020") else Color.parseColor("#d4e8cc")
+
+                canvas.drawRect(0f, 0f, w, h, Paint().apply { color = mapBg })
+
+                // Blocos verdes (parques simulados)
+                val greenPaint = Paint().apply { color = greenColor }
+                canvas.drawRect(w * 0.1f, h * 0.3f, w * 0.35f, h * 0.7f, greenPaint)
+                canvas.drawRect(w * 0.65f, h * 0.1f, w * 0.9f, h * 0.45f, greenPaint)
+
+                // Estradas simuladas
+                val roadPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = roadColor; strokeWidth = dp(6).toFloat(); style = Paint.Style.STROKE
+                }
+                canvas.drawLine(0f, h * 0.5f, w, h * 0.5f, roadPaint)
+                canvas.drawLine(w * 0.5f, 0f, w * 0.5f, h, roadPaint)
+                canvas.drawLine(0f, h * 0.25f, w, h * 0.75f,
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = roadColor; strokeWidth = dp(3).toFloat(); style = Paint.Style.STROKE })
+
+                // Pin de localização
+                val pinX = w / 2f; val pinY = h / 2f - dp(20)
+                val pinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF3B30") }
+                canvas.drawCircle(pinX, pinY - dp(8), dp(12).toFloat(), pinPaint)
+                canvas.drawCircle(pinX, pinY - dp(8), dp(5).toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
+                val pathPin = Path()
+                pathPin.moveTo(pinX - dp(6), pinY - dp(8))
+                pathPin.lineTo(pinX + dp(6), pinY - dp(8))
+                pathPin.lineTo(pinX, pinY)
+                pathPin.close()
+                canvas.drawPath(pathPin, pinPaint)
+
+                // Shadow do pin
+                canvas.drawOval(RectF(pinX - dp(6), pinY - dp(2), pinX + dp(6), pinY + dp(3)),
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#40000000") })
+            }
+        }
+        mapView.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(180))
+        container.addView(mapView)
+
+        // Info row
+        val infoRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(14))
+        }
+        infoRow.addView(ImageView(ctx).apply {
+            setImageDrawable(activity.svgDrawable("icons/svg/pin_filled.svg", 16, primaryColor))
+            layoutParams = LinearLayout.LayoutParams(dp(16), dp(16)).also { it.marginEnd = dp(10) }
+        })
+        val infoCol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
+        infoCol.addView(TextView(ctx).apply { text = locationName; textSize = 14f; setTypeface(null, Typeface.BOLD); setTextColor(textPrimary) })
+        if (lat != 0.0 || lng != 0.0) {
+            infoCol.addView(TextView(ctx).apply {
+                text = "${"%.4f".format(lat)}, ${"%.4f".format(lng)}  ·  Zoom $zoom"
+                textSize = 12f; setTextColor(textSecondary)
+            })
+        }
+        infoRow.addView(infoCol)
+
+        // Botão "Abrir no Maps"
+        infoRow.addView(TextView(ctx).apply {
+            text = "Abrir"; textSize = 12f; setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(primaryColor)
+            }
+            isClickable = true; isFocusable = true
+            setOnClickListener {
+                val uri = android.net.Uri.parse("geo:$lat,$lng?z=$zoom&q=${android.net.Uri.encode(locationName)}")
+                runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+            }
+        })
+        container.addView(infoRow)
+        return container
     }
 
     // ─── Blocos de conteúdo ───────────────────────────────────────────────────
@@ -1118,8 +2319,7 @@ class ChatFragment(private val activity: MainActiviy) {
             BlockType.TEXT  -> {
                 val spanned = parseMarkdownBlock(block.lines.joinToString("\n"))
                 val tv = TextView(parent.context).apply {
-                    textSize = 16f
-                    setLineSpacing(0f, 1.5f)
+                    textSize = 16f; setLineSpacing(0f, 1.5f)
                     setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
                     setPadding(dp(2), dp(4), dp(8), dp(4))
                 }
@@ -1232,9 +2432,7 @@ class ChatFragment(private val activity: MainActiviy) {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(10), dp(14), dp(10))
             background = GradientDrawable().apply {
-                cornerRadius = dp(10).toFloat()
-                setColor(cardBg)
-                setStroke(dp(1), borderColor)
+                cornerRadius = dp(10).toFloat(); setColor(cardBg); setStroke(dp(1), borderColor)
             }
             clipToOutline = true
         }
@@ -1247,10 +2445,8 @@ class ChatFragment(private val activity: MainActiviy) {
         val lines = cleaned.split("\n").filter { it.isNotBlank() }
         lines.forEachIndexed { idx, line ->
             val tv = TextView(ctx).apply {
-                textSize = 15.5f
-                setLineSpacing(0f, 1.4f)
-                setTextColor(textColor)
-                gravity = Gravity.CENTER_HORIZONTAL
+                textSize = 15.5f; setLineSpacing(0f, 1.4f)
+                setTextColor(textColor); gravity = Gravity.CENTER_HORIZONTAL
                 timesTypeface?.let { typeface = it }
                 if (idx > 0) setPadding(0, dp(2), 0, 0)
             }
@@ -1289,8 +2485,7 @@ class ChatFragment(private val activity: MainActiviy) {
         val table = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadius = dp(10).toFloat()
-                setColor(cardBg)
+                cornerRadius = dp(10).toFloat(); setColor(cardBg)
                 if (!isDark) setStroke(dp(1), Color.parseColor("#D8D8D8"))
             }
             clipToOutline = true
@@ -1418,26 +2613,21 @@ class ChatFragment(private val activity: MainActiviy) {
         dialog.show()
     }
 
-    // ─── EXTRAS SHEET (CARDS NÃO DESLIZÁVEIS, ÍCONES 20DP) ──────────────────
+    // ─── Extras Sheet ─────────────────────────────────────────────────────────
 
     fun showExtrasSheet() {
         activity.hideKeyboard()
         activity.hidePopup()
 
-        if (extrasDialog?.isShowing == true) {
-            refreshExtraCards()
-            return
-        }
+        if (extrasDialog?.isShowing == true) { refreshExtraCards(); return }
 
         val dialog = BottomSheetDialog(activity, R.style.Theme_IPC_BottomSheet)
         dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         extrasDialog = dialog
 
         val root = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.TRANSPARENT)
+            orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.TRANSPARENT)
         }
-
         val card = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -1449,107 +2639,52 @@ class ChatFragment(private val activity: MainActiviy) {
 
         card.addView(sheetHandle())
         card.addView(TextView(activity).apply {
-            text = "Extras"
-            textSize = 15f
-            setTypeface(typeface, Typeface.BOLD)
+            text = "Extras"; textSize = 15f; setTypeface(typeface, Typeface.BOLD)
             setTextColor(ContextCompat.getColor(activity, R.color.text_primary))
-            gravity = Gravity.CENTER
-            setPadding(dp(20), dp(12), dp(20), dp(20))
+            gravity = Gravity.CENTER; setPadding(dp(20), dp(12), dp(20), dp(20))
         })
 
         val cardsRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(20), 0, dp(20), dp(24))
-            weightSum = 3f
+            setPadding(dp(20), 0, dp(20), dp(24)); weightSum = 3f
         }
 
-        val iconSizeDp = 20
-
-        val flashData = buildExtraCard(
-            name = "Flash",
-            iconOff = "icons/svg/flash.svg",
-            iconOn = "icons/svg/flash_filled.svg",
-            active = flashMode,
-            iconSizeDp = iconSizeDp
-        ) {
-            flashMode = true
-            thinkMoreMode = false
-            refreshExtraCards()
+        val flashData = buildExtraCard("Flash","icons/svg/flash.svg","icons/svg/flash_filled.svg",flashMode,20) {
+            flashMode = true; thinkMoreMode = false; refreshExtraCards()
         }
         cardsRow.addView(flashData.root, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).also { it.marginEnd = dp(8) })
-        flashCardView = flashData.root
-        flashCardIcon = flashData.icon
-        flashCardLabel = flashData.label
+        flashCardView = flashData.root; flashCardIcon = flashData.icon; flashCardLabel = flashData.label
 
-        val thinkData = buildExtraCard(
-            name = "Think More",
-            iconOff = "icons/svg/brain.svg",
-            iconOn = "icons/svg/brain_filled.svg",
-            active = thinkMoreMode,
-            iconSizeDp = iconSizeDp
-        ) {
-            thinkMoreMode = true
-            flashMode = false
-            refreshExtraCards()
+        val thinkData = buildExtraCard("Think More","icons/svg/brain.svg","icons/svg/brain_filled.svg",thinkMoreMode,20) {
+            thinkMoreMode = true; flashMode = false; refreshExtraCards()
         }
         cardsRow.addView(thinkData.root, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).also { it.marginEnd = dp(8) })
-        thinkCardView = thinkData.root
-        thinkCardIcon = thinkData.icon
-        thinkCardLabel = thinkData.label
+        thinkCardView = thinkData.root; thinkCardIcon = thinkData.icon; thinkCardLabel = thinkData.label
 
-        val sheetsData = buildExtraCard(
-            name = "Sheets",
-            iconOff = "icons/svg/sheets.svg",
-            iconOn = "icons/svg/sheets_filled.svg",
-            active = sheetsEnabled,
-            iconSizeDp = iconSizeDp
-        ) {
-            sheetsEnabled = !sheetsEnabled
-            refreshExtraCards()
+        val sheetsData = buildExtraCard("Sheets","icons/svg/sheets.svg","icons/svg/sheets_filled.svg",sheetsEnabled,20) {
+            sheetsEnabled = !sheetsEnabled; refreshExtraCards()
         }
         cardsRow.addView(sheetsData.root, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        sheetsCardView = sheetsData.root
-        sheetsCardIcon = sheetsData.icon
-        sheetsCardLabel = sheetsData.label
+        sheetsCardView = sheetsData.root; sheetsCardIcon = sheetsData.icon; sheetsCardLabel = sheetsData.label
 
-        card.addView(cardsRow)
-        root.addView(card)
-        dialog.setContentView(root)
-
-        dialog.setOnShowListener {
-            dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-                ?.setBackgroundColor(Color.TRANSPARENT)
-        }
-        dialog.setOnDismissListener {
-            extrasDialog = null
-        }
+        card.addView(cardsRow); root.addView(card); dialog.setContentView(root)
+        dialog.setOnShowListener { dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.setBackgroundColor(Color.TRANSPARENT) }
+        dialog.setOnDismissListener { extrasDialog = null }
         dialog.show()
     }
 
     private fun refreshExtraCards() {
-        val ctx = activity
         fun applyCard(view: View?, icon: ImageView?, label: TextView?, active: Boolean) {
             view ?: return
-            val bg = view.background as? GradientDrawable
-            val cardBg = if (active) {
-                ContextCompat.getColor(ctx, R.color.extras_card_active)
-            } else {
-                ContextCompat.getColor(ctx, R.color.card_background)
-            }
-            bg?.setColor(cardBg)
-            val textColor = if (active) {
-                ContextCompat.getColor(ctx, R.color.extras_card_active_text)
-            } else {
-                ContextCompat.getColor(ctx, R.color.text_secondary)
-            }
-            label?.setTextColor(textColor)
-            icon?.setColorFilter(
-                if (active) ContextCompat.getColor(ctx, R.color.extras_card_active_text)
-                else ContextCompat.getColor(ctx, R.color.icon_tint),
-                PorterDuff.Mode.SRC_IN
+            (view.background as? GradientDrawable)?.setColor(
+                if (active) ContextCompat.getColor(activity, R.color.extras_card_active)
+                else ContextCompat.getColor(activity, R.color.card_background)
             )
+            val textColor = if (active) ContextCompat.getColor(activity, R.color.extras_card_active_text)
+                            else ContextCompat.getColor(activity, R.color.text_secondary)
+            label?.setTextColor(textColor)
+            icon?.setColorFilter(textColor, PorterDuff.Mode.SRC_IN)
         }
-
         applyCard(flashCardView, flashCardIcon, flashCardLabel, flashMode)
         applyCard(thinkCardView, thinkCardIcon, thinkCardLabel, thinkMoreMode)
         applyCard(sheetsCardView, sheetsCardIcon, sheetsCardLabel, sheetsEnabled)
@@ -1557,76 +2692,37 @@ class ChatFragment(private val activity: MainActiviy) {
 
     private data class ExtraCardData(val root: View, val icon: ImageView, val label: TextView)
 
-    private fun buildExtraCard(
-        name: String,
-        iconOff: String,
-        iconOn: String,
-        active: Boolean,
-        iconSizeDp: Int,
-        onClick: () -> Unit
-    ): ExtraCardData {
-        val ctx = activity
-        val isDark = activity.isDarkMode
-
-        val cardBg = if (active) {
-            ContextCompat.getColor(ctx, R.color.extras_card_active)
-        } else {
-            ContextCompat.getColor(ctx, R.color.card_background)
-        }
-        val textColor = if (active) {
-            ContextCompat.getColor(ctx, R.color.extras_card_active_text)
-        } else {
-            ContextCompat.getColor(ctx, R.color.text_secondary)
-        }
-        val iconTint = if (active) {
-            ContextCompat.getColor(ctx, R.color.extras_card_active_text)
-        } else {
-            ContextCompat.getColor(ctx, R.color.icon_tint)
-        }
-
-        val iconPath = if (active) iconOn else iconOff
+    private fun buildExtraCard(name: String, iconOff: String, iconOn: String, active: Boolean, iconSizeDp: Int, onClick: () -> Unit): ExtraCardData {
+        val ctx = activity; val isDark = activity.isDarkMode
+        val cardBg = if (active) ContextCompat.getColor(ctx, R.color.extras_card_active) else ContextCompat.getColor(ctx, R.color.card_background)
+        val textColor = if (active) ContextCompat.getColor(ctx, R.color.extras_card_active_text) else ContextCompat.getColor(ctx, R.color.text_secondary)
+        val iconTint = if (active) ContextCompat.getColor(ctx, R.color.extras_card_active_text) else ContextCompat.getColor(ctx, R.color.icon_tint)
 
         val cardView = FrameLayout(ctx).apply {
             background = GradientDrawable().apply {
-                cornerRadius = dp(16).toFloat()
-                setColor(cardBg)
-                if (!active && !isDark) {
-                    setStroke(dp(1), Color.parseColor("#E0E0E0"))
-                }
+                cornerRadius = dp(16).toFloat(); setColor(cardBg)
+                if (!active && !isDark) setStroke(dp(1), Color.parseColor("#E0E0E0"))
             }
-            clipToOutline = true
-            isClickable = true
-            isFocusable = true
+            clipToOutline = true; isClickable = true; isFocusable = true
             setOnClickListener { onClick() }
         }
-
         val inner = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
             setPadding(dp(8), dp(20), dp(8), dp(16))
         }
-
         val icon = ImageView(ctx).apply {
-            setImageDrawable(activity.svgDrawable(iconPath, iconSizeDp, iconTint))
+            setImageDrawable(activity.svgDrawable(if (active) iconOn else iconOff, iconSizeDp, iconTint))
             layoutParams = LinearLayout.LayoutParams(dp(iconSizeDp), dp(iconSizeDp)).also {
-                it.gravity = Gravity.CENTER_HORIZONTAL
-                it.bottomMargin = dp(8)
+                it.gravity = Gravity.CENTER_HORIZONTAL; it.bottomMargin = dp(8)
             }
         }
         inner.addView(icon)
-
         val label = TextView(ctx).apply {
-            text = name
-            textSize = 13f
-            setTextColor(textColor)
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
+            text = name; textSize = 13f; setTextColor(textColor)
+            typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
         }
         inner.addView(label)
-
-        cardView.addView(inner, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
-
+        cardView.addView(inner, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         return ExtraCardData(cardView, icon, label)
     }
 
@@ -1640,13 +2736,12 @@ class ChatFragment(private val activity: MainActiviy) {
         }
     }
 
-    // ─── Loader com GooeyLoader ──────────────────────────────────────────────
+    // ─── Loader ───────────────────────────────────────────────────────────────
 
     private fun buildLoaderView(ctx: Context): View {
         val container = FrameLayout(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).also {
-                it.topMargin = dp(4)
-                it.bottomMargin = dp(4)
+                it.topMargin = dp(4); it.bottomMargin = dp(4)
             }
         }
         val lottie = com.airbnb.lottie.LottieAnimationView(ctx).apply {
@@ -1720,12 +2815,9 @@ class ChatFragment(private val activity: MainActiviy) {
                     val start = sb.length
                     sb.append("  ")
                     appendInlineSpans(sb, content)
-                    sb.setSpan(
-                        BulletSpan(dp(8), ContextCompat.getColor(activity, R.color.text_primary)),
-                        start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
+                    sb.setSpan(BulletSpan(dp(8), ContextCompat.getColor(activity, R.color.text_primary)), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
-                line.trim().matches(Regex("[-=|: ]+")) -> { /* ignorar separadores de tabela */ }
+                line.trim().matches(Regex("[-=|: ]+")) -> { }
                 else -> appendInlineSpans(sb, line)
             }
             i++
