@@ -948,13 +948,16 @@ class ChatFragment(private val activity: MainActiviy) {
         return container
     }
 
-    // ─── Widget: Table (JSON) ─────────────────────────────────────────────────
+    // ─── Widget: Table (JSON) → AGORA PIXEL PERFECT COMO WIDGET HTML ─────────
 
     private fun buildNativeTable(ctx: Context, json: JSONObject): View {
         val headersArr = json.optJSONArray("headers")
         val rowsArr = json.optJSONArray("rows")
+        val alignArr  = json.optJSONArray("align") // opcional ["left","center",...]
+
         val headers = mutableListOf<String>()
         if (headersArr != null) for (i in 0 until headersArr.length()) headers.add(headersArr.getString(i))
+
         val rows = mutableListOf<List<String>>()
         if (rowsArr != null) for (i in 0 until rowsArr.length()) {
             val rowArr = rowsArr.getJSONArray(i)
@@ -963,13 +966,21 @@ class ChatFragment(private val activity: MainActiviy) {
             rows.add(row)
         }
 
+        val aligns = mutableListOf<String>()
+        if (alignArr != null) for (i in 0 until alignArr.length()) aligns.add(alignArr.getString(i))
+
         val isDark = activity.isDarkMode
-        val textPrimary = ContextCompat.getColor(ctx, R.color.text_primary)
-        val textSecondary = ContextCompat.getColor(ctx, R.color.text_secondary)
-        val dividerColor = ContextCompat.getColor(ctx, R.color.divider)
-        val headerBg = if (isDark) Color.parseColor("#2C2C2E") else Color.parseColor("#ECEAFF")
-        val cardBg = ContextCompat.getColor(ctx, R.color.card_background)
         val colCount = maxOf(headers.size, rows.maxOfOrNull { it.size } ?: 0)
+
+        // Cores rigorosamente iguais ao HTML enviado (dark / light)
+        val tableBg       = if (isDark) Color.parseColor("#1b1b1b") else Color.parseColor("#ffffff")
+        val headerBgColor = if (isDark) Color.parseColor("#252525") else Color.parseColor("#f2f2f2")
+        val borderColor   = if (isDark) Color.parseColor("#4a4a4a") else Color.parseColor("#bdbdbd")
+        val textColor     = if (isDark) Color.parseColor("#f4f4f4") else Color.parseColor("#222222")
+        val headerTextColor = textColor // mesmo, mas bold
+
+        // Fonte Georgia (ou serif fallback)
+        val georgiaTypeface = timesTypeface ?: Typeface.create("serif", Typeface.NORMAL)
 
         val hScroll = HorizontalScrollView(ctx).apply {
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -977,50 +988,63 @@ class ChatFragment(private val activity: MainActiviy) {
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.topMargin = dp(6); it.bottomMargin = dp(6) }
         }
-        val table = LinearLayout(ctx).apply {
+
+        val tableContainer = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat(); setColor(cardBg)
-                setStroke(dp(1), if (isDark) Color.parseColor("#2A2A2A") else Color.parseColor("#E5E5EA"))
+                setColor(tableBg)
+                setStroke(dp(1.2f).toInt(), borderColor) // HTML usa 1.2px
             }
             clipToOutline = true
         }
+
         fun makeRow(cells: List<String>, isHeader: Boolean) {
             val row = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setBackgroundColor(if (isHeader) headerBg else Color.TRANSPARENT)
-                minimumHeight = dp(36)
+                minimumHeight = dp(32)
             }
             cells.forEachIndexed { colIndex, cellText ->
                 if (colIndex > 0) {
                     row.addView(View(ctx).apply {
-                        setBackgroundColor(dividerColor)
-                        layoutParams = LinearLayout.LayoutParams(dp(1), LinearLayout.LayoutParams.MATCH_PARENT)
+                        setBackgroundColor(borderColor)
+                        layoutParams = LinearLayout.LayoutParams(dp(1.2f).toInt(), LinearLayout.LayoutParams.MATCH_PARENT)
                     })
                 }
                 val cell = TextView(ctx).apply {
-                    setPadding(dp(10), dp(8), dp(10), dp(8)); textSize = 13f
-                    setTextColor(if (isHeader) textPrimary else textSecondary)
-                    if (isHeader) setTypeface(typeface, Typeface.BOLD)
-                    gravity = Gravity.CENTER_VERTICAL
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+                    setPadding(dp(10), dp(10), dp(10), dp(10)) // HTML: padding 10px 12px → simplificamos 10dp 10dp
+                    textSize = 16f // HTML: font-size 16px
+                    setLineSpacing(0f, 1.2f) // HTML: line-height 1.2
+                    setTextColor(if (isHeader) headerTextColor else textColor)
+                    if (isHeader) setTypeface(georgiaTypeface, Typeface.BOLD) else typeface = georgiaTypeface
+                    gravity = when (aligns.getOrElse(colIndex) { if (colIndex == 0) "left" else "center" }) {
+                        "center" -> Gravity.CENTER
+                        "right"  -> Gravity.END or Gravity.CENTER_VERTICAL
+                        else     -> Gravity.START or Gravity.CENTER_VERTICAL
+                    }
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    setBackgroundColor(if (isHeader) headerBgColor else tableBg)
                 }
                 cell.setText(parseInlineMarkdown(cellText), TextView.BufferType.SPANNABLE)
                 row.addView(cell)
             }
-            table.addView(row)
+            tableContainer.addView(row)
         }
-        if (headers.isNotEmpty()) makeRow(List(colCount) { headers.getOrElse(it) { "" } }, true)
+
+        if (headers.isNotEmpty()) {
+            makeRow(List(colCount) { headers.getOrElse(it) { "" } }, true)
+        }
+
         rows.forEachIndexed { idx, row ->
             if (idx > 0 || headers.isNotEmpty()) {
-                table.addView(View(ctx).apply {
-                    setBackgroundColor(dividerColor)
-                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1))
+                tableContainer.addView(View(ctx).apply {
+                    setBackgroundColor(borderColor)
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1.2f).toInt())
                 })
             }
             makeRow(List(colCount) { row.getOrElse(it) { "" } }, false)
         }
-        hScroll.addView(table)
+
+        hScroll.addView(tableContainer)
         return hScroll
     }
 
@@ -1390,7 +1414,7 @@ class ChatFragment(private val activity: MainActiviy) {
         }
         val codeLines = code.split("\n")
         val codeLayout = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(52), dp(12), dp(16), dp(12))
+            orientation = LinearLayout.VERTICAL; setPadding(dp(52), dp(16), dp(16), dp(16)) // HTML padding-left 52px
         }
         codeLines.forEachIndexed { idx, line ->
             val lineRow = FrameLayout(ctx)
