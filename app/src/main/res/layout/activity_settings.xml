@@ -1,5 +1,5 @@
-<!-- activity_settings.xml — versão final com FrameLayout raiz para appbar flutuante -->
 <?xml version="1.0" encoding="utf-8"?>
+<!-- activity_settings.xml — versão final com FrameLayout raiz para appbar flutuante -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
